@@ -1,0 +1,2002 @@
+User -Auth APi Swagger
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Meme-to-Money User Service API",
+    "description": "**User Service** for the Meme-to-Money platform - handling authentication, user profiles, and KYC verification.\n\n## Features\n- **JWT-based Authentication** - Stateless authentication with refresh tokens\n- **User Profile Management** - Complete user profile CRUD operations\n- **KYC Verification** - Document verification for monetization eligibility\n- **Session Token Management** - Secure tokens for CDN upload operations\n- **Microservice Integration** - Token validation endpoints for other services\n\n## Architecture\n- **Technology Stack**: Java 17, Spring Boot 3.2.5, MongoDB, JWT\n- **Database**: MongoDB (`memetomoney-users` database)\n- **Security**: Spring Security with custom JWT filter\n- **Port**: 8080 (default)\n",
+    "contact": {
+      "name": "Meme-to-Money Development Team",
+      "url": "https://github.com/memetomoney",
+      "email": "dev@memetomoney.com"
+    },
+    "license": {
+      "name": "MIT License",
+      "url": "https://opensource.org/licenses/MIT"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Development Server"
+    },
+    {
+      "url": "https://api.memetomoney.com/user",
+      "description": "Production Server"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "KYC Management",
+      "description": "KYC verification endpoints for monetization"
+    },
+    {
+      "name": "Authentication",
+      "description": "User authentication APIs"
+    },
+    {
+      "name": "Token Validation",
+      "description": "JWT token validation for microservices"
+    }
+  ],
+  "paths": {
+    "/api/token/validate": {
+      "post": {
+        "tags": [
+          "Token Validation"
+        ],
+        "summary": "Validate token and return user details",
+        "description": "Full validation with user details for other microservices",
+        "operationId": "validateToken",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseMapStringObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/token/validate-simple": {
+      "post": {
+        "tags": [
+          "Token Validation"
+        ],
+        "summary": "Simple token validation",
+        "description": "Performance-optimized validation without database query",
+        "operationId": "validateTokenSimple",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseString"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/kyc/submit": {
+      "post": {
+        "tags": [
+          "KYC Management"
+        ],
+        "summary": "Submit KYC documents for verification",
+        "operationId": "submitKYC",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KYCSubmissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseString"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/kyc/session-token": {
+      "post": {
+        "tags": [
+          "KYC Management"
+        ],
+        "summary": "Generate session token for media uploads",
+        "operationId": "generateSessionToken",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseSessionTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "KYC Management"
+        ],
+        "summary": "Revoke session token",
+        "operationId": "revokeSessionToken",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseString"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/kyc/session-token/refresh": {
+      "post": {
+        "tags": [
+          "KYC Management"
+        ],
+        "summary": "Refresh session token",
+        "operationId": "refreshSessionToken",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseSessionTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "User registration",
+        "description": "Register a new user account with email/mobile verification",
+        "operationId": "register",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mobileNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "password",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "address",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User registered successfully - returns user ID",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseString"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Registration failed - email/mobile already exists or invalid data",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseString"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "User login",
+        "description": "Authenticate user with email/mobile and password. Returns JWT token for subsequent API calls.",
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful - returns JWT token and user info",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseMapStringString"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid credentials or request format",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseMapStringString"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/kyc/status": {
+      "get": {
+        "tags": [
+          "KYC Management"
+        ],
+        "summary": "Get current KYC status",
+        "operationId": "getKYCStatus",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseKYCStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/kyc/can-request-payout": {
+      "get": {
+        "tags": [
+          "KYC Management"
+        ],
+        "summary": "Check if user can request payouts",
+        "operationId": "canRequestPayout",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseBoolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ResponseMapStringObject": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "ResponseString": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string"
+          }
+        }
+      },
+      "KYCSubmissionRequest": {
+        "required": [
+          "accountHolderName",
+          "address",
+          "bankAccountNumber",
+          "bankName",
+          "dateOfBirth",
+          "documentNumber",
+          "documentType",
+          "frontImageUrl",
+          "fullName",
+          "ifscCode",
+          "selfieImageUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "documentType": {
+            "type": "string"
+          },
+          "documentNumber": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "format": "date"
+          },
+          "address": {
+            "type": "string"
+          },
+          "frontImageUrl": {
+            "type": "string"
+          },
+          "backImageUrl": {
+            "type": "string"
+          },
+          "selfieImageUrl": {
+            "type": "string"
+          },
+          "bankAccountNumber": {
+            "type": "string"
+          },
+          "ifscCode": {
+            "type": "string"
+          },
+          "bankName": {
+            "type": "string"
+          },
+          "accountHolderName": {
+            "type": "string"
+          }
+        }
+      },
+      "ResponseSessionTokenResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SessionTokenResponse"
+          }
+        }
+      },
+      "SessionTokenResponse": {
+        "type": "object",
+        "properties": {
+          "sessionToken": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "uploadUrl": {
+            "type": "string"
+          },
+          "cdnBaseUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "LoginRequest": {
+        "required": [
+          "emailOrMobile",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "emailOrMobile": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "ResponseMapStringString": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ResponseKYCStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string",
+            "enum": [
+              "NOT_SUBMITTED",
+              "PENDING",
+              "VERIFIED",
+              "REJECTED",
+              "EXPIRED"
+            ]
+          }
+        }
+      },
+      "ResponseBoolean": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "description": "JWT token obtained from login endpoint",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
+
+
+///////////
+Content Service - Swagger Doc
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Meme-to-Money Content Service API",
+    "description": "**Content Service** for the Meme-to-Money platform - handling meme and short video content management.\n\n## Features\n- **Content Upload** - S3 presigned URLs for secure media uploads\n- **Content Discovery** - Search, trending, and categorized feeds\n- **Engagement Tracking** - Likes, views, comments, and shares\n- **Comment System** - Nested comments with moderation capabilities\n- **Content Moderation** - AI-powered and manual moderation workflows\n- **CDN Integration** - Optimized content delivery via CloudFront\n\n## Architecture\n- **Technology Stack**: Java 17, Spring Boot 3.2.5, MongoDB, Redis, Kafka\n- **Storage**: AWS S3 for media files, MongoDB for metadata\n- **Cache**: Redis for hot content and trending feeds\n- **Events**: Kafka for real-time engagement events\n- **Port**: 8081\n\n## Authentication\nMost endpoints require JWT authentication from User Service.\nPublic endpoints include content viewing and search.\n",
+    "contact": {
+      "name": "Meme-to-Money Development Team",
+      "url": "https://github.com/memetomoney",
+      "email": "dev@memetomoney.com"
+    },
+    "license": {
+      "name": "MIT License",
+      "url": "https://opensource.org/licenses/MIT"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8081",
+      "description": "Development Server"
+    },
+    {
+      "url": "https://api.memetomoney.com/content",
+      "description": "Production Server"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Comments",
+      "description": "Content comment management APIs"
+    },
+    {
+      "name": "Content Management",
+      "description": "APIs for meme and short video content"
+    }
+  ],
+  "paths": {
+    "/api/content": {
+      "post": {
+        "tags": [
+          "Content Management"
+        ],
+        "summary": "Create content",
+        "description": "Create content after file upload",
+        "operationId": "createContent",
+        "parameters": [
+          {
+            "name": "contentId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentCreationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseContent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/{contentId}/view": {
+      "post": {
+        "tags": [
+          "Content Management"
+        ],
+        "summary": "Record content view",
+        "description": "Record a view for analytics",
+        "operationId": "recordView",
+        "parameters": [
+          {
+            "name": "contentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseContent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/{contentId}/engage": {
+      "post": {
+        "tags": [
+          "Content Management"
+        ],
+        "summary": "Record engagement",
+        "description": "Record like, share, or other engagement",
+        "operationId": "recordEngagement",
+        "parameters": [
+          {
+            "name": "contentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EngagementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseContent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/{contentId}/comments": {
+      "get": {
+        "tags": [
+          "Comments"
+        ],
+        "summary": "Get comments",
+        "description": "Get comments for content",
+        "operationId": "getComments",
+        "parameters": [
+          {
+            "name": "contentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsePageComment"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Comments"
+        ],
+        "summary": "Add comment",
+        "description": "Add a comment to content",
+        "operationId": "addComment",
+        "parameters": [
+          {
+            "name": "contentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-User-Handle",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseComment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/{contentId}": {
+      "get": {
+        "tags": [
+          "Content Management"
+        ],
+        "summary": "Get content by ID",
+        "description": "Retrieve content details",
+        "operationId": "getContent",
+        "parameters": [
+          {
+            "name": "contentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseContent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/{contentId}/comments/{commentId}/replies": {
+      "get": {
+        "tags": [
+          "Comments"
+        ],
+        "summary": "Get comment replies",
+        "description": "Get replies to a specific comment",
+        "operationId": "getCommentReplies",
+        "parameters": [
+          {
+            "name": "commentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseListComment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/upload-url": {
+      "get": {
+        "tags": [
+          "Content Management"
+        ],
+        "summary": "Get presigned upload URL",
+        "description": "Get S3 presigned URL for content upload",
+        "operationId": "getUploadUrl",
+        "parameters": [
+          {
+            "name": "request",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/UploadUrlRequest"
+            }
+          },
+          {
+            "name": "X-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-User-Handle",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseUploadUrlResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/trending": {
+      "get": {
+        "tags": [
+          "Content Management"
+        ],
+        "summary": "Get trending content",
+        "description": "Get trending content based on recent engagement",
+        "operationId": "getTrendingContent",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsePageContent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/search": {
+      "get": {
+        "tags": [
+          "Content Management"
+        ],
+        "summary": "Search content",
+        "description": "Search content by title, description, or hashtags",
+        "operationId": "searchContent",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsePageContent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/feed": {
+      "get": {
+        "tags": [
+          "Content Management"
+        ],
+        "summary": "Get content feed",
+        "description": "Get paginated content feed",
+        "operationId": "getContentFeed",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsePageContent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/creator/{creatorId}": {
+      "get": {
+        "tags": [
+          "Content Management"
+        ],
+        "summary": "Get content by creator",
+        "description": "Get content from a specific creator",
+        "operationId": "getContentByCreator",
+        "parameters": [
+          {
+            "name": "creatorId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsePageContent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/category/{category}": {
+      "get": {
+        "tags": [
+          "Content Management"
+        ],
+        "summary": "Get content by category",
+        "description": "Get content filtered by category",
+        "operationId": "getContentByCategory",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsePageContent"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ContentCreationRequest": {
+        "required": [
+          "contentType",
+          "fileSize",
+          "originalFileName",
+          "s3Key",
+          "title",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 1000,
+            "minLength": 0,
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "MEME",
+              "SHORT_VIDEO"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hashtags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "type": "string"
+          },
+          "monetizationEnabled": {
+            "type": "boolean"
+          },
+          "s3Key": {
+            "type": "string"
+          },
+          "originalFileName": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "fileSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "Content": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "MEME",
+              "SHORT_VIDEO"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "UPLOADING",
+              "PROCESSING",
+              "READY",
+              "FAILED",
+              "DELETED"
+            ]
+          },
+          "creatorId": {
+            "type": "string"
+          },
+          "creatorHandle": {
+            "type": "string"
+          },
+          "originalFile": {
+            "$ref": "#/components/schemas/MediaFile"
+          },
+          "processedFile": {
+            "$ref": "#/components/schemas/MediaFile"
+          },
+          "thumbnailUrl": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hashtags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "type": "string"
+          },
+          "viewCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "likeCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "shareCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "commentCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "processingInfo": {
+            "$ref": "#/components/schemas/VideoProcessingInfo"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "moderationStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "FLAGGED"
+            ]
+          },
+          "moderationReason": {
+            "type": "string"
+          },
+          "monetizationEnabled": {
+            "type": "boolean"
+          },
+          "adRevenue": {
+            "type": "number",
+            "format": "double"
+          },
+          "video": {
+            "type": "boolean"
+          },
+          "meme": {
+            "type": "boolean"
+          },
+          "ready": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MediaFile": {
+        "type": "object",
+        "properties": {
+          "fileName": {
+            "type": "string"
+          },
+          "originalFileName": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "fileSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "s3Key": {
+            "type": "string"
+          },
+          "cdnUrl": {
+            "type": "string"
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "resolution": {
+            "type": "string"
+          },
+          "bitrate": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "frameRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "width": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "height": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "format": {
+            "type": "string"
+          },
+          "video": {
+            "type": "boolean"
+          },
+          "fileExtension": {
+            "type": "string"
+          },
+          "image": {
+            "type": "boolean"
+          },
+          "gif": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ResponseContent": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Content"
+          }
+        }
+      },
+      "VideoProcessingInfo": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PROCESSING",
+              "COMPLETED",
+              "FAILED"
+            ]
+          },
+          "jobId": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "errorMessage": {
+            "type": "string"
+          },
+          "hlsSegmentUrls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hlsPlaylistUrl": {
+            "type": "string"
+          },
+          "mp4Url": {
+            "type": "string"
+          },
+          "originalDuration": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "processedDuration": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "compressionRatio": {
+            "type": "string"
+          },
+          "processingLogs": {
+            "type": "string"
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "processing": {
+            "type": "boolean"
+          },
+          "failed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "EngagementRequest": {
+        "required": [
+          "action"
+        ],
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "VIEW",
+              "LIKE",
+              "UNLIKE",
+              "SHARE",
+              "COMMENT"
+            ]
+          },
+          "source": {
+            "type": "string"
+          },
+          "watchDuration": {
+            "type": "number",
+            "format": "double"
+          },
+          "referrer": {
+            "type": "string"
+          }
+        }
+      },
+      "CommentRequest": {
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "maxLength": 500,
+            "minLength": 0,
+            "type": "string"
+          },
+          "parentCommentId": {
+            "type": "string"
+          }
+        }
+      },
+      "Comment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "contentId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "userHandle": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "parentCommentId": {
+            "type": "string"
+          },
+          "likeCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "isPinned": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isDeleted": {
+            "type": "boolean"
+          },
+          "moderationStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "FLAGGED"
+            ]
+          },
+          "moderationReason": {
+            "type": "string"
+          },
+          "reply": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ResponseComment": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Comment"
+          }
+        }
+      },
+      "PageComment": {
+        "type": "object",
+        "properties": {
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "first": {
+            "type": "boolean"
+          },
+          "last": {
+            "type": "boolean"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Comment"
+            }
+          },
+          "number": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/SortObject"
+          },
+          "pageable": {
+            "$ref": "#/components/schemas/PageableObject"
+          },
+          "numberOfElements": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "empty": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageableObject": {
+        "type": "object",
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/SortObject"
+          },
+          "paged": {
+            "type": "boolean"
+          },
+          "unpaged": {
+            "type": "boolean"
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ResponsePageComment": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PageComment"
+          }
+        }
+      },
+      "SortObject": {
+        "type": "object",
+        "properties": {
+          "empty": {
+            "type": "boolean"
+          },
+          "sorted": {
+            "type": "boolean"
+          },
+          "unsorted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ResponseListComment": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Comment"
+            }
+          }
+        }
+      },
+      "UploadUrlRequest": {
+        "required": [
+          "contentType",
+          "fileName",
+          "fileSize",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "fileName": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "fileSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "MEME",
+              "SHORT_VIDEO"
+            ]
+          }
+        }
+      },
+      "ResponseUploadUrlResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/UploadUrlResponse"
+          }
+        }
+      },
+      "UploadUrlResponse": {
+        "type": "object",
+        "properties": {
+          "uploadUrl": {
+            "type": "string"
+          },
+          "s3Key": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "contentId": {
+            "type": "string"
+          },
+          "maxFileSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "supportedFormats": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxDurationSeconds": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PageContent": {
+        "type": "object",
+        "properties": {
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "first": {
+            "type": "boolean"
+          },
+          "last": {
+            "type": "boolean"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Content"
+            }
+          },
+          "number": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/SortObject"
+          },
+          "pageable": {
+            "$ref": "#/components/schemas/PageableObject"
+          },
+          "numberOfElements": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "empty": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ResponsePageContent": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PageContent"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "description": "JWT token from User Service authentication",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
+
+// Monetizaton Service - APi DOC
+
+

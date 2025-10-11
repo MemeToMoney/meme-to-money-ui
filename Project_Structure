@@ -1,0 +1,139 @@
+# Meme-to-Money — UI/UX High-Level Document
+
+> This doc covers **UI flows & screens** for the Meme-to-Money app (Mini YouTube for memes & short videos). Each screen lists components, interactions, and backend integration.
+
+---
+
+## 1. Auth & Onboarding
+
+**Screens:**
+
+* **Splash Screen** → app logo, quick loading animation.
+* **Login Screen** → fields (email/username, password), social login (Google/Apple), CTA button.
+* **Signup Screen** → fields (username, email, password, confirm password), optional referral code.
+* **Forgot Password Screen** → email input, reset link trigger.
+* **KYC Onboarding (creators only)** → upload ID doc, selfie verification, status pending.
+
+**Interactions:**
+
+* Tap login/signup buttons → API call (`POST /auth/login`, `POST /auth/register`).
+* Social login → token exchange with backend.
+* KYC submit → `POST /users/:id/kyc`.
+
+---
+
+## 2. Main Feed (Memes + Short Videos)
+
+**Screens:**
+
+* **Vertical feed** → memes/images (tap-to-expand) + autoplay short videos (muted).
+* **Engagement bar** → like, comment, share, tip, save.
+* **Native ads** → shown after every N content pieces.
+
+**Interactions:**
+
+* Vertical swipe → load next/previous content.
+* Tap like/comment → `POST /content/:id/engage`.
+* Tap tip → open tip modal → `POST /wallet/tip`.
+* Long press on content → report menu → `POST /content/:id/report`.
+
+---
+
+## 3. Upload Flow
+
+**Screens:**
+
+* **Upload type selection** → choose Meme (image/GIF) or Video (≤60s).
+* **Editor screen** → add caption, hashtags, tags, preview.
+* **Upload progress screen** → progress bar, success/failure message.
+
+**Interactions:**
+
+* Select file → request upload URL (`GET /upload-url`).
+* Upload → multipart upload to S3/CDN.
+* Submit → `POST /content` with metadata.
+
+---
+
+## 4. Profile & Wallet
+
+**Screens:**
+
+* **Profile screen** → avatar, bio, follower/following counts, content grid.
+* **Creator dashboard** → stats (views, tips, ad share), earnings chart.
+* **Wallet screen** → coin balance, tip history, buy coins, withdraw button.
+
+**Interactions:**
+
+* Tap edit profile → `PATCH /users/:id`.
+* Tap buy coins → payment SDK → `POST /wallet/buy`.
+* Tap withdraw → `POST /payouts/request`.
+
+---
+
+## 5. Search & Discovery
+
+**Screens:**
+
+* **Search bar** → input text.
+* **Trending screen** → hashtags, creators, popular memes/videos.
+* **Search results** → content grid/list.
+
+**Interactions:**
+
+* Enter search term → `GET /search?q=` (Elastic).
+* Tap hashtag/creator → open filtered feed/profile.
+
+---
+
+## 6. Brand Campaigns
+
+**Screens:**
+
+* **Campaigns list** → active sponsored challenges.
+* **Campaign detail** → rules, prizes, entries.
+* **Submit entry** → attach meme/video to campaign.
+
+**Interactions:**
+
+* Tap join → `POST /campaigns/:id/entries`.
+* Campaign feeds → filtered via `GET /campaigns/:id/entries`.
+
+---
+
+## 7. Moderation & Reports
+
+**Screens:**
+
+* **Report modal** → reason dropdown, submit button.
+* **Moderation queue (admin only)** → list flagged content.
+
+**Interactions:**
+
+* Tap report → `POST /content/:id/report`.
+* Admin approve/remove → `PATCH /content/:id/status`.
+
+---
+
+## 8. Navigation Model
+
+* Bottom nav bar: **Feed | Search | Upload | Wallet | Profile**
+* Top nav bar: logo, notifications, settings.
+
+---
+
+## 9. Integration Hooks Summary
+
+* Auth → User Service
+* Upload & Content → Content Service
+* Wallet/Coins → Monetization Service
+* Ads/Challenges → Ad Service
+* Feed & Trending → Analytics/Feed Service
+
+---
+
+## 10. Next Steps
+
+1. Wireframe each screen (low-fidelity sketches).
+2. Create UI component library (buttons, forms, feed cards, modals).
+3. Connect Figma or Canva mockups to backend API references.
