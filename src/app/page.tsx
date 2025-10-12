@@ -169,7 +169,7 @@ export default function LandingPage() {
               },
             }}
           >
-            Get Started - It's FREE
+            Get Started - It&apos;s FREE
           </Button>
 
           {/* Explore Content */}

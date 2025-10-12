@@ -109,7 +109,7 @@ export default function LoginPage() {
               onClick={() => router.push('/auth/register')}
               sx={{ textDecoration: 'none' }}
             >
-              Don't have an account? Sign Up
+              Don&apos;t have an account? Sign Up
             </Link>
           </Box>
         </Box>

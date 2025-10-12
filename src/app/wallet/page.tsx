@@ -251,15 +251,15 @@ export default function WalletPage() {
                 <CardContent>
                   <Typography variant="h6" gutterBottom>Top Performing Content</Typography>
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2">"Funny Cat Meme #42"</Typography>
+                    <Typography variant="body2">&quot;Funny Cat Meme #42&quot;</Typography>
                     <Typography variant="body2" color="success.main" fontWeight="bold">$45.80</Typography>
                   </Box>
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2">"Dancing Dog Video"</Typography>
+                    <Typography variant="body2">&quot;Dancing Dog Video&quot;</Typography>
                     <Typography variant="body2" color="success.main" fontWeight="bold">$38.25</Typography>
                   </Box>
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2">"Relatable Work Meme"</Typography>
+                    <Typography variant="body2">&quot;Relatable Work Meme&quot;</Typography>
                     <Typography variant="body2" color="success.main" fontWeight="bold">$32.10</Typography>
                   </Box>
                 </CardContent>

@@ -339,7 +339,7 @@ export default function ProfilePage() {
                 Liked Content
               </Typography>
               <Typography variant="body1" sx={{ color: '#999' }}>
-                Content you've liked will appear here
+                Content you&apos;ve liked will appear here
               </Typography>
             </Box>
           </TabPanel>
@@ -350,7 +350,7 @@ export default function ProfilePage() {
                 Saved Content
               </Typography>
               <Typography variant="body1" sx={{ color: '#999' }}>
-                Content you've saved will appear here
+                Content you&apos;ve saved will appear here
               </Typography>
             </Box>
           </TabPanel>
