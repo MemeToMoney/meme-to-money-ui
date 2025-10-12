@@ -1,0 +1,194 @@
+I hadd added my old ui -design check in ui -designs folder
+
+🧩 MVP FEATURES (Core Set for MemeToMoney)
+
+These are the core functional features your MVP should cover before scaling or adding monetization layers:
+
+1. Authentication & Onboarding
+
+Email / Password login-signup
+
+Google OAuth login (Firebase or OAuth2.0)
+
+Basic username + handle selection
+
+Profile setup (avatar, bio, level)
+
+Token-based authentication (JWT preferred)
+
+2. Feed & Discovery
+
+Infinite scroll feed with:
+
+Image & Video posts (memes, reels, shorts)
+
+Categories/Tags filter (Memes, Comedy, Viral, Dance, Pets, Gaming, etc.)
+
+Tabs:
+
+🔹 For You — personalized or mixed
+
+🔹 Trending — by like/view counts
+
+🔹 Fresh — newest uploads
+
+Actions per post: ❤️ Like, 💬 Comment, 🔗 Share, 💾 Save
+
+Display:
+
+Handle, caption, hashtags
+
+Views, likes, comments, shares count
+
+3. Shorts Section
+
+Dedicated carousel for vertical videos
+
+Mute/Unmute, Like, Share, Follow
+
+Floating “🎬 Watch All Shorts” button
+
+Lightweight video playback optimization
+
+4. Profile Section
+
+Profile summary: avatar, handle, followers/following, total views, coins earned
+
+Tabs:
+
+🖼 Content – uploaded posts
+
+❤️ Liked
+
+💾 Saved
+
+📊 Analytics
+
+Wallet integration (with $0 or ₹0 balance placeholder)
+
+Edit Profile / Settings / Analytics buttons
+
+5. Upload Content
+
+Upload box with drag-drop or file selector
+
+Supported types: JPG, PNG, GIF, MP4, WebM (Max 50 MB)
+
+Fields:
+
+Title (required)
+
+Description
+
+Category dropdown
+
+Tags (comma-separated)
+
+Monetization toggle: Enable tips/revenue
+
+Upload button (disabled until valid input)
+
+Preview after upload success
+
+6. Left Sidebar Navigation
+
+Logo & Branding: “💰 Meme to Money”
+
+Sidebar Links:
+
+Home
+
+Trending
+
+Profile
+
+Logout
+
+Stats card:
+
+Creator level
+
+Weekly earnings
+
+Total earnings
+
+Coin balance
+
+7. UI/UX Foundation
+
+Gradient left sidebar (purple → pink)
+
+Central white content panel (card-based)
+
+Consistent corner radius (2xl)
+
+Modern typography (Poppins/Inter)
+
+Minimal accent colors — orange for CTAs
+
+Responsive layout for desktop first (mobile later)
+
+Loading skeletons or shimmer for feed
+
+
+
+Title:  “MemeToMoney” MVP UI
+Goal: Recreate the same visual and functional layout shown in provided screenshots, optimized for desktop.
+
+Screens to Design
+
+Feed Page
+
+Top navbar with logo, category icons, and search bar
+
+Shorts section (3 vertical cards) + View All button
+
+Feed section with posts (For You / Trending / Fresh tabs)
+
+Each post includes like/share/save/comment icons and counts
+
+Shorts Carousel Section
+
+Vertical video cards with overlay controls (mute, like, share)
+
+Category icons above the carousel
+
+Profile Page
+
+Header with avatar, handle, followers/following count
+
+Wallet balance card
+
+Tabs: Content, Liked, Saved, Analytics
+
+“Create First Post” button (if no content)
+
+Upload Page
+
+Drag-drop upload box
+
+Title, Description, Category, Tags inputs
+
+Monetization toggle section
+
+“Upload Content” button (disabled state until validation)
+
+Sidebar Navigation (persistent)
+
+Logo: MemeToMoney
+
+Nav links: Home, Trending (Hot tag), Profile, Logout
+
+Creator card with earnings and coins
+
+Gradient background (Purple → Pink)
+
+Auth Pages (Login/Signup)
+
+Simple dual-panel design
+
+Google Auth button (Sign in with Google)
+
+Email/password input fields
+
+Option to continue as guest (later optional)

@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { Box, useMediaQuery, useTheme } from '@mui/material';
+import { usePathname } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from './Sidebar';
 
 interface MainLayoutProps {
@@ -12,31 +14,41 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const pathname = usePathname();
+  const { isAuthenticated } = useAuth();
 
   const handleSidebarToggle = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
+  // Define pages that should not show sidebar
+  const noSidebarPages = ['/landing', '/auth/login', '/auth/register'];
+  const shouldShowSidebar = isAuthenticated && !noSidebarPages.includes(pathname);
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
-      {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onToggle={handleSidebarToggle} />
+      {/* Sidebar - only show for authenticated users on main pages */}
+      {shouldShowSidebar && (
+        <Sidebar isOpen={sidebarOpen} onToggle={handleSidebarToggle} />
+      )}
 
       {/* Main Content */}
       <Box
         sx={{
           flex: 1,
-          marginLeft: sidebarOpen ? '240px' : '60px',
+          marginLeft: shouldShowSidebar
+            ? (sidebarOpen ? '240px' : '60px')
+            : '0px',
           transition: 'margin-left 0.3s ease',
           minHeight: '100vh',
-          backgroundColor: '#f8f9fa',
+          backgroundColor: shouldShowSidebar ? '#f8f9fa' : '#ffffff',
           [theme.breakpoints.down('md')]: {
-            marginLeft: sidebarOpen ? '240px' : '0px',
+            marginLeft: shouldShowSidebar && sidebarOpen ? '240px' : '0px',
           },
         }}
       >
         {/* Mobile Overlay */}
-        {isMobile && sidebarOpen && (
+        {shouldShowSidebar && isMobile && sidebarOpen && (
           <Box
             onClick={handleSidebarToggle}
             sx={{

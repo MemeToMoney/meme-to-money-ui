@@ -24,6 +24,7 @@ import {
   Analytics as AnalyticsIcon,
   AccountBalanceWallet as WalletIcon,
   Settings as SettingsIcon,
+  Person as PersonIcon,
   Star as StarIcon,
   Menu as MenuIcon
 } from '@mui/icons-material';
@@ -38,17 +39,14 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
   const pathname = usePathname();
 
   const navItems = [
-    { label: 'Home', icon: HomeIcon, path: '/', active: pathname === '/' },
+    { label: 'Home', icon: HomeIcon, path: '/feed', active: pathname === '/feed' },
     { label: 'Shorts', icon: ShortsIcon, path: '/shorts', badge: 'New', badgeColor: 'error', active: pathname === '/shorts' },
     { label: 'Trending', icon: TrendingIcon, path: '/trending', badge: 'Hot', badgeColor: 'error', active: pathname === '/trending' },
-    { label: 'Contests', icon: ContestsIcon, path: '/contests', badge: '2', badgeColor: 'warning', active: pathname === '/contests' },
-    { label: 'Leaderboard', icon: LeaderboardIcon, path: '/leaderboard', active: pathname === '/leaderboard' },
-    { label: 'Analytics', icon: AnalyticsIcon, path: '/analytics', active: pathname === '/analytics' },
   ];
 
   const bottomItems = [
     { label: 'Wallet', icon: WalletIcon, path: '/wallet', active: pathname === '/wallet' },
-    { label: 'Settings', icon: SettingsIcon, path: '/settings', active: pathname === '/settings' },
+    { label: 'Profile', icon: PersonIcon, path: '/profile', active: pathname === '/profile' },
   ];
 
   const handleNavigation = (path: string) => {
@@ -101,48 +99,6 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
         )}
       </Box>
 
-      {/* User Profile Section */}
-      {isOpen && (
-        <Box sx={{ p: 2, pt: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <Avatar sx={{ width: 32, height: 32, mr: 1.5, bgcolor: '#4FC3F7' }}>
-              C
-            </Avatar>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.85rem' }}>
-                @Current User
-              </Typography>
-              <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                Creator Level 5
-              </Typography>
-            </Box>
-          </Box>
-
-          {/* Earnings Summary */}
-          <Box sx={{
-            bgcolor: 'rgba(255,255,255,0.1)',
-            borderRadius: 2,
-            p: 1.5,
-            mb: 2
-          }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>This Week</Typography>
-              <Typography variant="caption" sx={{ fontWeight: 'bold' }}>₹15,650</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>Total Earned</Typography>
-              <Typography variant="caption" sx={{ fontWeight: 'bold' }}>₹87,340</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>Coin Balance</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <StarIcon sx={{ fontSize: 12, color: '#FFD700', mr: 0.5 }} />
-                <Typography variant="caption" sx={{ fontWeight: 'bold' }}>1250</Typography>
-              </Box>
-            </Box>
-          </Box>
-        </Box>
-      )}
 
       {/* Navigation Items */}
       <Box sx={{ flex: 1 }}>

@@ -25,8 +25,9 @@ import {
   VideoFile as VideoIcon,
   Delete as DeleteIcon
 } from '@mui/icons-material';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 
-export default function UploadPage() {
+function UploadPageContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -330,5 +331,13 @@ export default function UploadPage() {
         </Grid>
       </Grid>
     </Container>
+  );
+}
+
+export default function UploadPage() {
+  return (
+    <ProtectedRoute>
+      <UploadPageContent />
+    </ProtectedRoute>
   );
 }

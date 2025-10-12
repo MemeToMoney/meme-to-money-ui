@@ -29,9 +29,10 @@ import {
   AccountBalanceWallet as WalletIcon,
   TrendingUp as EarningsIcon,
   Send as SendIcon,
-  Download as GetAppIcon,
-  History as HistoryIcon
+  Download as DownloadIcon,
+  History
 } from '@mui/icons-material';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -55,7 +56,7 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-export default function WalletPage() {
+function WalletPageContent() {
   const [tabValue, setTabValue] = useState(0);
   const [withdrawDialog, setWithdrawDialog] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -158,7 +159,7 @@ export default function WalletPage() {
       <Box sx={{ mb: 4, display: 'flex', gap: 2 }}>
         <Button
           variant="contained"
-          startIcon={<GetAppIcon />}
+          startIcon={<DownloadIcon />}
           onClick={() => setWithdrawDialog(true)}
           disabled={walletData.balance < 10}
         >
@@ -172,7 +173,7 @@ export default function WalletPage() {
       {/* Tabs */}
       <Paper elevation={2}>
         <Tabs value={tabValue} onChange={handleTabChange} variant="fullWidth">
-          <Tab label="Transaction History" icon={<HistoryIcon />} />
+          <Tab label="Transaction History" icon={<History />} />
           <Tab label="Earnings Overview" icon={<EarningsIcon />} />
         </Tabs>
 
@@ -303,5 +304,13 @@ export default function WalletPage() {
         </DialogActions>
       </Dialog>
     </Container>
+  );
+}
+
+export default function WalletPage() {
+  return (
+    <ProtectedRoute>
+      <WalletPageContent />
+    </ProtectedRoute>
   );
 }

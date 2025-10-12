@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 import {
   Container,
   Typography,
@@ -24,8 +25,12 @@ import {
   BarChart as BarChartIcon,
   MoreVert as MoreIcon,
   AccountBalanceWallet as WalletIcon,
-  FiberManualRecord as OnlineIcon
+  FiberManualRecord as OnlineIcon,
+  Add as CreateIcon,
+  Logout as LogoutIcon
 } from '@mui/icons-material';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -53,115 +58,139 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-export default function ProfilePage() {
+function ProfilePageContent() {
   const [tabValue, setTabValue] = useState(0);
+  const { user, logout } = useAuth();
+  const router = useRouter();
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
+  const handleLogout = () => {
+    logout();
+    router.push('/landing');
+  };
+
+  const handleEditProfile = () => {
+    // TODO: Open edit profile modal or navigate to edit page
+    console.log('Edit profile clicked');
+  };
+
+  const handleUploadImage = () => {
+    // TODO: Open image upload modal
+    console.log('Upload image clicked');
+  };
+
+  if (!user) {
+    return (
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Typography>Loading profile...</Typography>
+      </Box>
+    );
+  }
+
+  // Construct profile picture URL
+  const profilePictureUrl = user.profilePicture
+    ? `http://localhost:8080${user.profilePicture}`
+    : undefined;
+
   return (
     <Box sx={{
       minHeight: '100vh',
-      bgcolor: '#f8f9fa',
-      pt: 3
+      background: 'linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%)',
+      py: 4
     }}>
       <Container maxWidth="lg">
-        {/* Main Profile Section */}
-        <Box sx={{
-          display: 'flex',
-          gap: 3,
-          mb: 3
-        }}>
-          {/* Left Side - Profile Info */}
-          <Box sx={{ flex: 1 }}>
-            {/* Profile Header */}
-            <Box sx={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 3,
-              mb: 3
-            }}>
-              {/* Avatar */}
-              <Box sx={{ position: 'relative' }}>
-                <Avatar
-                  sx={{
-                    width: 120,
-                    height: 120,
-                    bgcolor: '#4FC3F7',
-                    fontSize: '3rem',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  C
-                </Avatar>
-                <OnlineIcon sx={{
-                  position: 'absolute',
-                  bottom: 8,
-                  right: 8,
-                  color: '#4CAF50',
-                  bgcolor: 'white',
-                  borderRadius: '50%',
-                  fontSize: 20
-                }} />
-              </Box>
-
-              {/* Profile Info */}
-              <Box sx={{ flex: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                    Current User
-                  </Typography>
-                  <IconButton>
-                    <MoreIcon />
-                  </IconButton>
-                </Box>
-
-                <Typography variant="body1" sx={{ color: '#666', mb: 3 }}>
-                  @currentuser
-                </Typography>
-
-                {/* Stats */}
-                <Box sx={{ display: 'flex', gap: 4, mb: 3 }}>
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                      3.2K
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: '#666' }}>
-                      Followers
-                    </Typography>
+        {/* Profile Header Card */}
+        <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+          <CardContent sx={{ p: 4 }}>
+            <Grid container spacing={3} alignItems="center">
+              {/* Left: Avatar and User Info */}
+              <Grid item xs={12} md={8}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <Box sx={{ position: 'relative' }}>
+                    <Avatar
+                      src={profilePictureUrl}
+                      sx={{
+                        width: 100,
+                        height: 100,
+                        bgcolor: '#4FC3F7',
+                        fontSize: '2.5rem',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </Avatar>
+                    <IconButton
+                      onClick={handleUploadImage}
+                      sx={{
+                        position: 'absolute',
+                        bottom: -5,
+                        right: -5,
+                        bgcolor: '#2196F3',
+                        color: 'white',
+                        width: 32,
+                        height: 32,
+                        '&:hover': { bgcolor: '#1976D2' }
+                      }}
+                    >
+                      <EditIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
                   </Box>
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                      156
+
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      {user.displayName || user.name}
                     </Typography>
-                    <Typography variant="body2" sx={{ color: '#666' }}>
-                      Following
+                    <Typography variant="body1" sx={{ color: '#666', mb: 1 }}>
+                      {user.email}
                     </Typography>
-                  </Box>
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                      0
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: '#666' }}>
-                      Posts
-                    </Typography>
-                  </Box>
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                      0
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: '#666' }}>
-                      Views
-                    </Typography>
+                    {user.bio && (
+                      <Typography variant="body2" sx={{ color: '#777', mb: 2 }}>
+                        {user.bio}
+                      </Typography>
+                    )}
+
+
+                    {/* User Stats */}
+                    <Box sx={{ display: 'flex', gap: 4 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                          {user.followerCount}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: '#666' }}>
+                          Followers
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                          {user.followingCount}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: '#666' }}>
+                          Following
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                          0
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: '#666' }}>
+                          Posts
+                        </Typography>
+                      </Box>
+                    </Box>
                   </Box>
                 </Box>
+              </Grid>
 
-                {/* Action Buttons */}
-                <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+              {/* Right: Action Buttons */}
+              <Grid item xs={12} md={4}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <Button
                     variant="contained"
                     startIcon={<EditIcon />}
+                    onClick={handleEditProfile}
                     sx={{
                       bgcolor: '#2196F3',
                       textTransform: 'none',
@@ -176,93 +205,96 @@ export default function ProfilePage() {
                   </Button>
                   <Button
                     variant="outlined"
-                    startIcon={<SettingsIcon />}
+                    startIcon={<CreateIcon />}
                     sx={{
-                      borderColor: '#666',
-                      color: '#666',
+                      borderColor: '#4CAF50',
+                      color: '#4CAF50',
                       textTransform: 'none',
                       borderRadius: 2,
                       fontWeight: 'bold',
                       '&:hover': {
-                        borderColor: '#333',
-                        color: '#333',
+                        borderColor: '#388E3C',
+                        color: '#388E3C',
+                        backgroundColor: 'rgba(76, 175, 80, 0.04)',
                       },
                     }}
                   >
-                    Settings
+                    Create Content
                   </Button>
                   <Button
                     variant="outlined"
-                    startIcon={<BarChartIcon />}
+                    color="error"
+                    startIcon={<LogoutIcon />}
+                    onClick={handleLogout}
                     sx={{
-                      borderColor: '#666',
-                      color: '#666',
                       textTransform: 'none',
                       borderRadius: 2,
                       fontWeight: 'bold',
-                      '&:hover': {
-                        borderColor: '#333',
-                        color: '#333',
-                      },
                     }}
                   >
-                    Analytics
+                    Logout
                   </Button>
                 </Box>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+
+        {/* Earnings Card */}
+        <Card sx={{ mb: 3, borderRadius: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box>
+                <Typography variant="h6" sx={{ opacity: 0.9, mb: 1 }}>
+                  Total Earnings
+                </Typography>
+                <Typography variant="h3" sx={{ fontWeight: 'bold' }}>
+                  ₹{user.totalEarnings.toLocaleString()}
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                  +₹{user.weeklyEarnings.toLocaleString()} this week
+                </Typography>
+              </Box>
+              <Box sx={{ textAlign: 'right' }}>
+                <WalletIcon sx={{ fontSize: 60, opacity: 0.7 }} />
+                <Typography variant="body2" sx={{ opacity: 0.8, mt: 1 }}>
+                  🪙 {user.coinBalance} coins
+                </Typography>
               </Box>
             </Box>
-          </Box>
+          </CardContent>
+        </Card>
 
-          {/* Right Side - Earnings Widget */}
-          <Card sx={{
-            width: 280,
-            bgcolor: '#263238',
-            color: 'white',
-            borderRadius: 3
-          }}>
-            <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{
-                    bgcolor: '#FFD700',
-                    borderRadius: '50%',
-                    p: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <Typography sx={{ fontSize: '1.2rem' }}>$</Typography>
-                  </Box>
-                </Box>
-              </Box>
-
-              <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 1 }}>
-                $0.00
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.8, mb: 3 }}>
-                Total Earnings
-              </Typography>
-
-              <Button
-                variant="contained"
-                startIcon={<WalletIcon />}
-                fullWidth
-                sx={{
-                  bgcolor: '#4CAF50',
-                  textTransform: 'none',
-                  fontWeight: 'bold',
-                  borderRadius: 2,
-                  py: 1.5,
-                  '&:hover': {
-                    bgcolor: '#388E3C',
-                  },
-                }}
-              >
-                Wallet
-              </Button>
-            </CardContent>
-          </Card>
-        </Box>
+        {/* User Details Card */}
+        <Card sx={{ mb: 3, borderRadius: 3 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+              Account Details
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="body2" sx={{ color: '#666' }}>Mobile Number</Typography>
+                <Typography variant="body1">{user.mobileNumber || 'Not provided'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="body2" sx={{ color: '#666' }}>Country</Typography>
+                <Typography variant="body1">{user.country || 'Not provided'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="body2" sx={{ color: '#666' }}>Content Creator</Typography>
+                <Chip
+                  label={user.isContentCreator ? 'Yes' : 'No'}
+                  color={user.isContentCreator ? 'success' : 'default'}
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="body2" sx={{ color: '#666' }}>Auth Provider</Typography>
+                <Typography variant="body1">{user.authProvider || 'Email'}</Typography>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
 
         {/* Content Tabs */}
         <Card sx={{ borderRadius: 3, overflow: 'hidden' }}>
@@ -281,7 +313,7 @@ export default function ProfilePage() {
             >
               <Tab
                 icon={<PlayIcon />}
-                label="Content"
+                label="My Content"
                 iconPosition="start"
                 sx={{ gap: 1 }}
               />
@@ -311,25 +343,9 @@ export default function ProfilePage() {
               <Typography variant="h6" sx={{ color: '#666', mb: 3 }}>
                 Your Content
               </Typography>
-              <Typography variant="body1" sx={{ color: '#999', mb: 4 }}>
-                No content yet
+              <Typography variant="body1" sx={{ color: '#999' }}>
+                No content yet. Start creating to see your posts here!
               </Typography>
-              <Button
-                variant="contained"
-                sx={{
-                  bgcolor: '#2196F3',
-                  textTransform: 'none',
-                  fontWeight: 'bold',
-                  borderRadius: 3,
-                  px: 4,
-                  py: 1.5,
-                  '&:hover': {
-                    bgcolor: '#1976D2',
-                  },
-                }}
-              >
-                + Create Your First Post
-              </Button>
             </Box>
           </TabPanel>
 
@@ -368,5 +384,13 @@ export default function ProfilePage() {
         </Card>
       </Container>
     </Box>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <ProtectedRoute>
+      <ProfilePageContent />
+    </ProtectedRoute>
   );
 }

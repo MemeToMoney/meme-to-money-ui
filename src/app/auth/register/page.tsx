@@ -9,17 +9,25 @@ import {
   Typography,
   Box,
   Link,
-  Alert
+  Alert,
+  Divider
 } from '@mui/material';
+import { Google as GoogleIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { AuthAPI } from '@/lib/api/auth';
+import { isApiSuccess } from '@/lib/api/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
-    username: '',
+    name: '',
     email: '',
+    mobileNumber: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    address: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,17 +52,34 @@ export default function RegisterPage() {
     }
 
     try {
-      // TODO: Implement actual register API call
-      console.log('Register attempt:', formData);
+      const response = await AuthAPI.register({
+        name: formData.name,
+        email: formData.email,
+        mobileNumber: parseInt(formData.mobileNumber),
+        password: formData.password,
+        address: formData.address || undefined
+      });
 
-      // Simulate API call
-      setTimeout(() => {
-        setLoading(false);
-        router.push('/auth/login');
-      }, 1000);
+      if (isApiSuccess(response)) {
+        console.log('Registration successful:', response.data);
 
-    } catch (err) {
-      setError('Registration failed. Please try again.');
+        // Automatically log the user in after successful registration
+        const loginSuccess = await login(formData.email, formData.password);
+
+        if (loginSuccess) {
+          console.log('Auto-login successful - redirecting to feed');
+          router.push('/feed');
+        } else {
+          // If auto-login fails, redirect to login page
+          router.push('/auth/login?message=Registration successful. Please log in.');
+        }
+      } else {
+        setError('Registration failed. Please try again.');
+      }
+    } catch (err: any) {
+      console.error('Registration error:', err);
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -80,9 +105,9 @@ export default function RegisterPage() {
         <Box component="form" onSubmit={handleSubmit}>
           <TextField
             fullWidth
-            label="Username"
-            name="username"
-            value={formData.username}
+            label="Full Name"
+            name="name"
+            value={formData.name}
             onChange={handleChange}
             margin="normal"
             required
@@ -97,6 +122,26 @@ export default function RegisterPage() {
             onChange={handleChange}
             margin="normal"
             required
+          />
+
+          <TextField
+            fullWidth
+            label="Mobile Number"
+            name="mobileNumber"
+            type="tel"
+            value={formData.mobileNumber}
+            onChange={handleChange}
+            margin="normal"
+            required
+          />
+
+          <TextField
+            fullWidth
+            label="Address (Optional)"
+            name="address"
+            value={formData.address}
+            onChange={handleChange}
+            margin="normal"
           />
 
           <TextField

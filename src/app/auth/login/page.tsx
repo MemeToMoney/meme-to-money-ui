@@ -9,14 +9,21 @@ import {
   Typography,
   Box,
   Link,
-  Alert
+  Alert,
+  Divider,
+  IconButton
 } from '@mui/material';
+import { Google as GoogleIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { AuthAPI } from '@/lib/api/auth';
+import { isApiSuccess } from '@/lib/api/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { GoogleAuth } from '@/lib/google-auth';
 
 export default function LoginPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    email: '',
+    emailOrMobile: '',
     password: ''
   });
   const [error, setError] = useState('');
@@ -30,23 +37,56 @@ export default function LoginPage() {
     }));
   };
 
+  const { login } = useAuth();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      // TODO: Implement actual login API call
-      console.log('Login attempt:', formData);
+      const success = await login(formData.emailOrMobile, formData.password);
 
-      // Simulate API call
-      setTimeout(() => {
-        setLoading(false);
+      if (success) {
+        console.log('Login successful - redirecting to feed');
         router.push('/feed');
-      }, 1000);
+      } else {
+        setError('Login failed. Please check your credentials.');
+      }
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError(err.message || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    } catch (err) {
-      setError('Login failed. Please try again.');
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      // Initialize Google Auth
+      await GoogleAuth.initialize();
+
+      // Get Google authentication response
+      const googleResponse = await GoogleAuth.signIn();
+
+      // Call your Google auth API
+      const response = await AuthAPI.googleAuth({
+        idToken: googleResponse.idToken
+      });
+
+      if (isApiSuccess(response)) {
+        console.log('Google login successful:', response.data);
+        router.push('/feed');
+      } else {
+        setError('Google login failed. Please try again.');
+      }
+    } catch (err: any) {
+      console.error('Google login error:', err);
+      setError(err.message || 'Google login failed. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -72,10 +112,10 @@ export default function LoginPage() {
         <Box component="form" onSubmit={handleSubmit}>
           <TextField
             fullWidth
-            label="Email"
-            name="email"
-            type="email"
-            value={formData.email}
+            label="Email or Mobile"
+            name="emailOrMobile"
+            type="text"
+            value={formData.emailOrMobile}
             onChange={handleChange}
             margin="normal"
             required
@@ -100,6 +140,44 @@ export default function LoginPage() {
             disabled={loading}
           >
             {loading ? 'Signing In...' : 'Sign In'}
+          </Button>
+
+          {/* Divider */}
+          <Box sx={{ display: 'flex', alignItems: 'center', my: 3 }}>
+            <Divider sx={{ flex: 1 }} />
+            <Typography variant="body2" sx={{ mx: 2, color: 'text.secondary' }}>
+              OR
+            </Typography>
+            <Divider sx={{ flex: 1 }} />
+          </Box>
+
+          {/* Google Login Button */}
+          <Button
+            fullWidth
+            variant="outlined"
+            onClick={handleGoogleLogin}
+            sx={{
+              mb: 3,
+              py: 1.5,
+              borderColor: '#dadce0',
+              color: '#3c4043',
+              textTransform: 'none',
+              fontSize: '14px',
+              fontWeight: 500,
+              '&:hover': {
+                backgroundColor: '#f8f9fa',
+                borderColor: '#dadce0',
+              },
+            }}
+            startIcon={
+              <GoogleIcon sx={{
+                color: '#4285f4',
+                width: 20,
+                height: 20
+              }} />
+            }
+          >
+            Continue with Google
           </Button>
 
           <Box sx={{ textAlign: 'center' }}>

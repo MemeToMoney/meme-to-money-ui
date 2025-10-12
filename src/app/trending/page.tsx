@@ -17,8 +17,9 @@ import {
   Visibility as ViewIcon,
   ThumbUp as LikeIcon
 } from '@mui/icons-material';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 
-export default function TrendingPage() {
+function TrendingPageContent() {
   const trendingContent = [
     { id: 1, title: 'Viral Cat Meme', views: 125000, likes: 8500, author: 'memeknight', category: 'Animals', image: 'https://picsum.photos/300/200?random=1' },
     { id: 2, title: 'Work From Home Reality', views: 98000, likes: 6200, author: 'officememes', category: 'Work', image: 'https://picsum.photos/300/200?random=2' },
@@ -76,5 +77,13 @@ export default function TrendingPage() {
         ))}
       </Grid>
     </Container>
+  );
+}
+
+export default function TrendingPage() {
+  return (
+    <ProtectedRoute>
+      <TrendingPageContent />
+    </ProtectedRoute>
   );
 }
