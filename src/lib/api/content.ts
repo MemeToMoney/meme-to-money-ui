@@ -204,7 +204,7 @@ export class ContentAPI {
 
   /**
    * Get personalized home feed
-   * GET /api/ui/feed
+   * GET /api/content/feed
    */
   static async getHomeFeed(
     page = 0,
@@ -217,7 +217,7 @@ export class ContentAPI {
     }
 
     const response = await handleApiResponse<UIFeedResponse>(
-      contentServiceClient.get('/api/ui/feed', {
+      contentServiceClient.get('/api/content/feed', {
         params: { page, size },
         headers
       })
@@ -228,7 +228,7 @@ export class ContentAPI {
 
   /**
    * Get trending feed
-   * GET /api/ui/feed/trending
+   * GET /api/content/feed/trending
    */
   static async getTrendingFeed(
     page = 0,
@@ -242,7 +242,7 @@ export class ContentAPI {
     }
 
     const response = await handleApiResponse<UIFeedResponse>(
-      contentServiceClient.get('/api/ui/feed/trending', {
+      contentServiceClient.get('/api/content/feed/trending', {
         params: { page, size, hours },
         headers
       })
@@ -253,7 +253,7 @@ export class ContentAPI {
 
   /**
    * Get fresh content feed
-   * GET /api/ui/feed/fresh
+   * GET /api/content/feed/fresh
    */
   static async getFreshFeed(
     page = 0,
@@ -267,7 +267,7 @@ export class ContentAPI {
     }
 
     const response = await handleApiResponse<UIFeedResponse>(
-      contentServiceClient.get('/api/ui/feed/fresh', {
+      contentServiceClient.get('/api/content/feed/fresh', {
         params: { page, size, hours },
         headers
       })
@@ -278,7 +278,7 @@ export class ContentAPI {
 
   /**
    * Get user's content
-   * GET /api/ui/profile/{userId}/content
+   * GET /api/content/profile/{userId}/content
    */
   static async getUserContent(
     userId: string,
@@ -292,7 +292,7 @@ export class ContentAPI {
     }
 
     const response = await handleApiResponse<UIFeedResponse>(
-      contentServiceClient.get(`/api/ui/profile/${userId}/content`, {
+      contentServiceClient.get(`/api/content/creator/${userId}`, {
         params: { page, size },
         headers
       })
@@ -303,7 +303,7 @@ export class ContentAPI {
 
   /**
    * Get user's liked content
-   * GET /api/ui/profile/{userId}/liked
+   * GET /api/content/profile/{userId}/liked
    */
   static async getUserLikedContent(
     userId: string,
@@ -317,7 +317,7 @@ export class ContentAPI {
     }
 
     const response = await handleApiResponse<UIFeedResponse>(
-      contentServiceClient.get(`/api/ui/profile/${userId}/liked`, {
+      contentServiceClient.get(`/api/content/profile/${userId}/liked`, {
         params: { page, size },
         headers
       })
@@ -416,7 +416,7 @@ export class ContentAPI {
 
   /**
    * Search content
-   * GET /api/ui/search
+   * GET /api/content/search
    */
   static async searchContent(
     query?: string,
@@ -439,7 +439,7 @@ export class ContentAPI {
     if (hashtag) params.hashtag = hashtag;
 
     const response = await handleApiResponse<any>(
-      contentServiceClient.get('/api/ui/search', {
+      contentServiceClient.get('/api/content/search', {
         params,
         headers
       })
@@ -450,11 +450,11 @@ export class ContentAPI {
 
   /**
    * Get search suggestions
-   * GET /api/ui/search/suggestions
+   * GET /api/content/search/suggestions
    */
   static async getSearchSuggestions(): Promise<ApiResponse<any>> {
     const response = await handleApiResponse<any>(
-      contentServiceClient.get('/api/ui/search/suggestions')
+      contentServiceClient.get('/api/content/search/suggestions')
     );
 
     return response;
@@ -462,11 +462,11 @@ export class ContentAPI {
 
   /**
    * Get category statistics
-   * GET /api/ui/categories/stats
+   * GET /api/content/categories/stats
    */
   static async getCategoryStats(): Promise<ApiResponse<any>> {
     const response = await handleApiResponse<any>(
-      contentServiceClient.get('/api/ui/categories/stats')
+      contentServiceClient.get('/api/content/categories/stats')
     );
 
     return response;

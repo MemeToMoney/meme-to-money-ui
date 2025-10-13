@@ -58,6 +58,7 @@ export class AuthAPI {
           kycStatus: 'VERIFIED',
           isContentCreator: true,
           creatorHandle: '@demouser',
+          onboardingCompleted: false, // So demo users go through onboarding
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
@@ -105,6 +106,7 @@ export class AuthAPI {
             kycStatus: response.data.kycStatus || 'NOT_SUBMITTED',
             isContentCreator: response.data.isContentCreator || false,
             creatorHandle: response.data.creatorHandle,
+            onboardingCompleted: response.data.onboardingCompleted ?? false,
             createdAt: response.data.createdAt || new Date().toISOString(),
             updatedAt: response.data.updatedAt || new Date().toISOString()
           };
@@ -141,8 +143,21 @@ export class AuthAPI {
    * POST /api/auth/register
    */
   static async register(userData: RegisterRequest): Promise<ApiResponse<string>> {
+    // Build query parameters as your API expects
+    const queryParams = new URLSearchParams({
+      name: userData.name,
+      email: userData.email,
+      mobileNumber: userData.mobileNumber.toString(),
+      password: userData.password
+    });
+
+    // Add optional address if provided
+    if (userData.address) {
+      queryParams.append('address', userData.address);
+    }
+
     const response = await handleApiResponse<string>(
-      userServiceClient.post('/api/auth/register', userData)
+      userServiceClient.post(`/api/auth/register?${queryParams.toString()}`, {})
     );
 
     return response;
@@ -221,6 +236,7 @@ export class AuthAPI {
           address: userData.address,
           isGod: userData.isGod,
           authProvider: userData.authProvider,
+          onboardingCompleted: userData.onboardingCompleted ?? false,
           createdAt: userData.createdAt,
           updatedAt: userData.updatedAt
         };
@@ -281,6 +297,7 @@ export class AuthAPI {
           address: userData.address,
           isGod: userData.isGod,
           authProvider: userData.authProvider,
+          onboardingCompleted: userData.onboardingCompleted ?? false,
           createdAt: userData.createdAt,
           updatedAt: userData.updatedAt
         };

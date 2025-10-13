@@ -36,6 +36,7 @@ export interface User {
   address?: string;
   isGod?: boolean;
   authProvider?: string;
+  onboardingCompleted?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
