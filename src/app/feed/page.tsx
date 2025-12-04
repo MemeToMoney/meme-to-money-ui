@@ -110,7 +110,7 @@ function FeedPageContent() {
         setEngagements(prev => ({ ...prev, ...newEngagements }));
         setHasMore(!response.data.content.last);
       } else {
-        setError(response.message || 'Failed to load feed');
+        setError((response as any).message || 'Failed to load feed');
       }
     } catch (err: any) {
       console.error('Feed loading error:', err);
@@ -248,8 +248,8 @@ function FeedPageContent() {
       minHeight: '100vh',
       pb: 10
     }}>
-      <Container maxWidth={false} sx={{ p: 0 }}>
-        {/* Mobile Header */}
+      <Container maxWidth="sm" sx={{ p: 0 }}>
+        {/* Header (Mobile & Desktop) */}
         <Box sx={{
           position: 'sticky',
           top: 0,
@@ -272,18 +272,44 @@ function FeedPageContent() {
                 color: '#6B46C1',
                 background: 'linear-gradient(135deg, #6B46C1 0%, #9333EA 100%)',
                 WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
+                WebkitTextFillColor: 'transparent',
+                cursor: 'pointer'
+              }}
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             >
               MemeToMoney
             </Typography>
 
-            <IconButton
-              onClick={() => router.push('/search')}
-              sx={{ color: '#6B7280' }}
-            >
-              <SearchIcon />
-            </IconButton>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <IconButton
+                onClick={() => router.push('/search')}
+                sx={{ color: '#6B7280' }}
+              >
+                <SearchIcon />
+              </IconButton>
+              <IconButton
+                onClick={() => router.push('/messages')}
+                sx={{
+                  color: '#6B7280',
+                  position: 'relative'
+                }}
+              >
+                <Box sx={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  width: 8,
+                  height: 8,
+                  bgcolor: '#EF4444',
+                  borderRadius: '50%',
+                  border: '1px solid white',
+                  display: 'none' // Show this if there are unread messages
+                }} />
+                <ChatBubbleOutline />
+              </IconButton>
+            </Box>
           </Box>
         </Box>
 
@@ -433,8 +459,8 @@ function FeedPageContent() {
                         controls
                         sx={{
                           width: '100%',
-                          maxHeight: 400,
-                          objectFit: 'cover',
+                          maxHeight: 500, // Increased max height for better visibility
+                          objectFit: 'contain', // Changed to contain to prevent cropping
                           backgroundColor: '#000'
                         }}
                         onPlay={() => {
@@ -450,8 +476,9 @@ function FeedPageContent() {
                         alt={getContentAlt(post)}
                         sx={{
                           width: '100%',
-                          maxHeight: 400,
-                          objectFit: 'cover',
+                          maxHeight: 500, // Increased max height
+                          objectFit: 'contain', // Changed to contain
+                          bgcolor: '#f0f0f0',
                           cursor: 'pointer'
                         }}
                         onClick={() => {

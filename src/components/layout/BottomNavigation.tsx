@@ -34,7 +34,7 @@ const navigationItems = [
     icon: null
   },
   {
-    label: 'Messages',
+    label: 'Notifications',
     value: '/notifications',
     icon: <NotificationsIcon />
   },

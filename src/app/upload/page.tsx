@@ -176,71 +176,31 @@ function UploadPageContent() {
       setIsUploading(true);
       setUploadProgress(10);
 
-      // Step 1: Get presigned upload URL
-      const uploadUrlRequest: UploadUrlRequest = {
-        fileName: selectedFile.name,
-        contentType: selectedFile.type,
-        fileSize: selectedFile.size,
-        type: contentType
-      };
+      // Step 1: Upload file to server (Server-Side Upload)
+      // We use server-side upload to bypass GCS CORS issues with private buckets
+      const uploadResponse = await ContentAPI.uploadFile(selectedFile);
 
-      const urlResponse = await ContentAPI.getUploadUrl(
-        uploadUrlRequest,
-        user.id,
-        user.username || user.creatorHandle || `user_${user.id}`
-      );
-
-      if (!isApiSuccess(urlResponse)) {
-        throw new Error(urlResponse.message || 'Failed to get upload URL');
+      if (!isApiSuccess(uploadResponse)) {
+        throw new Error(uploadResponse.message || 'Failed to upload file');
       }
 
-      setUploadProgress(30);
+      const proxyUrl = uploadResponse.data;
+      // Extract filename from proxy URL: /api/images/view?fileName=...
+      const s3Key = proxyUrl.split('fileName=')[1];
 
-      // Step 2: Upload file to storage (local or S3)
-      console.log('Uploading to URL:', urlResponse.data.uploadUrl);
-
-      let uploadResponse;
-
-      // Check if this is a local upload endpoint
-      if (urlResponse.data.uploadUrl.includes('/local-upload/')) {
-        // For local uploads, use multipart form data with authentication
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-
-        const token = TokenManager.getToken();
-        uploadResponse = await fetch(urlResponse.data.uploadUrl, {
-          method: 'POST',
-          body: formData,
-          headers: {
-            // Don't set Content-Type for FormData, let browser set it with boundary
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-            'X-User-Id': user.id,
-            'X-User-Handle': user.username || user.creatorHandle || `user_${user.id}`
-          }
-        });
-      } else {
-        // For S3 uploads, use PUT with binary data
-        uploadResponse = await fetch(urlResponse.data.uploadUrl, {
-          method: 'PUT',
-          body: selectedFile,
-          headers: {
-            'Content-Type': selectedFile.type
-          }
-        });
+      if (!s3Key) {
+        throw new Error('Failed to get file key from upload response');
       }
 
-      console.log('Upload response status:', uploadResponse.status);
-      console.log('Upload response headers:', Object.fromEntries(uploadResponse.headers.entries()));
+      setUploadProgress(100);
 
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error('Upload failed with response:', errorText);
-        throw new Error(`Failed to upload file: ${uploadResponse.status} ${uploadResponse.statusText}`);
-      }
+      // Step 2: Create content record
+      // We need a contentId first, so we generate one or let the backend handle it.
+      // The createContent API expects a contentId in the URL params usually, 
+      // but here we are creating NEW content.
+      // Let's generate a UUID for contentId
+      const contentId = crypto.randomUUID();
 
-      setUploadProgress(60);
-
-      // Step 3: Create content record
       const contentRequest: ContentCreationRequest = {
         title: formData.title,
         description: formData.description || undefined,
@@ -249,7 +209,7 @@ function UploadPageContent() {
           ? formData.hashtags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
           : [],
         monetizationEnabled: formData.monetizationEnabled,
-        s3Key: urlResponse.data.s3Key,
+        s3Key: s3Key,
         originalFileName: selectedFile.name,
         contentType: selectedFile.type,
         fileSize: selectedFile.size,
@@ -257,7 +217,7 @@ function UploadPageContent() {
       };
 
       const contentResponse = await ContentAPI.createContent(
-        urlResponse.data.contentId,
+        contentId,
         contentRequest,
         user.id
       );

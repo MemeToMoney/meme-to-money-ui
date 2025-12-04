@@ -145,6 +145,18 @@ export interface CommentRequest {
   parentCommentId?: string;
 }
 
+export interface PageResponse<T> {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  first: boolean;
+  last: boolean;
+  size: number;
+  number: number;
+  numberOfElements: number;
+  empty: boolean;
+}
+
 // Content Service API functions
 export class ContentAPI {
   /**
@@ -163,6 +175,25 @@ export class ContentAPI {
           'X-User-Id': userId,
           'X-User-Handle': userHandle
         }
+      })
+    );
+
+    return response;
+  }
+
+  /**
+   * Upload file to content service (Server-Side Upload)
+   * POST /api/images/upload
+   */
+  static async uploadFile(file: File): Promise<ApiResponse<string>> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await handleApiResponse<string>(
+      contentServiceClient.post('/api/images/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       })
     );
 
@@ -285,13 +316,13 @@ export class ContentAPI {
     page = 0,
     size = 10,
     viewerUserId?: string
-  ): Promise<ApiResponse<UIFeedResponse>> {
+  ): Promise<ApiResponse<PageResponse<Content>>> {
     const headers: any = {};
     if (viewerUserId) {
       headers['X-User-Id'] = viewerUserId;
     }
 
-    const response = await handleApiResponse<UIFeedResponse>(
+    const response = await handleApiResponse<PageResponse<Content>>(
       contentServiceClient.get(`/api/content/creator/${userId}`, {
         params: { page, size },
         headers
