@@ -40,9 +40,11 @@ RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nextjs -u 1001
 
 # Copy built application from builder stage
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# With Next.js standalone output, public directory is automatically included in .next/standalone
+# Copy standalone build output (includes public, server.js, and all dependencies)
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+# Copy static files for optimization
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Change ownership to nextjs user
 RUN chown -R nextjs:nodejs /app
