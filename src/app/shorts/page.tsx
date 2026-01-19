@@ -22,6 +22,7 @@ import {
   PersonAdd as FollowIcon
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 interface ShortVideo {
   id: string;
@@ -442,11 +443,12 @@ function VideoPlayer({
   );
 }
 
-export default function ShortsPage() {
+function ShortsPageContent() {
   const [shorts, setShorts] = useState<ShortVideo[]>(mockShorts);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [playingVideo, setPlayingVideo] = useState<string | null>(mockShorts[0]?.id || null);
   const [mutedVideos, setMutedVideos] = useState<Set<string>>(new Set());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
   const handlePlayPause = (videoId: string) => {
@@ -478,11 +480,11 @@ export default function ShortsPage() {
   };
 
   const handleComment = (videoId: string) => {
-    console.log('Comment on video:', videoId);
+    // TODO: Implement comment modal
   };
 
   const handleShare = (videoId: string) => {
-    console.log('Share video:', videoId);
+    // TODO: Implement share functionality
   };
 
   // Auto-play current video
@@ -492,18 +494,34 @@ export default function ShortsPage() {
     }
   }, [currentVideoIndex, shorts]);
 
+  // Handle scroll to detect current video
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      const scrollTop = scrollContainerRef.current.scrollTop;
+      const viewportHeight = window.innerHeight;
+      const newIndex = Math.round(scrollTop / viewportHeight);
+      if (newIndex !== currentVideoIndex && newIndex >= 0 && newIndex < shorts.length) {
+        setCurrentVideoIndex(newIndex);
+      }
+    }
+  };
+
   return (
     <Container maxWidth={false} sx={{ p: 0, height: '100vh', overflow: 'hidden' }}>
       {/* Vertical scroll container */}
-      <Box sx={{
-        height: '100vh',
-        overflowY: 'auto',
-        scrollSnapType: 'y mandatory',
-        '&::-webkit-scrollbar': {
-          display: 'none'
-        },
-        scrollbarWidth: 'none'
-      }}>
+      <Box
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        sx={{
+          height: '100vh',
+          overflowY: 'auto',
+          scrollSnapType: 'y mandatory',
+          '&::-webkit-scrollbar': {
+            display: 'none'
+          },
+          scrollbarWidth: 'none'
+        }}
+      >
         {shorts.map((video, index) => (
           <Box
             key={video.id}
@@ -511,9 +529,6 @@ export default function ShortsPage() {
               height: '100vh',
               scrollSnapAlign: 'start',
               scrollSnapStop: 'always'
-            }}
-            onInViewport={() => {
-              setCurrentVideoIndex(index);
             }}
           >
             <VideoPlayer
@@ -580,5 +595,13 @@ export default function ShortsPage() {
         </Typography>
       </Box>
     </Container>
+  );
+}
+
+export default function ShortsPage() {
+  return (
+    <ProtectedRoute>
+      <ShortsPageContent />
+    </ProtectedRoute>
   );
 }

@@ -81,7 +81,7 @@ function WalletPageContent() {
   };
 
   const handleWithdraw = () => {
-    console.log('Withdraw amount:', withdrawAmount);
+    // TODO: Implement withdraw API call
     setWithdrawDialog(false);
     setWithdrawAmount('');
   };

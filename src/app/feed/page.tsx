@@ -32,6 +32,7 @@ import {
   MoreVert,
   PlayArrow,
   VolumeOff,
+  VideoLibrary as ShortsIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -58,6 +59,8 @@ function FeedPageContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [feedData, setFeedData] = useState<Content[]>([]);
+  const [shortsData, setShortsData] = useState<Content[]>([]);
+  const [shortsLoading, setShortsLoading] = useState(true);
   const [engagements, setEngagements] = useState<{ [contentId: string]: UserEngagementStatus }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,10 +70,35 @@ function FeedPageContent() {
   const theme = useTheme();
   const { user } = useAuth();
 
+  // Load shorts on component mount
+  useEffect(() => {
+    loadShortsData();
+  }, []);
+
   // Load feed data on component mount and tab changes
   useEffect(() => {
     loadFeedData(true);
   }, [activeTab]);
+
+  const loadShortsData = async () => {
+    try {
+      setShortsLoading(true);
+      // Load trending shorts (SHORT_VIDEO type)
+      const response = await ContentAPI.getTrendingFeed(0, 6, 24, user?.id);
+
+      if (isApiSuccess(response)) {
+        // Filter only SHORT_VIDEO content
+        const shorts = response.data.content.content.filter(
+          (content: Content) => content.type === 'SHORT_VIDEO'
+        ).slice(0, 3); // Show only 3 shorts in preview
+        setShortsData(shorts);
+      }
+    } catch (err) {
+      console.error('Shorts loading error:', err);
+    } finally {
+      setShortsLoading(false);
+    }
+  };
 
   const loadFeedData = async (resetFeed = false) => {
     try {
@@ -203,7 +231,6 @@ function FeedPageContent() {
       ));
 
       // TODO: Implement actual sharing functionality
-      console.log('Share post:', contentId);
     } catch (error) {
       console.error('Share error:', error);
     }
@@ -211,12 +238,10 @@ function FeedPageContent() {
 
   const handleSave = (contentId: string) => {
     // TODO: Implement bookmark functionality when API supports it
-    console.log('Save post:', contentId);
   };
 
   const handleComment = (contentId: string) => {
     // TODO: Open comment modal or navigate to post detail
-    console.log('Comment on post:', contentId);
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -369,6 +394,135 @@ function FeedPageContent() {
           </Box>
         </Box>
 
+        {/* Shorts Preview Section */}
+        <Box sx={{ mb: 3, px: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1, color: '#374151' }}>
+              <ShortsIcon sx={{ color: '#6B46C1' }} /> Shorts
+            </Typography>
+            <Button
+              variant="text"
+              onClick={() => router.push('/shorts')}
+              sx={{ color: '#6B46C1', textTransform: 'none', fontWeight: 'bold' }}
+            >
+              View All
+            </Button>
+          </Box>
+
+          {shortsLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress size={24} sx={{ color: '#6B46C1' }} />
+            </Box>
+          ) : shortsData.length > 0 ? (
+            <>
+              <Grid container spacing={1.5}>
+                {shortsData.map((short) => {
+                  const thumbnailUrl = short.thumbnailUrl || short.processedFile?.cdnUrl || short.originalFile?.cdnUrl;
+                  return (
+                    <Grid item xs={4} key={short.id}>
+                      <Card
+                        onClick={() => router.push('/shorts')}
+                        sx={{
+                          borderRadius: 2,
+                          overflow: 'hidden',
+                          position: 'relative',
+                          aspectRatio: '9/16',
+                          cursor: 'pointer',
+                          '&:hover': { transform: 'scale(1.02)' },
+                          transition: 'transform 0.2s'
+                        }}
+                      >
+                        <CardMedia
+                          component="img"
+                          image={thumbnailUrl || 'https://picsum.photos/300/400?random=' + short.id}
+                          alt={short.title || 'Short video'}
+                          sx={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                          }}
+                        />
+
+                        {/* Play Icon Overlay */}
+                        <Box sx={{
+                          position: 'absolute',
+                          top: 8,
+                          right: 8,
+                          bgcolor: 'rgba(0,0,0,0.5)',
+                          borderRadius: '50%',
+                          width: 28,
+                          height: 28,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <PlayArrow sx={{ color: 'white', fontSize: 18 }} />
+                        </Box>
+
+                        {/* Bottom Info */}
+                        <Box sx={{
+                          position: 'absolute',
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
+                          color: 'white',
+                          p: 1.5
+                        }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                            <Favorite sx={{ fontSize: 14 }} />
+                            <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                              {short.likeCount > 999 ? `${(short.likeCount / 1000).toFixed(1)}K` : short.likeCount}
+                            </Typography>
+                          </Box>
+
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Avatar sx={{ width: 18, height: 18, fontSize: '0.6rem' }}>
+                              {short.creatorHandle?.charAt(1)?.toUpperCase() || 'U'}
+                            </Avatar>
+                            <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.65rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              @{short.creatorHandle || 'user'}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Card>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+
+              {/* Watch All Shorts Button */}
+              <Box sx={{ textAlign: 'center', mt: 2 }}>
+                <Button
+                  variant="contained"
+                  onClick={() => router.push('/shorts')}
+                  startIcon={<PlayArrow />}
+                  sx={{
+                    background: 'linear-gradient(135deg, #6B46C1 0%, #9333EA 100%)',
+                    color: 'white',
+                    borderRadius: 3,
+                    px: 3,
+                    py: 1,
+                    textTransform: 'none',
+                    fontWeight: 'bold',
+                    fontSize: '0.85rem',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #553C9A 0%, #7C3AED 100%)'
+                    }
+                  }}
+                >
+                  Watch All Shorts
+                </Button>
+              </Box>
+            </>
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 3, bgcolor: '#f9fafb', borderRadius: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                No shorts available yet
+              </Typography>
+            </Box>
+          )}
+        </Box>
 
         {/* Feed Tabs */}
         <Box sx={{ mb: 3, px: 2 }}>

@@ -93,10 +93,8 @@ function UploadPageContent() {
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    console.log('File selected:', file);
 
     if (!file) {
-      console.log('No file selected');
       return;
     }
 
@@ -117,8 +115,6 @@ function UploadPageContent() {
       return;
     }
 
-    console.log('Setting file state:', { name: file.name, type: file.type, contentType: type });
-
     setSelectedFile(file);
     setContentType(type);
 
@@ -126,7 +122,6 @@ function UploadPageContent() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const result = e.target?.result as string;
-      console.log('Preview URL created:', !!result);
       setPreviewUrl(result);
     };
     reader.readAsDataURL(file);
@@ -136,41 +131,26 @@ function UploadPageContent() {
   };
 
   const handleUpload = async () => {
-    console.log('Upload attempt starting:', {
-      hasSelectedFile: !!selectedFile,
-      selectedFileName: selectedFile?.name,
-      userId: user?.id,
-      contentType,
-      title: formData.title.trim(),
-      currentStep
-    });
-
-    // More robust validation with detailed logging
+    // Validation
     if (!selectedFile) {
-      console.error('Upload validation failed: No file selected');
       showSnackbar('Please select a file first', 'error');
       return;
     }
 
     if (!user?.id) {
-      console.error('Upload validation failed: User not authenticated');
       showSnackbar('User not authenticated', 'error');
       return;
     }
 
     if (!contentType) {
-      console.error('Upload validation failed: Content type not determined');
       showSnackbar('Content type not determined', 'error');
       return;
     }
 
     if (!formData.title.trim()) {
-      console.error('Upload validation failed: No caption provided');
       showSnackbar('Please add a caption for your content', 'error');
       return;
     }
-
-    console.log('All validations passed, starting upload process...');
 
     try {
       setIsUploading(true);
@@ -181,7 +161,7 @@ function UploadPageContent() {
       const uploadResponse = await ContentAPI.uploadFile(selectedFile);
 
       if (!isApiSuccess(uploadResponse)) {
-        throw new Error(uploadResponse.message || 'Failed to upload file');
+        throw new Error((uploadResponse as any).message || 'Failed to upload file');
       }
 
       const proxyUrl = uploadResponse.data;
@@ -223,7 +203,7 @@ function UploadPageContent() {
       );
 
       if (!isApiSuccess(contentResponse)) {
-        throw new Error(contentResponse.message || 'Failed to create content');
+        throw new Error((contentResponse as any).message || 'Failed to create content');
       }
 
       setUploadProgress(100);

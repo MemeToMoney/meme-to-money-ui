@@ -5,7 +5,7 @@ import { userServiceClient, contentServiceClient, handleApiResponse, ApiResponse
 
 // Request/Response types matching your API spec
 export interface LoginRequest {
-  emailOrMobile: string;
+  email: string;
   password: string;
 }
 
@@ -38,7 +38,7 @@ export class AuthAPI {
       console.log('Attempting login with:', credentials);
 
       // Demo credentials for testing
-      if (credentials.emailOrMobile === 'demo@example.com' && credentials.password === 'demo123') {
+      if (credentials.email === 'demo@example.com' && credentials.password === 'demo123') {
         const mockToken = 'demo-jwt-token-' + Date.now();
         TokenManager.setToken(mockToken);
 
@@ -93,7 +93,7 @@ export class AuthAPI {
           const mockUser: User = {
             id: userId || '1',
             name: response.data.name || response.data.user?.name || 'Test User',
-            email: credentials.emailOrMobile,
+            email: credentials.email,
             username: response.data.username || response.data.user?.username,
             displayName: response.data.displayName || response.data.user?.displayName,
             bio: response.data.bio || response.data.user?.bio,

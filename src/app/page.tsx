@@ -12,21 +12,16 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!loading) {
-      console.log('Root page - Auth Status:', { isAuthenticated, user: user?.name, onboardingCompleted: user?.onboardingCompleted });
-
       if (isAuthenticated && user) {
         // Check if user has completed onboarding
         if (!user.onboardingCompleted) {
-          console.log('Root page - Redirecting to onboarding (onboardingCompleted:', user.onboardingCompleted, ')');
           // New users go to onboarding
           router.push('/onboarding');
         } else {
-          console.log('Root page - Redirecting to feed (onboardingCompleted:', user.onboardingCompleted, ')');
           // Existing users go to feed
           router.push('/feed');
         }
       } else {
-        console.log('Root page - Redirecting to landing (not authenticated)');
         // Unauthenticated users go to landing page
         router.push('/landing');
       }

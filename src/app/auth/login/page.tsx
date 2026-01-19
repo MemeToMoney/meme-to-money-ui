@@ -46,7 +46,7 @@ export default function AuthPage() {
 
   // Login form state
   const [loginData, setLoginData] = useState({
-    emailOrMobile: '',
+    email: '',
     password: ''
   });
 
@@ -84,7 +84,7 @@ export default function AuthPage() {
     setError('');
 
     try {
-      const success = await login(loginData.emailOrMobile, loginData.password);
+      const success = await login(loginData.email, loginData.password);
 
       if (success) {
         router.push('/onboarding');
@@ -112,11 +112,9 @@ export default function AuthPage() {
       });
 
       if (isApiSuccess(response)) {
-        console.log('Registration successful, attempting auto-login...');
         // Auto-login after successful registration
         const loginSuccess = await login(signupData.email, signupData.password);
         if (loginSuccess) {
-          console.log('Auto-login successful, redirecting to onboarding...');
           // Add a small delay to ensure auth context is updated
           setTimeout(() => {
             router.push('/onboarding');
@@ -152,7 +150,6 @@ export default function AuthPage() {
       });
 
       if (isApiSuccess(response)) {
-        console.log('Google login successful:', response.data);
         router.push('/onboarding');
       } else {
         setError('Google authentication failed. Please try again.');
@@ -286,8 +283,6 @@ export default function AuthPage() {
             sx={{
               mb: 3,
               py: 1.8,
-              borderColor: '#E5E7EB',
-              color: '#374151',
               textTransform: 'none',
               fontSize: '0.95rem',
               fontWeight: 500,
@@ -320,9 +315,9 @@ export default function AuthPage() {
               </Typography>
               <TextField
                 fullWidth
-                name="emailOrMobile"
+                name="email"
                 type="email"
-                value={loginData.emailOrMobile}
+                value={loginData.email}
                 onChange={handleLoginChange}
                 required
                 sx={{
@@ -405,8 +400,6 @@ export default function AuthPage() {
               sx={{
                 mb: 3,
                 py: 1.8,
-                borderColor: '#E5E7EB',
-                color: '#374151',
                 textTransform: 'none',
                 fontSize: '0.95rem',
                 fontWeight: 500,

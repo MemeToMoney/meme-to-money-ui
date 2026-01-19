@@ -61,13 +61,10 @@ export default function RegisterPage() {
       });
 
       if (isApiSuccess(response)) {
-        console.log('Registration successful:', response.data);
-
         // Automatically log the user in after successful registration
         const loginSuccess = await login(formData.email, formData.password);
 
         if (loginSuccess) {
-          console.log('Auto-login successful - redirecting to feed');
           router.push('/feed');
         } else {
           // If auto-login fails, redirect to login page

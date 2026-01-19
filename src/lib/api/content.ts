@@ -446,6 +446,26 @@ export class ContentAPI {
   }
 
   /**
+   * Delete a comment
+   * DELETE /api/content/{contentId}/comments/{commentId}
+   */
+  static async deleteComment(
+    contentId: string,
+    commentId: string,
+    userId: string
+  ): Promise<ApiResponse<void>> {
+    const response = await handleApiResponse<void>(
+      contentServiceClient.delete(`/api/content/${contentId}/comments/${commentId}`, {
+        headers: {
+          'X-User-Id': userId
+        }
+      })
+    );
+
+    return response;
+  }
+
+  /**
    * Search content
    * GET /api/content/search
    */

@@ -214,20 +214,16 @@ function ProfilePageContent() {
 
     try {
       setLoading(true);
-      console.log('Starting profile photo upload...');
 
       const response = await AuthAPI.uploadProfilePicture(selectedFile);
 
       if (isApiSuccess(response)) {
-        console.log('Profile photo upload successful, refreshing user data...');
-
         // Refresh user data to get updated profile picture URL
         const userResponse = await AuthAPI.getCurrentUser();
         if (isApiSuccess(userResponse)) {
           // Add a small delay to ensure the image is processed
           setTimeout(() => {
             updateUser(userResponse.data);
-            console.log('User data updated with new profile picture:', userResponse.data.profilePicture);
           }, 500);
 
           showSnackbar('Profile photo updated successfully!');
@@ -236,7 +232,6 @@ function ProfilePageContent() {
           setPreviewUrl(null);
         }
       } else {
-        console.error('Profile photo upload failed:', (response as any).message);
         showSnackbar((response as any).message || 'Failed to upload photo');
       }
     } catch (err: any) {

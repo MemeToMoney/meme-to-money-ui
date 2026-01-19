@@ -552,12 +552,12 @@ User -Auth APi Swagger
       },
       "LoginRequest": {
         "required": [
-          "emailOrMobile",
+          "email",
           "password"
         ],
         "type": "object",
         "properties": {
-          "emailOrMobile": {
+          "email": {
             "type": "string"
           },
           "password": {
