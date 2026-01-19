@@ -4,9 +4,22 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
 // Environment-based service URLs
-const USER_SERVICE_URL = process.env.NEXT_PUBLIC_USER_SERVICE_URL || 'http://localhost:8080';
-const CONTENT_SERVICE_URL = process.env.NEXT_PUBLIC_CONTENT_SERVICE_URL || 'http://localhost:8081';
-const MONETIZATION_SERVICE_URL = process.env.NEXT_PUBLIC_MONETIZATION_SERVICE_URL || 'http://localhost:8082';
+const isProdApi = process.env.NEXT_PUBLIC_API_ENV === 'production' || process.env.NODE_ENV === 'production';
+
+// Development URLs (localhost)
+const DEV_USER_SERVICE_URL = 'http://localhost:8080';
+const DEV_CONTENT_SERVICE_URL = 'http://localhost:8081';
+const DEV_MONETIZATION_SERVICE_URL = 'http://localhost:8082';
+
+// Production URLs (Cloud Run)
+const PROD_USER_SERVICE_URL = 'https://auth-service-703108401175.asia-south2.run.app';
+const PROD_CONTENT_SERVICE_URL = 'https://content-service-703108401175.asia-south2.run.app';
+const PROD_MONETIZATION_SERVICE_URL = 'https://monetization-service-703108401175.asia-south2.run.app';
+
+// Select URLs based on environment (env vars take precedence)
+const USER_SERVICE_URL = process.env.NEXT_PUBLIC_USER_SERVICE_URL || (isProdApi ? PROD_USER_SERVICE_URL : DEV_USER_SERVICE_URL);
+const CONTENT_SERVICE_URL = process.env.NEXT_PUBLIC_CONTENT_SERVICE_URL || (isProdApi ? PROD_CONTENT_SERVICE_URL : DEV_CONTENT_SERVICE_URL);
+const MONETIZATION_SERVICE_URL = process.env.NEXT_PUBLIC_MONETIZATION_SERVICE_URL || (isProdApi ? PROD_MONETIZATION_SERVICE_URL : DEV_MONETIZATION_SERVICE_URL);
 
 // Response types matching your API specification
 export interface ApiResponse<T> {
