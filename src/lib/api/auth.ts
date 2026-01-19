@@ -138,11 +138,11 @@ export class AuthAPI {
 
   /**
    * Register new user account
-   * POST /api/auth/register
+   * POST /api/auth/register (uses query params)
    */
   static async register(userData: RegisterRequest): Promise<ApiResponse<string>> {
     const response = await handleApiResponse<string>(
-      userServiceClient.post('/api/auth/register', userData)
+      userServiceClient.post('/api/auth/register', null, { params: userData })
     );
 
     return response;
