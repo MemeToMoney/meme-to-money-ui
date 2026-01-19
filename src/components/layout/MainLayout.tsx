@@ -1,72 +1,54 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Box, useMediaQuery, useTheme } from '@mui/material';
+import React from 'react';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import Sidebar from './Sidebar';
+import { Box, useMediaQuery, useTheme } from '@mui/material';
+import MobileLayout from './MobileLayout';
+import SidebarNavigation from './SidebarNavigation';
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const pathname = usePathname();
-  const { isAuthenticated } = useAuth();
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
-  const handleSidebarToggle = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
+  // Pages that shouldn't have the sidebar/mobile layout (full-screen pages)
+  const isFullScreenPage = ['/auth', '/landing', '/onboarding'].some(path =>
+    pathname.startsWith(path)
+  );
 
-  // Define pages that should not show sidebar
-  const noSidebarPages = ['/landing', '/auth/login', '/auth/register'];
-  const shouldShowSidebar = isAuthenticated && !noSidebarPages.includes(pathname);
+  if (isFullScreenPage) {
+    return <>{children}</>;
+  }
 
+  // Mobile Layout
+  if (!isDesktop) {
+    return (
+      <MobileLayout>
+        {children}
+      </MobileLayout>
+    );
+  }
+
+  // Desktop Layout
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
-      {/* Sidebar - only show for authenticated users on main pages */}
-      {shouldShowSidebar && (
-        <Sidebar isOpen={sidebarOpen} onToggle={handleSidebarToggle} />
-      )}
-
-      {/* Main Content */}
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#FAFAFA' }}>
+      <SidebarNavigation />
       <Box
+        component="main"
         sx={{
-          flex: 1,
-          marginLeft: shouldShowSidebar
-            ? (sidebarOpen ? '240px' : '60px')
-            : '0px',
-          transition: 'margin-left 0.3s ease',
+          flexGrow: 1,
+          ml: '280px', // Width of sidebar
           minHeight: '100vh',
-          backgroundColor: shouldShowSidebar ? '#f8f9fa' : '#ffffff',
-          [theme.breakpoints.down('md')]: {
-            marginLeft: shouldShowSidebar && sidebarOpen ? '240px' : '0px',
-          },
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden' // Prevent double scrollbars
         }}
       >
-        {/* Mobile Overlay */}
-        {shouldShowSidebar && isMobile && sidebarOpen && (
-          <Box
-            onClick={handleSidebarToggle}
-            sx={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              width: '100vw',
-              height: '100vh',
-              backgroundColor: 'rgba(0,0,0,0.5)',
-              zIndex: 999,
-            }}
-          />
-        )}
-
-        {/* Content Area */}
-        <Box sx={{ minHeight: '100vh' }}>
-          {children}
-        </Box>
+        {children}
       </Box>
     </Box>
   );

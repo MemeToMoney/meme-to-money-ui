@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import {
   Container,
@@ -14,7 +14,16 @@ import {
   Tab,
   Tabs,
   IconButton,
-  Chip
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  CircularProgress,
+  Alert,
+  Snackbar,
+  CardMedia,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -27,10 +36,20 @@ import {
   AccountBalanceWallet as WalletIcon,
   FiberManualRecord as OnlineIcon,
   Add as CreateIcon,
-  Logout as LogoutIcon
+  Logout as LogoutIcon,
+  PhotoCamera as PhotoCameraIcon,
+  Save as SaveIcon,
+  Close as CloseIcon,
+  CloudUpload as UploadIcon,
+  Tag as TagIcon,
 } from '@mui/icons-material';
-import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { AuthAPI } from '@/lib/api/auth';
+import { ContentAPI, Content, PageResponse } from '@/lib/api/content';
+import { isApiSuccess } from '@/lib/api/client';
+import { FeedPostCard } from '@/components/FeedPostCard';
+import { PostDetailModal } from '@/components/PostDetailModal';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -60,8 +79,94 @@ function TabPanel(props: TabPanelProps) {
 
 function ProfilePageContent() {
   const [tabValue, setTabValue] = useState(0);
-  const { user, logout } = useAuth();
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
+  const [userContent, setUserContent] = useState<Content[]>([]);
+  const [likedContent, setLikedContent] = useState<Content[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [contentLoading, setContentLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [selectedPost, setSelectedPost] = useState<Content | null>(null);
+  const [postDialogOpen, setPostDialogOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Edit form state
+  const [editForm, setEditForm] = useState({
+    displayName: '',
+    bio: '',
+    creatorHandle: '',
+    username: ''
+  });
+
+  const { user, logout, updateUser } = useAuth();
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load user's content when component mounts or tab changes
+  useEffect(() => {
+    if (user?.id) {
+      if (tabValue === 0) {
+        loadUserContent();
+      } else if (tabValue === 1) {
+        loadLikedContent();
+      }
+    }
+  }, [user?.id, tabValue]);
+
+  // Initialize edit form when user data changes
+  useEffect(() => {
+    if (user) {
+      setEditForm({
+        displayName: user.displayName || user.name || '',
+        bio: user.bio || '',
+        creatorHandle: user.creatorHandle || '',
+        username: user.username || ''
+      });
+    }
+  }, [user]);
+
+  const loadUserContent = async () => {
+    if (!user?.id) return;
+
+    try {
+      setContentLoading(true);
+      const response = await ContentAPI.getUserContent(user.id, 0, 20, user.id);
+      if (isApiSuccess(response)) {
+        setUserContent(response.data.content || []);
+      } else {
+        setError('Failed to load your content');
+      }
+    } catch (err: any) {
+      console.error('Load user content error:', err);
+      setError('Failed to load your content');
+      setUserContent([]); // Ensure it's an array on error
+    } finally {
+      setContentLoading(false);
+    }
+  };
+
+  const loadLikedContent = async () => {
+    if (!user?.id) return;
+
+    try {
+      setContentLoading(true);
+      const response = await ContentAPI.getUserLikedContent(user.id, 0, 20, user.id);
+      if (isApiSuccess(response)) {
+        setLikedContent(response.data.content.content || []);
+      } else {
+        setError('Failed to load liked content');
+      }
+    } catch (err: any) {
+      console.error('Load liked content error:', err);
+      setError('Failed to load liked content');
+      setLikedContent([]); // Ensure it's an array on error
+    } finally {
+      setContentLoading(false);
+    }
+  };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -73,13 +178,109 @@ function ProfilePageContent() {
   };
 
   const handleEditProfile = () => {
-    // TODO: Open edit profile modal or navigate to edit page
-    console.log('Edit profile clicked');
+    setEditDialogOpen(true);
   };
 
   const handleUploadImage = () => {
-    // TODO: Open image upload modal
-    console.log('Upload image clicked');
+    setPhotoDialogOpen(true);
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        showSnackbar('Please select an image file');
+        return;
+      }
+
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        showSnackbar('File size must be less than 5MB');
+        return;
+      }
+
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreviewUrl(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePhotoUpload = async () => {
+    if (!selectedFile || !user?.id) return;
+
+    try {
+      setLoading(true);
+
+      const response = await AuthAPI.uploadProfilePicture(selectedFile);
+
+      if (isApiSuccess(response)) {
+        // Refresh user data to get updated profile picture URL
+        const userResponse = await AuthAPI.getCurrentUser();
+        if (isApiSuccess(userResponse)) {
+          // Add a small delay to ensure the image is processed
+          setTimeout(() => {
+            updateUser(userResponse.data);
+          }, 500);
+
+          showSnackbar('Profile photo updated successfully!');
+          setPhotoDialogOpen(false);
+          setSelectedFile(null);
+          setPreviewUrl(null);
+        }
+      } else {
+        showSnackbar((response as any).message || 'Failed to upload photo');
+      }
+    } catch (err: any) {
+      console.error('Photo upload error:', err);
+      showSnackbar('Failed to upload photo');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProfileUpdate = async () => {
+    if (!user?.id) return;
+
+    try {
+      setLoading(true);
+      const response = await AuthAPI.updateProfile({
+        displayName: editForm.displayName,
+        bio: editForm.bio,
+        creatorHandle: editForm.creatorHandle,
+        username: editForm.username
+      });
+
+      if (isApiSuccess(response)) {
+        updateUser(response.data);
+        showSnackbar('Profile updated successfully!');
+        setEditDialogOpen(false);
+      } else {
+        showSnackbar((response as any).message || 'Failed to update profile');
+      }
+    } catch (err: any) {
+      console.error('Profile update error:', err);
+      showSnackbar('Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePostClick = (content: Content) => {
+    setSelectedPost(content);
+    setPostDialogOpen(true);
+  };
+
+  const showSnackbar = (message: string) => {
+    setSnackbarMessage(message);
+    setSnackbarOpen(true);
+  };
+
+  const getContentUrl = (content: Content) => {
+    return content.processedFile?.cdnUrl || content.originalFile?.cdnUrl || content.thumbnailUrl;
   };
 
   if (!user) {
@@ -90,298 +291,637 @@ function ProfilePageContent() {
     );
   }
 
-  // Construct profile picture URL
-  const profilePictureUrl = user.profilePicture
-    ? `http://localhost:8080${user.profilePicture}`
-    : undefined;
+  // Construct profile picture URL with proper service URL and cache busting
+  const getProfilePictureUrl = (profilePicture?: string) => {
+    if (!profilePicture) return undefined;
+
+    // If it's already a full URL, use it as is
+    if (profilePicture.startsWith('http://') || profilePicture.startsWith('https://')) {
+      // Add cache busting parameter with current timestamp
+      const separator = profilePicture.includes('?') ? '&' : '?';
+      return `${profilePicture}${separator}t=${Date.now()}`;
+    }
+
+    // If it's a relative path, construct full URL
+    const USER_SERVICE_URL = process.env.NEXT_PUBLIC_USER_SERVICE_URL || 'http://localhost:8080';
+    const baseUrl = profilePicture.startsWith('/') ? profilePicture : `/${profilePicture}`;
+    return `${USER_SERVICE_URL}${baseUrl}?t=${Date.now()}`;
+  };
+
+  const profilePictureUrl = getProfilePictureUrl(user.profilePicture);
 
   return (
     <Box sx={{
       minHeight: '100vh',
-      background: 'linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%)',
-      py: 4
+      bgcolor: '#f8f9fa',
+      pb: 10
     }}>
-      <Container maxWidth="lg">
-        {/* Profile Header Card */}
-        <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-          <CardContent sx={{ p: 4 }}>
-            <Grid container spacing={3} alignItems="center">
-              {/* Left: Avatar and User Info */}
-              <Grid item xs={12} md={8}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <Box sx={{ position: 'relative' }}>
-                    <Avatar
-                      src={profilePictureUrl}
-                      sx={{
-                        width: 100,
-                        height: 100,
-                        bgcolor: '#4FC3F7',
-                        fontSize: '2.5rem',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                    </Avatar>
-                    <IconButton
-                      onClick={handleUploadImage}
-                      sx={{
-                        position: 'absolute',
-                        bottom: -5,
-                        right: -5,
-                        bgcolor: '#2196F3',
-                        color: 'white',
-                        width: 32,
-                        height: 32,
-                        '&:hover': { bgcolor: '#1976D2' }
-                      }}
-                    >
-                      <EditIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                  </Box>
+      <Container maxWidth={false} sx={{ p: 0 }}>
+        {/* Mobile Header */}
+        <Box sx={{
+          position: 'sticky',
+          top: 0,
+          bgcolor: 'white',
+          zIndex: 1,
+          p: 2,
+          borderBottom: '1px solid #E5E7EB',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 'bold',
+              color: '#6B46C1'
+            }}
+          >
+            Profile
+          </Typography>
+          <IconButton onClick={() => router.push('/settings')}>
+            <SettingsIcon sx={{ color: '#6B7280' }} />
+          </IconButton>
+        </Box>
 
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      {user.displayName || user.name}
-                    </Typography>
-                    <Typography variant="body1" sx={{ color: '#666', mb: 1 }}>
-                      {user.email}
-                    </Typography>
-                    {user.bio && (
-                      <Typography variant="body2" sx={{ color: '#777', mb: 2 }}>
-                        {user.bio}
-                      </Typography>
-                    )}
+        {/* Profile Header */}
+        <Box sx={{
+          bgcolor: 'white',
+          pb: 2,
+          borderBottom: '1px solid rgba(0,0,0,0.06)'
+        }}>
+          {/* Cover Image Placeholder (Optional, can be added later) */}
+          <Box sx={{
+            height: 120,
+            background: 'linear-gradient(135deg, #A78BFA 0%, #F472B6 100%)',
+            opacity: 0.3
+          }} />
 
-
-                    {/* User Stats */}
-                    <Box sx={{ display: 'flex', gap: 4 }}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                          {user.followerCount}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#666' }}>
-                          Followers
-                        </Typography>
-                      </Box>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                          {user.followingCount}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#666' }}>
-                          Following
-                        </Typography>
-                      </Box>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                          0
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#666' }}>
-                          Posts
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                </Box>
-              </Grid>
-
-              {/* Right: Action Buttons */}
-              <Grid item xs={12} md={4}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Button
-                    variant="contained"
-                    startIcon={<EditIcon />}
-                    onClick={handleEditProfile}
-                    sx={{
-                      bgcolor: '#2196F3',
-                      textTransform: 'none',
-                      borderRadius: 2,
-                      fontWeight: 'bold',
-                      '&:hover': {
-                        bgcolor: '#1976D2',
-                      },
-                    }}
-                  >
-                    Edit Profile
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    startIcon={<CreateIcon />}
-                    sx={{
-                      borderColor: '#4CAF50',
-                      color: '#4CAF50',
-                      textTransform: 'none',
-                      borderRadius: 2,
-                      fontWeight: 'bold',
-                      '&:hover': {
-                        borderColor: '#388E3C',
-                        color: '#388E3C',
-                        backgroundColor: 'rgba(76, 175, 80, 0.04)',
-                      },
-                    }}
-                  >
-                    Create Content
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={<LogoutIcon />}
-                    onClick={handleLogout}
-                    sx={{
-                      textTransform: 'none',
-                      borderRadius: 2,
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    Logout
-                  </Button>
-                </Box>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-
-        {/* Earnings Card */}
-        <Card sx={{ mb: 3, borderRadius: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
-          <CardContent sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box>
-                <Typography variant="h6" sx={{ opacity: 0.9, mb: 1 }}>
-                  Total Earnings
-                </Typography>
-                <Typography variant="h3" sx={{ fontWeight: 'bold' }}>
-                  ₹{user.totalEarnings.toLocaleString()}
-                </Typography>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                  +₹{user.weeklyEarnings.toLocaleString()} this week
-                </Typography>
+          <Container maxWidth="md" sx={{ mt: -6, px: 3 }}>
+            <Box sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center'
+            }}>
+              {/* Avatar */}
+              <Box sx={{ position: 'relative', mb: 2 }}>
+                <Avatar
+                  src={profilePictureUrl}
+                  sx={{
+                    width: 120,
+                    height: 120,
+                    bgcolor: '#6B46C1',
+                    fontSize: '3rem',
+                    fontWeight: 'bold',
+                    border: '4px solid white',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  }}
+                >
+                  {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                </Avatar>
+                <IconButton
+                  onClick={handleUploadImage}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 4,
+                    right: 4,
+                    bgcolor: '#6B46C1',
+                    color: 'white',
+                    width: 32,
+                    height: 32,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                    '&:hover': { bgcolor: '#553C9A' }
+                  }}
+                >
+                  <PhotoCameraIcon sx={{ fontSize: 18 }} />
+                </IconButton>
               </Box>
-              <Box sx={{ textAlign: 'right' }}>
-                <WalletIcon sx={{ fontSize: 60, opacity: 0.7 }} />
-                <Typography variant="body2" sx={{ opacity: 0.8, mt: 1 }}>
-                  🪙 {user.coinBalance} coins
+
+              {/* User Info */}
+              <Typography variant="h5" sx={{ fontWeight: 800, color: '#111827', mb: 0.5 }}>
+                {user.displayName || user.name}
+              </Typography>
+
+              <Typography variant="body1" sx={{ color: '#6B46C1', fontWeight: 600, mb: 1.5 }}>
+                @{user.username || 'username'}
+              </Typography>
+
+              {user.bio && (
+                <Typography variant="body2" sx={{ color: '#4B5563', mb: 3, maxWidth: 400, lineHeight: 1.6 }}>
+                  {user.bio}
                 </Typography>
+              )}
+
+              {/* Stats Row */}
+              <Box sx={{
+                display: 'flex',
+                gap: 6,
+                mb: 4,
+                p: 2,
+                bgcolor: '#F9FAFB',
+                borderRadius: 4
+              }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#111827' }}>
+                    {userContent?.length || 0}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Posts
+                  </Typography>
+                </Box>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#111827' }}>
+                    {user.followerCount || 0}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Followers
+                  </Typography>
+                </Box>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#111827' }}>
+                    {user.followingCount || 0}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Following
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Action Buttons */}
+              <Box sx={{ display: 'flex', gap: 2, width: '100%', maxWidth: 400 }}>
+                <Button
+                  variant="outlined"
+                  onClick={handleEditProfile}
+                  fullWidth
+                  sx={{
+                    borderColor: '#E5E7EB',
+                    color: '#374151',
+                    textTransform: 'none',
+                    borderRadius: 3,
+                    fontWeight: 600,
+                    py: 1,
+                    '&:hover': {
+                      borderColor: '#D1D5DB',
+                      bgcolor: '#F9FAFB'
+                    }
+                  }}
+                >
+                  Edit Profile
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={() => router.push('/upload')}
+                  fullWidth
+                  sx={{
+                    bgcolor: '#6B46C1',
+                    textTransform: 'none',
+                    borderRadius: 3,
+                    fontWeight: 600,
+                    py: 1,
+                    boxShadow: '0 4px 12px rgba(107, 70, 193, 0.2)',
+                    '&:hover': {
+                      bgcolor: '#553C9A',
+                      boxShadow: '0 6px 16px rgba(107, 70, 193, 0.3)'
+                    }
+                  }}
+                >
+                  Create Post
+                </Button>
               </Box>
             </Box>
-          </CardContent>
-        </Card>
-
-        {/* User Details Card */}
-        <Card sx={{ mb: 3, borderRadius: 3 }}>
-          <CardContent sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
-              Account Details
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="body2" sx={{ color: '#666' }}>Mobile Number</Typography>
-                <Typography variant="body1">{user.mobileNumber || 'Not provided'}</Typography>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="body2" sx={{ color: '#666' }}>Country</Typography>
-                <Typography variant="body1">{user.country || 'Not provided'}</Typography>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="body2" sx={{ color: '#666' }}>Content Creator</Typography>
-                <Chip
-                  label={user.isContentCreator ? 'Yes' : 'No'}
-                  color={user.isContentCreator ? 'success' : 'default'}
-                  size="small"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="body2" sx={{ color: '#666' }}>Auth Provider</Typography>
-                <Typography variant="body1">{user.authProvider || 'Email'}</Typography>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
+          </Container>
+        </Box>
 
         {/* Content Tabs */}
-        <Card sx={{ borderRadius: 3, overflow: 'hidden' }}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Container maxWidth="md" sx={{ mt: 2 }}>
+          <Box sx={{ borderBottom: '1px solid #E5E7EB', mb: 2 }}>
             <Tabs
               value={tabValue}
               onChange={handleTabChange}
+              centered
               sx={{
                 '& .MuiTab-root': {
                   textTransform: 'none',
-                  fontWeight: 'bold',
-                  fontSize: '1rem',
-                  minWidth: 120,
+                  fontWeight: 600,
+                  fontSize: '0.95rem',
+                  color: '#6B7280',
+                  minWidth: 100,
+                  '&.Mui-selected': {
+                    color: '#6B46C1',
+                  },
+                },
+                '& .MuiTabs-indicator': {
+                  backgroundColor: '#6B46C1',
+                  height: 3,
+                  borderRadius: '3px 3px 0 0'
                 },
               }}
             >
-              <Tab
-                icon={<PlayIcon />}
-                label="My Content"
-                iconPosition="start"
-                sx={{ gap: 1 }}
-              />
-              <Tab
-                icon={<FavoriteIcon />}
-                label="Liked"
-                iconPosition="start"
-                sx={{ gap: 1 }}
-              />
-              <Tab
-                icon={<BookmarkIcon />}
-                label="Saved"
-                iconPosition="start"
-                sx={{ gap: 1 }}
-              />
-              <Tab
-                icon={<BarChartIcon />}
-                label="Analytics"
-                iconPosition="start"
-                sx={{ gap: 1 }}
-              />
+              <Tab label="Posts" />
+              <Tab label="Liked" />
+              <Tab label="Saved" />
             </Tabs>
           </Box>
 
-          <TabPanel value={tabValue} index={0}>
-            <Box sx={{ textAlign: 'center', py: 8 }}>
-              <Typography variant="h6" sx={{ color: '#666', mb: 3 }}>
-                Your Content
-              </Typography>
-              <Typography variant="body1" sx={{ color: '#999' }}>
-                No content yet. Start creating to see your posts here!
-              </Typography>
-            </Box>
-          </TabPanel>
+          {/* Content Grid */}
+          <Box sx={{ minHeight: 400 }}>
+            <TabPanel value={tabValue} index={0}>
+              {contentLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+                  <CircularProgress sx={{ color: '#6B46C1' }} />
+                </Box>
+              ) : userContent.length > 0 ? (
+                <Grid container spacing={2}>
+                  {userContent.map((content) => {
+                    const contentUrl = getContentUrl(content);
+                    return (
+                      <Grid item xs={4} key={content.id}>
+                        <Card sx={{
+                          borderRadius: 3,
+                          overflow: 'hidden',
+                          aspectRatio: '1',
+                          cursor: 'pointer',
+                          boxShadow: 'none',
+                          position: 'relative',
+                          '&:hover': {
+                            opacity: 0.9,
+                            transform: 'scale(1.02)',
+                            transition: 'all 0.2s'
+                          }
+                        }}
+                          onClick={() => handlePostClick(content)}
+                        >
+                          {content.type === 'SHORT_VIDEO' ? (
+                            <Box sx={{ position: 'relative', height: '100%' }}>
+                              <CardMedia
+                                component="img"
+                                image={content.thumbnailUrl || contentUrl}
+                                alt={content.title}
+                                sx={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover'
+                                }}
+                              />
+                              <PlayIcon
+                                sx={{
+                                  position: 'absolute',
+                                  top: '50%',
+                                  left: '50%',
+                                  transform: 'translate(-50%, -50%)',
+                                  fontSize: 32,
+                                  color: 'white',
+                                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                                }}
+                              />
+                              <Box sx={{
+                                position: 'absolute',
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                p: 1,
+                                background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5
+                              }}>
+                                <PlayIcon sx={{ fontSize: 14, color: 'white' }} />
+                                <Typography variant="caption" sx={{ color: 'white', fontWeight: 600 }}>
+                                  {content.viewCount || 0}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          ) : (
+                            <CardMedia
+                              component="img"
+                              image={contentUrl}
+                              alt={content.title}
+                              sx={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                              }}
+                            />
+                          )}
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 8 }}>
+                  <Box sx={{
+                    width: 64,
+                    height: 64,
+                    bgcolor: '#F3F4F6',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mx: 'auto',
+                    mb: 2
+                  }}>
+                    <PhotoCameraIcon sx={{ fontSize: 32, color: '#9CA3AF' }} />
+                  </Box>
+                  <Typography variant="h6" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
+                    No posts yet
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    Share your first meme or video with the world!
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    onClick={() => router.push('/upload')}
+                    sx={{
+                      bgcolor: '#6B46C1',
+                      textTransform: 'none',
+                      borderRadius: 2,
+                      fontWeight: 600,
+                      '&:hover': { bgcolor: '#553C9A' }
+                    }}
+                  >
+                    Create Post
+                  </Button>
+                </Box>
+              )}
+            </TabPanel>
 
-          <TabPanel value={tabValue} index={1}>
-            <Box sx={{ textAlign: 'center', py: 8 }}>
-              <Typography variant="h6" sx={{ color: '#666', mb: 3 }}>
-                Liked Content
-              </Typography>
-              <Typography variant="body1" sx={{ color: '#999' }}>
-                Content you&apos;ve liked will appear here
-              </Typography>
-            </Box>
-          </TabPanel>
+            <TabPanel value={tabValue} index={1}>
+              {contentLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+                  <CircularProgress sx={{ color: '#6B46C1' }} />
+                </Box>
+              ) : likedContent.length > 0 ? (
+                <Grid container spacing={2}>
+                  {likedContent.map((content) => {
+                    const contentUrl = getContentUrl(content);
+                    return (
+                      <Grid item xs={4} key={content.id}>
+                        <Card sx={{
+                          borderRadius: 3,
+                          overflow: 'hidden',
+                          aspectRatio: '1',
+                          cursor: 'pointer',
+                          boxShadow: 'none',
+                          '&:hover': {
+                            opacity: 0.9,
+                            transform: 'scale(1.02)',
+                            transition: 'all 0.2s'
+                          }
+                        }}
+                          onClick={() => handlePostClick(content)}
+                        >
+                          <CardMedia
+                            component="img"
+                            image={contentUrl}
+                            alt={content.title}
+                            sx={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
+                          />
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 8 }}>
+                  <Box sx={{
+                    width: 64,
+                    height: 64,
+                    bgcolor: '#F3F4F6',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mx: 'auto',
+                    mb: 2
+                  }}>
+                    <FavoriteIcon sx={{ fontSize: 32, color: '#9CA3AF' }} />
+                  </Box>
+                  <Typography variant="h6" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
+                    No liked posts
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Posts you like will appear here
+                  </Typography>
+                </Box>
+              )}
+            </TabPanel>
 
-          <TabPanel value={tabValue} index={2}>
-            <Box sx={{ textAlign: 'center', py: 8 }}>
-              <Typography variant="h6" sx={{ color: '#666', mb: 3 }}>
-                Saved Content
-              </Typography>
-              <Typography variant="body1" sx={{ color: '#999' }}>
-                Content you&apos;ve saved will appear here
-              </Typography>
-            </Box>
-          </TabPanel>
+            <TabPanel value={tabValue} index={2}>
+              <Box sx={{ textAlign: 'center', py: 8 }}>
+                <Box sx={{
+                  width: 64,
+                  height: 64,
+                  bgcolor: '#F3F4F6',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mx: 'auto',
+                  mb: 2
+                }}>
+                  <BookmarkIcon sx={{ fontSize: 32, color: '#9CA3AF' }} />
+                </Box>
+                <Typography variant="h6" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
+                  No saved posts
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Posts you save will appear here
+                </Typography>
+              </Box>
+            </TabPanel>
+          </Box>
+        </Container>
 
-          <TabPanel value={tabValue} index={3}>
-            <Box sx={{ textAlign: 'center', py: 8 }}>
-              <Typography variant="h6" sx={{ color: '#666', mb: 3 }}>
-                Analytics
-              </Typography>
-              <Typography variant="body1" sx={{ color: '#999' }}>
-                Your performance analytics will appear here
+        {/* Edit Profile Modal */}
+        <Dialog
+          open={editDialogOpen}
+          onClose={() => setEditDialogOpen(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            Edit Profile
+            <IconButton onClick={() => setEditDialogOpen(false)}>
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label="Display Name"
+              value={editForm.displayName}
+              onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
+              margin="normal"
+              variant="outlined"
+            />
+            <TextField
+              fullWidth
+              label="Username"
+              value={editForm.username}
+              onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+              margin="normal"
+              variant="outlined"
+              helperText="This will be your unique identifier"
+            />
+            <TextField
+              fullWidth
+              label="Creator Handle"
+              value={editForm.creatorHandle}
+              onChange={(e) => setEditForm({ ...editForm, creatorHandle: e.target.value })}
+              margin="normal"
+              variant="outlined"
+              helperText="Your public creator handle (e.g., @yourname)"
+            />
+            <TextField
+              fullWidth
+              label="Bio"
+              value={editForm.bio}
+              onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+              margin="normal"
+              variant="outlined"
+              multiline
+              rows={3}
+              helperText="Tell people about yourself"
+            />
+          </DialogContent>
+          <DialogActions sx={{ p: 3 }}>
+            <Button
+              onClick={() => setEditDialogOpen(false)}
+              sx={{ textTransform: 'none' }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleProfileUpdate}
+              variant="contained"
+              disabled={loading}
+              startIcon={loading ? <CircularProgress size={16} /> : <SaveIcon />}
+              sx={{
+                bgcolor: '#6B46C1',
+                textTransform: 'none',
+                '&:hover': { bgcolor: '#553C9A' }
+              }}
+            >
+              Save Changes
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Photo Upload Modal */}
+        <Dialog
+          open={photoDialogOpen}
+          onClose={() => setPhotoDialogOpen(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            Update Profile Photo
+            <IconButton onClick={() => setPhotoDialogOpen(false)}>
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ textAlign: 'center', py: 2 }}>
+              {previewUrl ? (
+                <Avatar
+                  src={previewUrl}
+                  sx={{ width: 120, height: 120, mx: 'auto', mb: 2 }}
+                />
+              ) : (
+                <Avatar
+                  src={getProfilePictureUrl(user.profilePicture)}
+                  sx={{ width: 120, height: 120, mx: 'auto', mb: 2, bgcolor: '#6B46C1' }}
+                >
+                  {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                </Avatar>
+              )}
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+              />
+
+              <Button
+                variant="outlined"
+                onClick={() => fileInputRef.current?.click()}
+                startIcon={<UploadIcon />}
+                sx={{
+                  borderColor: '#6B46C1',
+                  color: '#6B46C1',
+                  textTransform: 'none',
+                  mb: 2
+                }}
+              >
+                Choose Photo
+              </Button>
+
+              <Typography variant="body2" color="text.secondary">
+                JPG, PNG or GIF up to 5MB
               </Typography>
             </Box>
-          </TabPanel>
-        </Card>
+          </DialogContent>
+          <DialogActions sx={{ p: 3 }}>
+            <Button
+              onClick={() => {
+                setPhotoDialogOpen(false);
+                setSelectedFile(null);
+                setPreviewUrl(null);
+              }}
+              sx={{ textTransform: 'none' }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePhotoUpload}
+              variant="contained"
+              disabled={!selectedFile || loading}
+              startIcon={loading ? <CircularProgress size={16} /> : <SaveIcon />}
+              sx={{
+                bgcolor: '#6B46C1',
+                textTransform: 'none',
+                '&:hover': { bgcolor: '#553C9A' }
+              }}
+            >
+              Upload Photo
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Post Detail Modal */}
+        <PostDetailModal
+          open={postDialogOpen}
+          onClose={() => setPostDialogOpen(false)}
+          post={selectedPost}
+          onLike={(contentId, isLiked) => {
+            // Update local state if needed
+            // For now, we rely on the modal's internal state + optimistic updates
+            // In a real app, we'd update the userContent/likedContent lists here
+          }}
+        />
+
+        {/* Snackbar for notifications */}
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={4000}
+          onClose={() => setSnackbarOpen(false)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            onClose={() => setSnackbarOpen(false)}
+            severity="info"
+            sx={{ width: '100%' }}
+          >
+            {snackbarMessage}
+          </Alert>
+        </Snackbar>
       </Container>
     </Box>
   );

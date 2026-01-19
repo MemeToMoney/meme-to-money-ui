@@ -7,16 +7,8 @@ import {
   Button,
   Container,
   Stack,
-  Paper,
-  Grid
+  Avatar
 } from '@mui/material';
-import {
-  Add as CreateIcon,
-  TrendingUp as ViralIcon,
-  AttachMoney as EarnIcon,
-  Login as LoginIcon,
-  PersonAdd as SignUpIcon
-} from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 
 export default function LandingPage() {
@@ -26,225 +18,197 @@ export default function LandingPage() {
     router.push('/auth/login');
   };
 
-  const handleSignUp = () => {
+  const handleJoinNow = () => {
     router.push('/auth/register');
   };
 
-  const handleExplore = () => {
-    router.push('/auth/login');
-  };
-
   return (
-    <Container maxWidth="lg" sx={{ minHeight: '100vh', py: 4 }}>
-      {/* Header Section */}
-      <Box sx={{ textAlign: 'center', mb: 8 }}>
-        <Typography
-          variant="h1"
-          sx={{
-            fontWeight: 'bold',
-            mb: 3,
-            background: 'linear-gradient(45deg, #8B5FBF, #6A4C93)',
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            fontSize: { xs: '3rem', md: '4.5rem' }
-          }}
-        >
-          Meme to Money
-        </Typography>
+    <Box sx={{
+      minHeight: '100vh',
+      background: 'linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}>
+      <Container
+        maxWidth="sm"
+        sx={{
+          maxWidth: '428px !important',
+          px: 3,
+          py: 4
+        }}
+      >
+        <Box sx={{
+          textAlign: 'center',
+          bgcolor: 'white',
+          borderRadius: 4,
+          p: 4,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          border: '1px solid rgba(255,255,255,0.2)'
+        }}>
 
-        <Typography
-          variant="h4"
-          sx={{
+          {/* App Title */}
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 'bold',
+              mb: 1,
+              color: '#2c3e50',
+              fontSize: '1.8rem'
+            }}
+          >
+            Meme to Money Platform
+          </Typography>
+
+          {/* Character Illustration Area */}
+          <Box sx={{
             mb: 4,
-            color: '#666',
-            fontWeight: 500,
-            fontSize: { xs: '1.5rem', md: '2rem' }
-          }}
-        >
-          Create • Compete • Earn
-        </Typography>
+            mt: 3,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: 200,
+            position: 'relative'
+          }}>
+            {/* Character Avatar */}
+            <Box sx={{
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center'
+            }}>
+              <Avatar
+                sx={{
+                  width: 120,
+                  height: 120,
+                  bgcolor: '#6B46C1',
+                  fontSize: '3rem',
+                  mb: 2,
+                  border: '4px solid #E5E7EB'
+                }}
+              >
+                👨‍💻
+              </Avatar>
 
-        <Typography
-          variant="h6"
-          sx={{
-            mb: 6,
-            color: '#777',
-            lineHeight: 1.6,
-            maxWidth: 600,
-            mx: 'auto',
-            fontSize: { xs: '1.1rem', md: '1.3rem' }
-          }}
-        >
-          Turn your memes and videos into real earnings. Join the community of
-          creators making money from their content.
-        </Typography>
+              {/* Coin elements */}
+              <Box sx={{
+                position: 'absolute',
+                top: -10,
+                right: -20,
+                width: 40,
+                height: 40,
+                bgcolor: '#FFD700',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.5rem',
+                boxShadow: '0 4px 12px rgba(255, 215, 0, 0.3)'
+              }}>
+                💰
+              </Box>
 
-        {/* Primary Action Buttons */}
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} sx={{ mb: 6, justifyContent: 'center' }}>
-          <Button
-            variant="contained"
-            size="large"
-            onClick={handleSignUp}
-            startIcon={<SignUpIcon />}
+              <Box sx={{
+                position: 'absolute',
+                bottom: 20,
+                left: -25,
+                width: 30,
+                height: 30,
+                bgcolor: '#FFD700',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1rem',
+                boxShadow: '0 4px 12px rgba(255, 215, 0, 0.3)'
+              }}>
+                🪙
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Tagline */}
+          <Typography
+            variant="h6"
             sx={{
-              background: 'linear-gradient(45deg, #2196F3, #1976D2)',
-              py: 2,
-              px: 4,
-              fontSize: '1.2rem',
               fontWeight: 'bold',
-              borderRadius: 3,
-              textTransform: 'none',
-              minWidth: 200,
-              '&:hover': {
-                background: 'linear-gradient(45deg, #1976D2, #1565C0)',
-              },
+              mb: 2,
+              color: '#374151',
+              fontSize: '1.3rem'
             }}
           >
-            Get Started Free
-          </Button>
+            Share Your Fun
+          </Typography>
 
-          <Button
-            variant="outlined"
-            size="large"
-            onClick={handleLogin}
-            startIcon={<LoginIcon />}
+          <Typography
+            variant="body1"
             sx={{
-              py: 2,
-              px: 4,
-              fontSize: '1.2rem',
-              fontWeight: 'bold',
-              borderRadius: 3,
-              textTransform: 'none',
-              minWidth: 200,
-              borderColor: '#8B5FBF',
-              color: '#8B5FBF',
-              '&:hover': {
-                borderColor: '#6A4C93',
-                color: '#6A4C93',
-                backgroundColor: 'rgba(139, 95, 191, 0.04)',
-              },
+              color: '#6B7280',
+              mb: 4,
+              lineHeight: 1.6,
+              px: 2
             }}
           >
-            Sign In
-          </Button>
-        </Stack>
-      </Box>
+            Join a vibrant community to upload memes, earn rewards, and engage with others.
+          </Typography>
 
-      {/* Features Section */}
-      <Grid container spacing={4} sx={{ mb: 8 }}>
-        <Grid item xs={12} md={4}>
-          <Paper elevation={3} sx={{ p: 4, textAlign: 'center', height: '100%' }}>
-            <CreateIcon sx={{ fontSize: 60, color: '#2196F3', mb: 2 }} />
-            <Typography variant="h5" gutterBottom fontWeight="bold">
-              Create & Share
-            </Typography>
-            <Typography variant="body1" color="textSecondary">
-              Upload your best memes and short videos to share with the community
-            </Typography>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Paper elevation={3} sx={{ p: 4, textAlign: 'center', height: '100%' }}>
-            <ViralIcon sx={{ fontSize: 60, color: '#4CAF50', mb: 2 }} />
-            <Typography variant="h5" gutterBottom fontWeight="bold">
-              Go Viral
-            </Typography>
-            <Typography variant="body1" color="textSecondary">
-              Compete in contests and challenges to get your content noticed
-            </Typography>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Paper elevation={3} sx={{ p: 4, textAlign: 'center', height: '100%' }}>
-            <EarnIcon sx={{ fontSize: 60, color: '#FF9800', mb: 2 }} />
-            <Typography variant="h5" gutterBottom fontWeight="bold">
-              Earn Money
-            </Typography>
-            <Typography variant="body1" color="textSecondary">
-              Get tips and prizes from your viral content and engaged audience
-            </Typography>
-          </Paper>
-        </Grid>
-      </Grid>
-
-      {/* Call to Action Section */}
-      <Box sx={{ textAlign: 'center', py: 6, bgcolor: 'rgba(139, 95, 191, 0.05)', borderRadius: 3 }}>
-        <Typography variant="h4" gutterBottom fontWeight="bold">
-          Ready to Start Earning?
-        </Typography>
-        <Typography variant="h6" sx={{ mb: 4, color: '#666' }}>
-          Join thousands of creators already making money from their memes
-        </Typography>
-
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'center' }}>
+          {/* Primary CTA Button */}
           <Button
             variant="contained"
+            fullWidth
             size="large"
-            onClick={handleSignUp}
+            onClick={handleJoinNow}
             sx={{
-              background: 'linear-gradient(45deg, #8B5FBF, #6A4C93)',
+              background: 'linear-gradient(135deg, #6B46C1 0%, #9333EA 100%)',
+              color: 'white',
               py: 2,
-              px: 4,
               fontSize: '1.1rem',
               fontWeight: 'bold',
               borderRadius: 3,
               textTransform: 'none',
+              mb: 3,
+              boxShadow: '0 4px 16px rgba(107, 70, 193, 0.4)',
               '&:hover': {
-                background: 'linear-gradient(45deg, #6A4C93, #5A3D7A)',
+                background: 'linear-gradient(135deg, #553C9A 0%, #7C3AED 100%)',
+                boxShadow: '0 6px 20px rgba(107, 70, 193, 0.5)',
               },
             }}
           >
-            Create Account
+            Join Now
           </Button>
 
-          <Button
-            variant="text"
-            size="large"
-            onClick={handleExplore}
+          {/* Secondary Link */}
+          <Typography
+            variant="body2"
             sx={{
-              py: 2,
-              px: 4,
-              fontSize: '1.1rem',
-              fontWeight: 'bold',
-              borderRadius: 3,
-              textTransform: 'none',
-              color: '#8B5FBF',
-              '&:hover': {
-                backgroundColor: 'rgba(139, 95, 191, 0.1)',
-              },
+              color: '#6B7280',
+              fontSize: '0.95rem'
             }}
           >
-            Explore Content
-          </Button>
-        </Stack>
-      </Box>
-
-      {/* Footer */}
-      <Box sx={{ textAlign: 'center', mt: 8, py: 4, borderTop: '1px solid #eee' }}>
-        <Typography variant="body2" color="textSecondary">
-          Already have an account?{' '}
-          <Button
-            variant="text"
-            onClick={handleLogin}
-            sx={{
-              color: '#8B5FBF',
-              fontWeight: 'bold',
-              textTransform: 'none',
-              p: 0,
-              minWidth: 'auto',
-              '&:hover': {
-                backgroundColor: 'transparent',
-                color: '#6A4C93',
-              },
-            }}
-          >
-            Sign In Here
-          </Button>
-        </Typography>
-      </Box>
-    </Container>
+            Already a member?{' '}
+            <Button
+              variant="text"
+              onClick={handleLogin}
+              sx={{
+                color: '#6B46C1',
+                fontWeight: 'bold',
+                textTransform: 'none',
+                p: 0,
+                minWidth: 'auto',
+                fontSize: '0.95rem',
+                textDecoration: 'underline',
+                '&:hover': {
+                  backgroundColor: 'transparent',
+                  color: '#553C9A',
+                  textDecoration: 'underline',
+                },
+              }}
+            >
+              Log in
+            </Button>
+          </Typography>
+        </Box>
+      </Container>
+    </Box>
   );
 }

@@ -7,20 +7,26 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function HomePage() {
   const router = useRouter();
-  const { isAuthenticated, loading } = useAuth();
-  // Router: redirects to landing or feed based on auth status
+  const { isAuthenticated, loading, user } = useAuth();
+  // Router: redirects to landing, onboarding, or feed based on auth status
 
   useEffect(() => {
     if (!loading) {
-      if (isAuthenticated) {
-        // Authenticated users go to feed
-        router.push('/feed');
+      if (isAuthenticated && user) {
+        // Check if user has completed onboarding
+        if (!user.onboardingCompleted) {
+          // New users go to onboarding
+          router.push('/onboarding');
+        } else {
+          // Existing users go to feed
+          router.push('/feed');
+        }
       } else {
         // Unauthenticated users go to landing page
         router.push('/landing');
       }
     }
-  }, [isAuthenticated, loading, router]);
+  }, [isAuthenticated, loading, user, router]);
 
   // Show loading while checking auth
   if (loading) {

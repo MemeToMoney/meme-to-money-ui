@@ -1,21 +1,14 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ProtectedRoute } from '@/components/ProtectedRoute';
 import {
   Container,
   Box,
-  Grid,
-  Card,
-  CardMedia,
   Typography,
   IconButton,
   Avatar,
   Button,
-  Chip,
-  Badge,
-  Fab,
-  Paper
+  Chip
 } from '@mui/material';
 import {
   PlayArrow as PlayIcon,
@@ -26,11 +19,10 @@ import {
   FavoriteBorder as UnlikeIcon,
   Comment as CommentIcon,
   Share as ShareIcon,
-  MoreVert as MoreIcon,
-  Fullscreen as FullscreenIcon,
-  Add as AddIcon
+  PersonAdd as FollowIcon
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 interface ShortVideo {
   id: string;
@@ -186,15 +178,12 @@ function VideoPlayer({
   }, [isMuted]);
 
   return (
-    <Card sx={{
+    <Box sx={{
       position: 'relative',
-      aspectRatio: '9/16',
-      borderRadius: 3,
-      overflow: 'hidden',
-      cursor: 'pointer',
-      '&:hover .video-overlay': {
-        opacity: 1
-      }
+      width: '100%',
+      height: '100vh',
+      bgcolor: 'black',
+      overflow: 'hidden'
     }}>
       <video
         ref={videoRef}
@@ -209,100 +198,99 @@ function VideoPlayer({
         onClick={onPlayPause}
       />
 
-      {/* Play/Pause Overlay */}
-      <Box
-        className="video-overlay"
-        sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.1)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: 0,
-          transition: 'opacity 0.3s ease'
-        }}
-        onClick={onPlayPause}
-      >
-        <IconButton
+      {/* Play/Pause Center Icon */}
+      {!isPlaying && (
+        <Box
           sx={{
-            color: 'white',
-            bgcolor: 'rgba(0,0,0,0.5)',
-            '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 2
           }}
         >
-          {isPlaying ? <PauseIcon sx={{ fontSize: 40 }} /> : <PlayIcon sx={{ fontSize: 40 }} />}
-        </IconButton>
-      </Box>
+          <IconButton
+            onClick={onPlayPause}
+            sx={{
+              color: 'white',
+              bgcolor: 'rgba(255,255,255,0.2)',
+              backdropFilter: 'blur(10px)',
+              width: 80,
+              height: 80,
+              '&:hover': {
+                bgcolor: 'rgba(255,255,255,0.3)',
+                transform: 'scale(1.1)'
+              }
+            }}
+          >
+            <PlayIcon sx={{ fontSize: 40 }} />
+          </IconButton>
+        </Box>
+      )}
 
-      {/* Video Controls */}
+      {/* Top Controls */}
       <Box sx={{
         position: 'absolute',
         top: 16,
         right: 16,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 1
+        zIndex: 3
       }}>
         <IconButton
           onClick={onMuteToggle}
           sx={{
             color: 'white',
             bgcolor: 'rgba(0,0,0,0.5)',
-            width: 40,
-            height: 40,
-            '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }
+            backdropFilter: 'blur(10px)',
+            mb: 1
           }}
         >
           {isMuted ? <MuteIcon /> : <VolumeIcon />}
         </IconButton>
-        <IconButton
-          sx={{
-            color: 'white',
-            bgcolor: 'rgba(0,0,0,0.5)',
-            width: 40,
-            height: 40,
-            '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }
-          }}
-        >
-          <FullscreenIcon />
-        </IconButton>
       </Box>
 
-      {/* Creator Info Overlay */}
+      {/* Creator Info */}
       <Box sx={{
         position: 'absolute',
         bottom: 16,
         left: 16,
         right: 80,
-        color: 'white'
+        color: 'white',
+        zIndex: 3
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
           <Avatar
             src={video.user.profilePicture}
-            sx={{ width: 32, height: 32 }}
+            sx={{ width: 40, height: 40, border: '2px solid white' }}
           >
             {video.user.displayName.charAt(0)}
           </Avatar>
-          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-            @{video.user.username}
-          </Typography>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="subtitle1" sx={{
+              fontWeight: 'bold',
+              textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
+            }}>
+              @{video.user.username}
+            </Typography>
+            <Typography variant="caption" sx={{
+              color: 'rgba(255,255,255,0.8)',
+              textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
+            }}>
+              {video.createdAt}
+            </Typography>
+          </Box>
           <Button
-            variant="outlined"
+            startIcon={<FollowIcon />}
+            variant="contained"
             size="small"
             sx={{
+              bgcolor: '#6B46C1',
               color: 'white',
-              borderColor: 'white',
               textTransform: 'none',
-              fontSize: '0.7rem',
+              borderRadius: 20,
+              px: 2,
               py: 0.5,
-              px: 1,
               '&:hover': {
-                borderColor: '#4FC3F7',
-                color: '#4FC3F7'
+                bgcolor: '#553C9A'
               }
             }}
           >
@@ -310,9 +298,9 @@ function VideoPlayer({
           </Button>
         </Box>
 
-        <Typography variant="body2" sx={{
-          mb: 1,
-          fontSize: '0.85rem',
+        <Typography variant="body1" sx={{
+          mb: 1.5,
+          lineHeight: 1.4,
           textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
         }}>
           {video.description}
@@ -325,25 +313,28 @@ function VideoPlayer({
               label={`#${tag}`}
               size="small"
               sx={{
-                bgcolor: 'rgba(79, 195, 247, 0.8)',
+                bgcolor: 'rgba(107, 70, 193, 0.8)',
                 color: 'white',
-                fontSize: '0.7rem',
-                height: 20
+                fontSize: '0.75rem',
+                height: 24,
+                borderRadius: 12,
+                backdropFilter: 'blur(10px)'
               }}
             />
           ))}
         </Box>
       </Box>
 
-      {/* Engagement Actions */}
+      {/* Right Side Actions */}
       <Box sx={{
         position: 'absolute',
-        bottom: 16,
-        right: 16,
+        bottom: 100,
+        right: 12,
         display: 'flex',
         flexDirection: 'column',
-        gap: 2,
-        alignItems: 'center'
+        gap: 3,
+        alignItems: 'center',
+        zIndex: 3
       }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <IconButton
@@ -351,13 +342,25 @@ function VideoPlayer({
             sx={{
               color: video.isLiked ? '#ff4444' : 'white',
               bgcolor: 'rgba(0,0,0,0.5)',
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }
+              backdropFilter: 'blur(10px)',
+              width: 48,
+              height: 48,
+              '&:hover': {
+                bgcolor: 'rgba(0,0,0,0.7)',
+                transform: 'scale(1.1)'
+              }
             }}
           >
-            {video.isLiked ? <LikeIcon /> : <UnlikeIcon />}
+            {video.isLiked ? <LikeIcon sx={{ fontSize: 28 }} /> : <UnlikeIcon sx={{ fontSize: 28 }} />}
           </IconButton>
-          <Typography variant="caption" sx={{ color: 'white', fontSize: '0.7rem' }}>
-            {video.likes}
+          <Typography variant="caption" sx={{
+            color: 'white',
+            fontSize: '0.75rem',
+            fontWeight: 'bold',
+            mt: 0.5,
+            textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
+          }}>
+            {video.likes > 999 ? `${(video.likes / 1000).toFixed(1)}K` : video.likes}
           </Typography>
         </Box>
 
@@ -367,12 +370,24 @@ function VideoPlayer({
             sx={{
               color: 'white',
               bgcolor: 'rgba(0,0,0,0.5)',
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }
+              backdropFilter: 'blur(10px)',
+              width: 48,
+              height: 48,
+              '&:hover': {
+                bgcolor: 'rgba(0,0,0,0.7)',
+                transform: 'scale(1.1)'
+              }
             }}
           >
-            <CommentIcon />
+            <CommentIcon sx={{ fontSize: 28 }} />
           </IconButton>
-          <Typography variant="caption" sx={{ color: 'white', fontSize: '0.7rem' }}>
+          <Typography variant="caption" sx={{
+            color: 'white',
+            fontSize: '0.75rem',
+            fontWeight: 'bold',
+            mt: 0.5,
+            textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
+          }}>
             {video.comments}
           </Typography>
         </Box>
@@ -383,22 +398,35 @@ function VideoPlayer({
             sx={{
               color: 'white',
               bgcolor: 'rgba(0,0,0,0.5)',
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }
+              backdropFilter: 'blur(10px)',
+              width: 48,
+              height: 48,
+              '&:hover': {
+                bgcolor: 'rgba(0,0,0,0.7)',
+                transform: 'scale(1.1)'
+              }
             }}
           >
-            <ShareIcon />
+            <ShareIcon sx={{ fontSize: 28 }} />
           </IconButton>
-          <Typography variant="caption" sx={{ color: 'white', fontSize: '0.7rem' }}>
+          <Typography variant="caption" sx={{
+            color: 'white',
+            fontSize: '0.75rem',
+            fontWeight: 'bold',
+            mt: 0.5,
+            textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
+          }}>
             {video.shares}
           </Typography>
         </Box>
       </Box>
 
-      {/* View Count */}
+      {/* View Count Badge */}
       <Box sx={{
         position: 'absolute',
         top: 16,
-        left: 16
+        left: 16,
+        zIndex: 3
       }}>
         <Chip
           label={`${video.views.toLocaleString()} views`}
@@ -406,18 +434,21 @@ function VideoPlayer({
           sx={{
             bgcolor: 'rgba(0,0,0,0.7)',
             color: 'white',
-            fontSize: '0.7rem'
+            fontSize: '0.75rem',
+            backdropFilter: 'blur(10px)'
           }}
         />
       </Box>
-    </Card>
+    </Box>
   );
 }
 
 function ShortsPageContent() {
   const [shorts, setShorts] = useState<ShortVideo[]>(mockShorts);
-  const [playingVideo, setPlayingVideo] = useState<string | null>(null);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const [playingVideo, setPlayingVideo] = useState<string | null>(mockShorts[0]?.id || null);
   const [mutedVideos, setMutedVideos] = useState<Set<string>>(new Set());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
   const handlePlayPause = (videoId: string) => {
@@ -449,97 +480,121 @@ function ShortsPageContent() {
   };
 
   const handleComment = (videoId: string) => {
-    console.log('Comment on video:', videoId);
+    // TODO: Implement comment modal
   };
 
   const handleShare = (videoId: string) => {
-    console.log('Share video:', videoId);
+    // TODO: Implement share functionality
+  };
+
+  // Auto-play current video
+  useEffect(() => {
+    if (shorts[currentVideoIndex]) {
+      setPlayingVideo(shorts[currentVideoIndex].id);
+    }
+  }, [currentVideoIndex, shorts]);
+
+  // Handle scroll to detect current video
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      const scrollTop = scrollContainerRef.current.scrollTop;
+      const viewportHeight = window.innerHeight;
+      const newIndex = Math.round(scrollTop / viewportHeight);
+      if (newIndex !== currentVideoIndex && newIndex >= 0 && newIndex < shorts.length) {
+        setCurrentVideoIndex(newIndex);
+      }
+    }
   };
 
   return (
-    <Box sx={{
-      minHeight: '100vh',
-      background: 'linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%)',
-      py: 3
-    }}>
-      <Container maxWidth="lg">
-        {/* Header */}
-        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box>
-            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-              Shorts
-            </Typography>
-            <Typography variant="body1" sx={{ color: '#666' }}>
-              Discover trending short videos
-            </Typography>
-          </Box>
-          <Fab
-            color="primary"
+    <Container maxWidth={false} sx={{ p: 0, height: '100vh', overflow: 'hidden' }}>
+      {/* Vertical scroll container */}
+      <Box
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        sx={{
+          height: '100vh',
+          overflowY: 'auto',
+          scrollSnapType: 'y mandatory',
+          '&::-webkit-scrollbar': {
+            display: 'none'
+          },
+          scrollbarWidth: 'none'
+        }}
+      >
+        {shorts.map((video, index) => (
+          <Box
+            key={video.id}
             sx={{
-              bgcolor: '#4FC3F7',
-              '&:hover': { bgcolor: '#29B6F6' }
-            }}
-            onClick={() => console.log('Create new short')}
-          >
-            <AddIcon />
-          </Fab>
-        </Box>
-
-        {/* Category Filters */}
-        <Box sx={{ mb: 4 }}>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {['All', 'Funny', 'Dance', 'Cooking', 'Travel', 'Music', 'Comedy', 'Trending'].map((category) => (
-              <Chip
-                key={category}
-                label={category}
-                variant={category === 'All' ? 'filled' : 'outlined'}
-                color={category === 'All' ? 'primary' : 'default'}
-                clickable
-                sx={{
-                  borderRadius: 20,
-                  fontWeight: category === 'All' ? 'bold' : 'normal'
-                }}
-              />
-            ))}
-          </Box>
-        </Box>
-
-        {/* Shorts Grid */}
-        <Grid container spacing={3}>
-          {shorts.map((video) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={video.id}>
-              <VideoPlayer
-                video={video}
-                isPlaying={playingVideo === video.id}
-                isMuted={mutedVideos.has(video.id)}
-                onPlayPause={() => handlePlayPause(video.id)}
-                onMuteToggle={() => handleMuteToggle(video.id)}
-                onLike={() => handleLike(video.id)}
-                onComment={() => handleComment(video.id)}
-                onShare={() => handleShare(video.id)}
-              />
-            </Grid>
-          ))}
-        </Grid>
-
-        {/* Load More */}
-        <Box sx={{ textAlign: 'center', mt: 4 }}>
-          <Button
-            variant="outlined"
-            size="large"
-            sx={{
-              borderRadius: 20,
-              px: 4,
-              py: 1.5,
-              textTransform: 'none',
-              fontWeight: 'bold'
+              height: '100vh',
+              scrollSnapAlign: 'start',
+              scrollSnapStop: 'always'
             }}
           >
-            Load More Shorts
-          </Button>
-        </Box>
-      </Container>
-    </Box>
+            <VideoPlayer
+              video={video}
+              isPlaying={playingVideo === video.id}
+              isMuted={mutedVideos.has(video.id)}
+              onPlayPause={() => handlePlayPause(video.id)}
+              onMuteToggle={() => handleMuteToggle(video.id)}
+              onLike={() => handleLike(video.id)}
+              onComment={() => handleComment(video.id)}
+              onShare={() => handleShare(video.id)}
+            />
+          </Box>
+        ))}
+      </Box>
+
+      {/* Page Indicator */}
+      <Box sx={{
+        position: 'fixed',
+        right: 8,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1,
+        zIndex: 10
+      }}>
+        {shorts.map((_, index) => (
+          <Box
+            key={index}
+            sx={{
+              width: 4,
+              height: currentVideoIndex === index ? 20 : 8,
+              bgcolor: currentVideoIndex === index ? 'white' : 'rgba(255,255,255,0.5)',
+              borderRadius: 2,
+              transition: 'all 0.3s ease'
+            }}
+          />
+        ))}
+      </Box>
+
+      {/* Header - Shorts title */}
+      <Box sx={{
+        position: 'fixed',
+        top: 16,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 10
+      }}>
+        <Typography
+          variant="h6"
+          sx={{
+            color: 'white',
+            fontWeight: 'bold',
+            textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+            backdropFilter: 'blur(10px)',
+            bgcolor: 'rgba(0,0,0,0.3)',
+            px: 2,
+            py: 0.5,
+            borderRadius: 20
+          }}
+        >
+          Shorts
+        </Typography>
+      </Box>
+    </Container>
   );
 }
 

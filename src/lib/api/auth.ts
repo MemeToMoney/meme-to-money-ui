@@ -1,11 +1,11 @@
 // Authentication API Integration
 // Connects with User Service authentication endpoints
 
-import { userServiceClient, handleApiResponse, ApiResponse, User, TokenManager } from './client';
+import { userServiceClient, contentServiceClient, handleApiResponse, ApiResponse, User, TokenManager } from './client';
 
 // Request/Response types matching your API spec
 export interface LoginRequest {
-  emailOrMobile: string;
+  email: string;
   password: string;
 }
 
@@ -38,7 +38,7 @@ export class AuthAPI {
       console.log('Attempting login with:', credentials);
 
       // Demo credentials for testing
-      if (credentials.emailOrMobile === 'demo@example.com' && credentials.password === 'demo123') {
+      if (credentials.email === 'demo@example.com' && credentials.password === 'demo123') {
         const mockToken = 'demo-jwt-token-' + Date.now();
         TokenManager.setToken(mockToken);
 
@@ -58,6 +58,7 @@ export class AuthAPI {
           kycStatus: 'VERIFIED',
           isContentCreator: true,
           creatorHandle: '@demouser',
+          onboardingCompleted: false, // So demo users go through onboarding
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
@@ -92,7 +93,7 @@ export class AuthAPI {
           const mockUser: User = {
             id: userId || '1',
             name: response.data.name || response.data.user?.name || 'Test User',
-            email: credentials.emailOrMobile,
+            email: credentials.email,
             username: response.data.username || response.data.user?.username,
             displayName: response.data.displayName || response.data.user?.displayName,
             bio: response.data.bio || response.data.user?.bio,
@@ -105,6 +106,7 @@ export class AuthAPI {
             kycStatus: response.data.kycStatus || 'NOT_SUBMITTED',
             isContentCreator: response.data.isContentCreator || false,
             creatorHandle: response.data.creatorHandle,
+            onboardingCompleted: response.data.onboardingCompleted ?? false,
             createdAt: response.data.createdAt || new Date().toISOString(),
             updatedAt: response.data.updatedAt || new Date().toISOString()
           };
@@ -141,8 +143,21 @@ export class AuthAPI {
    * POST /api/auth/register (uses query params)
    */
   static async register(userData: RegisterRequest): Promise<ApiResponse<string>> {
+    // Build query parameters as your API expects
+    const queryParams = new URLSearchParams({
+      name: userData.name,
+      email: userData.email,
+      mobileNumber: userData.mobileNumber.toString(),
+      password: userData.password
+    });
+
+    // Add optional address if provided
+    if (userData.address) {
+      queryParams.append('address', userData.address);
+    }
+
     const response = await handleApiResponse<string>(
-      userServiceClient.post('/api/auth/register', null, { params: userData })
+      userServiceClient.post(`/api/auth/register?${queryParams.toString()}`, {})
     );
 
     return response;
@@ -221,6 +236,7 @@ export class AuthAPI {
           address: userData.address,
           isGod: userData.isGod,
           authProvider: userData.authProvider,
+          onboardingCompleted: userData.onboardingCompleted ?? false,
           createdAt: userData.createdAt,
           updatedAt: userData.updatedAt
         };
@@ -281,6 +297,7 @@ export class AuthAPI {
           address: userData.address,
           isGod: userData.isGod,
           authProvider: userData.authProvider,
+          onboardingCompleted: userData.onboardingCompleted ?? false,
           createdAt: userData.createdAt,
           updatedAt: userData.updatedAt
         };
@@ -312,18 +329,37 @@ export class AuthAPI {
    * POST /api/users/me/profile-picture
    */
   static async uploadProfilePicture(file: File): Promise<ApiResponse<{ [key: string]: any }>> {
-    const formData = new FormData();
-    formData.append('file', file);
+    try {
+      // 1. Upload to Content Service (GCS)
+      const formData = new FormData();
+      formData.append('file', file);
 
-    const response = await handleApiResponse<{ [key: string]: any }>(
-      userServiceClient.post('/api/users/me/profile-picture', formData, {
+      const uploadResponse = await contentServiceClient.post('/api/images/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-      })
-    );
+      });
 
-    return response;
+      if (uploadResponse.status !== 200 || !uploadResponse.data) {
+        throw new Error('Failed to upload image to storage');
+      }
+
+      const imageUrl = uploadResponse.data; // The API returns the URL string directly
+
+      // 2. Update User Profile with the new URL
+      const updateResponse = await handleApiResponse<{ [key: string]: any }>(
+        userServiceClient.patch('/api/users/me', { profilePicture: imageUrl })
+      );
+
+      return updateResponse;
+    } catch (error: any) {
+      console.error('Profile picture upload error:', error);
+      return {
+        status: 500,
+        message: error.message || 'Failed to upload profile picture',
+        data: null as any
+      };
+    }
   }
 
   /**

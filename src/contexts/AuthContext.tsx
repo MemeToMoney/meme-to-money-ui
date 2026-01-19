@@ -8,7 +8,7 @@ import { isApiSuccess } from '@/lib/api/client';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (emailOrMobile: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
   updateUser: (userData: Partial<User>) => void;
@@ -64,10 +64,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const login = async (emailOrMobile: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     try {
       console.log('AuthContext: Starting login process');
-      const response = await AuthAPI.login({ emailOrMobile, password });
+      const response = await AuthAPI.login({ email, password });
       console.log('AuthContext: Login response received:', response);
 
       if (isApiSuccess(response)) {

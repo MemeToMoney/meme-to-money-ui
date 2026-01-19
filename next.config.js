@@ -16,6 +16,14 @@ const nextConfig = {
     ],
     formats: ['image/webp', 'image/avif'],
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/images/:path*',
+        destination: 'http://localhost:8081/api/images/:path*',
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

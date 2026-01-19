@@ -145,6 +145,18 @@ export interface CommentRequest {
   parentCommentId?: string;
 }
 
+export interface PageResponse<T> {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  first: boolean;
+  last: boolean;
+  size: number;
+  number: number;
+  numberOfElements: number;
+  empty: boolean;
+}
+
 // Content Service API functions
 export class ContentAPI {
   /**
@@ -163,6 +175,25 @@ export class ContentAPI {
           'X-User-Id': userId,
           'X-User-Handle': userHandle
         }
+      })
+    );
+
+    return response;
+  }
+
+  /**
+   * Upload file to content service (Server-Side Upload)
+   * POST /api/images/upload
+   */
+  static async uploadFile(file: File): Promise<ApiResponse<string>> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await handleApiResponse<string>(
+      contentServiceClient.post('/api/images/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       })
     );
 
@@ -204,7 +235,7 @@ export class ContentAPI {
 
   /**
    * Get personalized home feed
-   * GET /api/ui/feed
+   * GET /api/content/feed
    */
   static async getHomeFeed(
     page = 0,
@@ -217,7 +248,7 @@ export class ContentAPI {
     }
 
     const response = await handleApiResponse<UIFeedResponse>(
-      contentServiceClient.get('/api/ui/feed', {
+      contentServiceClient.get('/api/content/feed', {
         params: { page, size },
         headers
       })
@@ -228,7 +259,7 @@ export class ContentAPI {
 
   /**
    * Get trending feed
-   * GET /api/ui/feed/trending
+   * GET /api/content/feed/trending
    */
   static async getTrendingFeed(
     page = 0,
@@ -242,7 +273,7 @@ export class ContentAPI {
     }
 
     const response = await handleApiResponse<UIFeedResponse>(
-      contentServiceClient.get('/api/ui/feed/trending', {
+      contentServiceClient.get('/api/content/feed/trending', {
         params: { page, size, hours },
         headers
       })
@@ -253,7 +284,7 @@ export class ContentAPI {
 
   /**
    * Get fresh content feed
-   * GET /api/ui/feed/fresh
+   * GET /api/content/feed/fresh
    */
   static async getFreshFeed(
     page = 0,
@@ -267,7 +298,7 @@ export class ContentAPI {
     }
 
     const response = await handleApiResponse<UIFeedResponse>(
-      contentServiceClient.get('/api/ui/feed/fresh', {
+      contentServiceClient.get('/api/content/feed/fresh', {
         params: { page, size, hours },
         headers
       })
@@ -278,21 +309,21 @@ export class ContentAPI {
 
   /**
    * Get user's content
-   * GET /api/ui/profile/{userId}/content
+   * GET /api/content/profile/{userId}/content
    */
   static async getUserContent(
     userId: string,
     page = 0,
     size = 10,
     viewerUserId?: string
-  ): Promise<ApiResponse<UIFeedResponse>> {
+  ): Promise<ApiResponse<PageResponse<Content>>> {
     const headers: any = {};
     if (viewerUserId) {
       headers['X-User-Id'] = viewerUserId;
     }
 
-    const response = await handleApiResponse<UIFeedResponse>(
-      contentServiceClient.get(`/api/ui/profile/${userId}/content`, {
+    const response = await handleApiResponse<PageResponse<Content>>(
+      contentServiceClient.get(`/api/content/creator/${userId}`, {
         params: { page, size },
         headers
       })
@@ -303,7 +334,7 @@ export class ContentAPI {
 
   /**
    * Get user's liked content
-   * GET /api/ui/profile/{userId}/liked
+   * GET /api/content/profile/{userId}/liked
    */
   static async getUserLikedContent(
     userId: string,
@@ -317,7 +348,7 @@ export class ContentAPI {
     }
 
     const response = await handleApiResponse<UIFeedResponse>(
-      contentServiceClient.get(`/api/ui/profile/${userId}/liked`, {
+      contentServiceClient.get(`/api/content/profile/${userId}/liked`, {
         params: { page, size },
         headers
       })
@@ -415,8 +446,28 @@ export class ContentAPI {
   }
 
   /**
+   * Delete a comment
+   * DELETE /api/content/{contentId}/comments/{commentId}
+   */
+  static async deleteComment(
+    contentId: string,
+    commentId: string,
+    userId: string
+  ): Promise<ApiResponse<void>> {
+    const response = await handleApiResponse<void>(
+      contentServiceClient.delete(`/api/content/${contentId}/comments/${commentId}`, {
+        headers: {
+          'X-User-Id': userId
+        }
+      })
+    );
+
+    return response;
+  }
+
+  /**
    * Search content
-   * GET /api/ui/search
+   * GET /api/content/search
    */
   static async searchContent(
     query?: string,
@@ -439,7 +490,7 @@ export class ContentAPI {
     if (hashtag) params.hashtag = hashtag;
 
     const response = await handleApiResponse<any>(
-      contentServiceClient.get('/api/ui/search', {
+      contentServiceClient.get('/api/content/search', {
         params,
         headers
       })
@@ -450,11 +501,11 @@ export class ContentAPI {
 
   /**
    * Get search suggestions
-   * GET /api/ui/search/suggestions
+   * GET /api/content/search/suggestions
    */
   static async getSearchSuggestions(): Promise<ApiResponse<any>> {
     const response = await handleApiResponse<any>(
-      contentServiceClient.get('/api/ui/search/suggestions')
+      contentServiceClient.get('/api/content/search/suggestions')
     );
 
     return response;
@@ -462,11 +513,11 @@ export class ContentAPI {
 
   /**
    * Get category statistics
-   * GET /api/ui/categories/stats
+   * GET /api/content/categories/stats
    */
   static async getCategoryStats(): Promise<ApiResponse<any>> {
     const response = await handleApiResponse<any>(
-      contentServiceClient.get('/api/ui/categories/stats')
+      contentServiceClient.get('/api/content/categories/stats')
     );
 
     return response;
