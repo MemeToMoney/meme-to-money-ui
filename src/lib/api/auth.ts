@@ -140,7 +140,7 @@ export class AuthAPI {
 
   /**
    * Register new user account
-   * POST /api/auth/register
+   * POST /api/auth/register (uses query params)
    */
   static async register(userData: RegisterRequest): Promise<ApiResponse<string>> {
     // Build query parameters as your API expects
