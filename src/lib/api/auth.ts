@@ -35,53 +35,11 @@ export class AuthAPI {
    */
   static async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
     try {
-      console.log('Attempting login with:', credentials);
-
-      // Demo credentials for testing
-      if (credentials.email === 'demo@example.com' && credentials.password === 'demo123') {
-        const mockToken = 'demo-jwt-token-' + Date.now();
-        TokenManager.setToken(mockToken);
-
-        const mockUser: User = {
-          id: 'demo-user-1',
-          name: 'Demo User',
-          email: 'demo@example.com',
-          username: 'demouser',
-          displayName: 'Demo User',
-          bio: 'This is a demo account for testing',
-          profilePicture: undefined,
-          followerCount: 1234,
-          followingCount: 567,
-          totalEarnings: 15650,
-          weeklyEarnings: 2340,
-          coinBalance: 1250,
-          kycStatus: 'VERIFIED',
-          isContentCreator: true,
-          creatorHandle: '@demouser',
-          onboardingCompleted: false, // So demo users go through onboarding
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-
-        return {
-          status: 200,
-          message: 'Demo login successful',
-          data: {
-            token: mockToken,
-            userId: 'demo-user-1',
-            user: mockUser
-          } as LoginResponse
-        };
-      }
-
       const response = await handleApiResponse<{ [key: string]: any }>(
         userServiceClient.post('/api/auth/login', credentials)
       );
 
-      console.log('Login API response:', response);
-
       if (response.status === 200 && response.data) {
-        // Extract token and user info from response
         const token = response.data.token || response.data.accessToken || response.data.jwt;
         const userId = response.data.userId || response.data.id || response.data.user?.id;
 
@@ -89,35 +47,29 @@ export class AuthAPI {
           // Store token for future requests
           TokenManager.setToken(token);
 
-          // Create mock user data for now since we don't have user profile endpoint working
-          const mockUser: User = {
-            id: userId || '1',
-            name: response.data.name || response.data.user?.name || 'Test User',
+          // Fetch full user profile from backend
+          const profileResponse = await this.getCurrentUser();
+          const user: User = profileResponse.data || {
+            id: userId || '',
+            name: response.data.name || '',
             email: credentials.email,
-            username: response.data.username || response.data.user?.username,
-            displayName: response.data.displayName || response.data.user?.displayName,
-            bio: response.data.bio || response.data.user?.bio,
-            profilePicture: response.data.profilePicture || response.data.user?.profilePicture,
-            followerCount: response.data.followerCount || 0,
-            followingCount: response.data.followingCount || 0,
-            totalEarnings: response.data.totalEarnings || 0,
-            weeklyEarnings: response.data.weeklyEarnings || 0,
-            coinBalance: response.data.coinBalance || 0,
-            kycStatus: response.data.kycStatus || 'NOT_SUBMITTED',
-            isContentCreator: response.data.isContentCreator || false,
-            creatorHandle: response.data.creatorHandle,
-            onboardingCompleted: response.data.onboardingCompleted ?? false,
-            createdAt: response.data.createdAt || new Date().toISOString(),
-            updatedAt: response.data.updatedAt || new Date().toISOString()
-          };
+            followerCount: 0,
+            followingCount: 0,
+            totalEarnings: 0,
+            weeklyEarnings: 0,
+            coinBalance: 0,
+            kycStatus: 'NOT_SUBMITTED',
+            isContentCreator: false,
+            onboardingCompleted: false,
+          } as User;
 
           return {
             status: 200,
             message: 'Login successful',
             data: {
               token,
-              userId: userId || '1',
-              user: mockUser
+              userId: user.id || userId || '',
+              user
             } as LoginResponse
           };
         }

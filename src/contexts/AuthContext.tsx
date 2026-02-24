@@ -71,8 +71,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('AuthContext: Login response received:', response);
 
       if (isApiSuccess(response)) {
-        console.log('AuthContext: Login successful, setting user data:', response.data.user);
-        setUser(response.data.user);
+        console.log('AuthContext: Login successful, fetching full user profile');
+        // Fetch the real user profile from /api/users/me
+        const profileResponse = await AuthAPI.getCurrentUser();
+        if (isApiSuccess(profileResponse)) {
+          console.log('AuthContext: Full profile fetched:', profileResponse.data);
+          setUser(profileResponse.data);
+        } else {
+          // Fallback to the login response data
+          console.log('AuthContext: Profile fetch failed, using login data');
+          setUser(response.data.user);
+        }
         return true;
       } else {
         console.log('AuthContext: Login failed, response not successful:', response);
