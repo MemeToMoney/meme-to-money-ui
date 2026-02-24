@@ -8,6 +8,11 @@ const nextConfig = {
   // Enable standalone output for Docker deployments
   output: 'standalone',
 
+  // Skip ESLint during production builds (run separately in CI)
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
   // Image optimization
   images: {
     domains: [
