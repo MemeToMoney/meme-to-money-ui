@@ -21,7 +21,8 @@ import {
     Notifications as NotificationsIcon,
     Person as PersonIcon,
     Settings as SettingsIcon,
-    Logout as LogoutIcon
+    Logout as LogoutIcon,
+    Search as SearchIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -30,6 +31,11 @@ const navigationItems = [
         label: 'Home',
         value: '/feed',
         icon: <HomeIcon />
+    },
+    {
+        label: 'Search',
+        value: '/search',
+        icon: <SearchIcon />
     },
     {
         label: 'Shorts',

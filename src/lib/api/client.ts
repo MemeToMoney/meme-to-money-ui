@@ -15,11 +15,19 @@ const DEV_MONETIZATION_SERVICE_URL = 'http://localhost:8082';
 const PROD_USER_SERVICE_URL = 'https://auth-service-703108401175.asia-south2.run.app';
 const PROD_CONTENT_SERVICE_URL = 'https://content-service-703108401175.asia-south2.run.app';
 const PROD_MONETIZATION_SERVICE_URL = 'https://monetization-service-703108401175.asia-south2.run.app';
+const PROD_MESSAGING_SERVICE_URL = 'https://messaging-service-703108401175.asia-south2.run.app';
+const PROD_NOTIFICATION_SERVICE_URL = 'https://notification-service-703108401175.asia-south2.run.app';
+
+// Development URLs
+const DEV_MESSAGING_SERVICE_URL = 'http://localhost:8082';
+const DEV_NOTIFICATION_SERVICE_URL = 'http://localhost:8083';
 
 // Select URLs based on environment (env vars take precedence)
 const USER_SERVICE_URL = process.env.NEXT_PUBLIC_USER_SERVICE_URL || (isProdApi ? PROD_USER_SERVICE_URL : DEV_USER_SERVICE_URL);
 const CONTENT_SERVICE_URL = process.env.NEXT_PUBLIC_CONTENT_SERVICE_URL || (isProdApi ? PROD_CONTENT_SERVICE_URL : DEV_CONTENT_SERVICE_URL);
 const MONETIZATION_SERVICE_URL = process.env.NEXT_PUBLIC_MONETIZATION_SERVICE_URL || (isProdApi ? PROD_MONETIZATION_SERVICE_URL : DEV_MONETIZATION_SERVICE_URL);
+const MESSAGING_SERVICE_URL = process.env.NEXT_PUBLIC_MESSAGING_SERVICE_URL || (isProdApi ? PROD_MESSAGING_SERVICE_URL : DEV_MESSAGING_SERVICE_URL);
+const NOTIFICATION_SERVICE_URL = process.env.NEXT_PUBLIC_NOTIFICATION_SERVICE_URL || (isProdApi ? PROD_NOTIFICATION_SERVICE_URL : DEV_NOTIFICATION_SERVICE_URL);
 
 // Response types matching your API specification
 export interface ApiResponse<T> {
@@ -50,6 +58,8 @@ export interface User {
   isGod?: boolean;
   authProvider?: string;
   onboardingCompleted?: boolean;
+  website?: string;
+  socialLinks?: { [key: string]: string };
   createdAt?: string;
   updatedAt?: string;
 }
@@ -144,6 +154,14 @@ function createApiClient(baseURL: string): AxiosInstance {
 export const userServiceClient = createApiClient(USER_SERVICE_URL);
 export const contentServiceClient = createApiClient(CONTENT_SERVICE_URL);
 export const monetizationServiceClient = createApiClient(MONETIZATION_SERVICE_URL);
+export const messagingServiceClient = createApiClient(MESSAGING_SERVICE_URL);
+export const notificationServiceClient = createApiClient(NOTIFICATION_SERVICE_URL);
+
+// Export messaging service URL for WebSocket connections
+export const getMessagingWsUrl = () => {
+  const base = MESSAGING_SERVICE_URL.replace(/^http/, 'ws');
+  return `${base}/ws`;
+};
 
 // Export token manager for use in components
 export { TokenManager };
@@ -187,4 +205,65 @@ export async function handleApiResponse<T>(
 // Type-safe API response handler
 export function isApiSuccess<T>(response: ApiResponse<T>): response is ApiResponse<T> & { data: T } {
   return response.status >= 200 && response.status < 300 && response.data !== null;
+}
+
+/**
+ * Parse Java LocalDateTime array format or ISO string into a JS Date.
+ * Java serializes LocalDateTime as [year, month, day, hour, minute, second, nanosecond].
+ * Also handles ISO strings and regular date strings.
+ */
+export function parseJavaDate(dateValue: any): Date {
+  if (!dateValue) return new Date();
+  if (dateValue instanceof Date) return dateValue;
+  if (Array.isArray(dateValue)) {
+    // Java LocalDateTime array: [year, month, day, hour, minute, second, nanosecond?]
+    const [year, month, day, hour = 0, minute = 0, second = 0] = dateValue;
+    return new Date(year, month - 1, day, hour, minute, second);
+  }
+  if (typeof dateValue === 'number') return new Date(dateValue);
+  // ISO string or other string format
+  const d = new Date(dateValue);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
+
+/**
+ * Format a date value (Java array or string) as a relative time string.
+ */
+export function formatTimeAgo(dateValue: any): string {
+  const date = parseJavaDate(dateValue);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+
+  if (diffMin < 1) return 'now';
+  if (diffMin < 60) return `${diffMin}m`;
+  if (diffHr < 24) return `${diffHr}h`;
+  if (diffDay < 7) return `${diffDay}d`;
+  if (diffDay < 30) return `${Math.floor(diffDay / 7)}w`;
+  return date.toLocaleDateString();
+}
+
+/**
+ * Format a creator handle for display.
+ * Strips '@' prefix if present, handles raw userIds gracefully.
+ */
+export function formatCreatorHandle(handle?: string, fallback = 'User'): string {
+  if (!handle) return fallback;
+  // If it looks like a raw MongoDB ObjectId-style userId, show fallback
+  if (handle.startsWith('user_') || /^[a-f0-9]{24}$/.test(handle)) return fallback;
+  // Strip @ prefix for display, then re-add it
+  const clean = handle.startsWith('@') ? handle : `@${handle}`;
+  return clean;
+}
+
+/**
+ * Get display initial from creator handle.
+ */
+export function getHandleInitial(handle?: string): string {
+  if (!handle) return 'U';
+  const clean = handle.startsWith('@') ? handle.slice(1) : handle;
+  if (clean.startsWith('user_') || /^[a-f0-9]{24}$/.test(clean)) return 'U';
+  return clean.charAt(0).toUpperCase();
 }

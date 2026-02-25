@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Dialog,
     Box,
@@ -12,6 +12,7 @@ import {
     TextField,
     Button,
     CardMedia,
+    CircularProgress,
 } from '@mui/material';
 import {
     Close as CloseIcon,
@@ -22,11 +23,13 @@ import {
     BookmarkBorder,
     MoreVert,
     Send as SendIcon,
+    FavoriteBorder as FavoriteBorderSmall,
 } from '@mui/icons-material';
-import { Content, ContentAPI } from '@/lib/api/content';
+import { Content, ContentAPI, Comment } from '@/lib/api/content';
 import { useAuth } from '@/contexts/AuthContext';
-import { isApiSuccess } from '@/lib/api/client';
+import { isApiSuccess, formatCreatorHandle, getHandleInitial, parseJavaDate } from '@/lib/api/client';
 import { FeedPostCard } from './FeedPostCard';
+import CommentDialog from './content/CommentDialog';
 
 interface PostDetailModalProps {
     open: boolean;
@@ -55,14 +58,59 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
     const [isLiked, setIsLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
     const [commentText, setCommentText] = useState('');
+    const [comments, setComments] = useState<Comment[]>([]);
+    const [commentsLoading, setCommentsLoading] = useState(false);
+    const [submittingComment, setSubmittingComment] = useState(false);
+    const [commentDialogOpen, setCommentDialogOpen] = useState(false);
 
     // Initialize state when post changes
-    React.useEffect(() => {
+    useEffect(() => {
         if (post) {
-            setIsLiked(false); // TODO: Get actual liked status
+            setIsLiked(false);
             setLikeCount(post.likeCount || 0);
+            setComments([]);
+            if (open) {
+                loadComments();
+            }
         }
-    }, [post]);
+    }, [post, open]);
+
+    const loadComments = async () => {
+        if (!post) return;
+        try {
+            setCommentsLoading(true);
+            const response = await ContentAPI.getComments(post.id, 0, 10);
+            if (isApiSuccess(response)) {
+                setComments(response.data.content || []);
+            }
+        } catch (err) {
+            console.error('Failed to load comments:', err);
+        } finally {
+            setCommentsLoading(false);
+        }
+    };
+
+    const handleSubmitComment = async () => {
+        if (!commentText.trim() || !user || !post) return;
+
+        try {
+            setSubmittingComment(true);
+            const response = await ContentAPI.addComment(
+                post.id,
+                { text: commentText.trim() },
+                user.id,
+                user.username || user.displayName || 'user'
+            );
+            if (isApiSuccess(response)) {
+                setComments(prev => [response.data, ...prev]);
+                setCommentText('');
+            }
+        } catch (err) {
+            console.error('Failed to add comment:', err);
+        } finally {
+            setSubmittingComment(false);
+        }
+    };
 
     if (!post) return null;
 
@@ -95,44 +143,78 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
         }
     };
 
-    // Mobile View: Use FeedPostCard directly
+    const formatTimeAgo = (dateInput: string | number[]) => {
+        if (!dateInput) return '';
+        let date: Date;
+        if (Array.isArray(dateInput)) {
+            const [year, month, day, hour, minute, second] = dateInput;
+            date = new Date(year, month - 1, day, hour, minute, second);
+        } else {
+            date = new Date(dateInput);
+        }
+        if (isNaN(date.getTime())) return '';
+        const now = new Date();
+        const diffInMs = now.getTime() - date.getTime();
+        const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+        const diffInHours = Math.floor(diffInMinutes / 60);
+        const diffInDays = Math.floor(diffInHours / 24);
+        if (diffInMinutes < 1) return 'now';
+        if (diffInMinutes < 60) return `${diffInMinutes}m`;
+        if (diffInHours < 24) return `${diffInHours}h`;
+        return `${diffInDays}d`;
+    };
+
+    // Mobile View: Use FeedPostCard + CommentDialog
     if (isMobile) {
         return (
-            <Dialog
-                open={open}
-                onClose={onClose}
-                fullWidth
-                maxWidth="sm"
-                PaperProps={{
-                    sx: {
-                        borderRadius: 2,
-                        bgcolor: 'background.paper',
-                        m: 2,
-                    },
-                }}
-            >
-                <Box sx={{ position: 'relative' }}>
-                    <IconButton
-                        onClick={onClose}
-                        sx={{
-                            position: 'absolute',
-                            right: 8,
-                            top: 8,
-                            zIndex: 1,
-                            bgcolor: 'rgba(0,0,0,0.5)',
-                            color: 'white',
-                            '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
-                        }}
-                    >
-                        <CloseIcon />
-                    </IconButton>
-                    <FeedPostCard post={post} onLike={onLike} onComment={onComment} onShare={onShare} onSave={onSave} />
-                </Box>
-            </Dialog>
+            <>
+                <Dialog
+                    open={open}
+                    onClose={onClose}
+                    fullWidth
+                    maxWidth="sm"
+                    PaperProps={{
+                        sx: {
+                            borderRadius: 2,
+                            bgcolor: 'background.paper',
+                            m: 2,
+                        },
+                    }}
+                >
+                    <Box sx={{ position: 'relative' }}>
+                        <IconButton
+                            onClick={onClose}
+                            sx={{
+                                position: 'absolute',
+                                right: 8,
+                                top: 8,
+                                zIndex: 1,
+                                bgcolor: 'rgba(0,0,0,0.5)',
+                                color: 'white',
+                                '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
+                            }}
+                        >
+                            <CloseIcon />
+                        </IconButton>
+                        <FeedPostCard
+                            post={post}
+                            onLike={onLike}
+                            onComment={() => setCommentDialogOpen(true)}
+                            onShare={onShare}
+                            onSave={onSave}
+                        />
+                    </Box>
+                </Dialog>
+                <CommentDialog
+                    open={commentDialogOpen}
+                    onClose={() => setCommentDialogOpen(false)}
+                    contentId={post.id}
+                />
+            </>
         );
     }
 
-    // Desktop View: Split Layout
+    // Desktop View: Split Layout with live comments
     return (
         <Dialog
             open={open}
@@ -144,7 +226,7 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                     borderRadius: 0,
                     bgcolor: 'black',
                     overflow: 'hidden',
-                    height: '90vh', // Fixed height for desktop modal
+                    height: '90vh',
                     maxHeight: '90vh',
                 },
             }}
@@ -189,7 +271,7 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                     )}
                 </Grid>
 
-                {/* Right Side: Details */}
+                {/* Right Side: Details + Comments */}
                 <Grid
                     item
                     xs={12}
@@ -215,14 +297,14 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                     >
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                             <Avatar sx={{ bgcolor: '#6B46C1' }}>
-                                {post.creatorHandle ? post.creatorHandle.charAt(1)?.toUpperCase() : 'U'}
+                                {getHandleInitial(post.creatorHandle)}
                             </Avatar>
                             <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                                {post.creatorHandle || 'Unknown User'}
+                                {formatCreatorHandle(post.creatorHandle)}
                             </Typography>
                         </Box>
                         <IconButton onClick={onClose}>
-                            <MoreVert />
+                            <CloseIcon />
                         </IconButton>
                     </Box>
 
@@ -231,29 +313,62 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                         {/* Caption as first comment */}
                         {(post.title || post.description) && (
                             <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-                                <Avatar
-                                    sx={{ width: 32, height: 32, bgcolor: '#6B46C1' }}
-                                >
-                                    {post.creatorHandle ? post.creatorHandle.charAt(1)?.toUpperCase() : 'U'}
+                                <Avatar sx={{ width: 32, height: 32, bgcolor: '#6B46C1' }}>
+                                    {getHandleInitial(post.creatorHandle)}
                                 </Avatar>
                                 <Box>
                                     <Typography variant="body2">
                                         <span style={{ fontWeight: 'bold', marginRight: 8 }}>
-                                            {post.creatorHandle}
+                                            {formatCreatorHandle(post.creatorHandle)}
                                         </span>
                                         {post.title || post.description}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                                        {new Date(post.publishedAt || post.createdAt).toLocaleDateString()}
+                                        {parseJavaDate(post.publishedAt || post.createdAt).toLocaleDateString()}
                                     </Typography>
                                 </Box>
                             </Box>
                         )}
 
-                        {/* Placeholder for comments */}
-                        <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 4 }}>
-                            No comments yet.
-                        </Typography>
+                        <Divider sx={{ mb: 2 }} />
+
+                        {/* Actual comments */}
+                        {commentsLoading ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                                <CircularProgress size={24} sx={{ color: '#6B46C1' }} />
+                            </Box>
+                        ) : comments.length > 0 ? (
+                            comments.map(comment => (
+                                <Box key={comment.id} sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
+                                    <Avatar sx={{ width: 28, height: 28, bgcolor: '#6B46C1', fontSize: '0.7rem' }}>
+                                        {comment.userHandle?.replace('@', '').charAt(0).toUpperCase() || 'U'}
+                                    </Avatar>
+                                    <Box sx={{ flex: 1 }}>
+                                        <Typography variant="body2">
+                                            <span style={{ fontWeight: 'bold', marginRight: 6 }}>
+                                                {comment.userHandle || comment.username}
+                                            </span>
+                                            {comment.text}
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', gap: 2, mt: 0.5, alignItems: 'center' }}>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {formatTimeAgo(comment.createdAt)}
+                                            </Typography>
+                                            {(comment.likeCount || 0) > 0 && (
+                                                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                                    {comment.likeCount} like{comment.likeCount !== 1 ? 's' : ''}
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    </Box>
+                                    <FavoriteBorderSmall sx={{ fontSize: 12, color: '#9CA3AF', mt: 1, cursor: 'pointer' }} />
+                                </Box>
+                            ))
+                        ) : (
+                            <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
+                                No comments yet. Start the conversation!
+                            </Typography>
+                        )}
                     </Box>
 
                     {/* Actions & Input */}
@@ -263,7 +378,7 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                                 <IconButton onClick={handleLikeClick}>
                                     {isLiked ? <Favorite sx={{ color: '#E91E63' }} /> : <FavoriteBorder />}
                                 </IconButton>
-                                <IconButton>
+                                <IconButton onClick={() => setCommentDialogOpen(true)}>
                                     <ChatBubbleOutline />
                                 </IconButton>
                                 <IconButton>
@@ -280,7 +395,7 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                                 {likeCount.toLocaleString()} likes
                             </Typography>
                             <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem' }}>
-                                {new Date(post.publishedAt || post.createdAt).toLocaleDateString(undefined, {
+                                {parseJavaDate(post.publishedAt || post.createdAt).toLocaleDateString(undefined, {
                                     month: 'long',
                                     day: 'numeric',
                                 })}
@@ -297,18 +412,35 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                                 InputProps={{ disableUnderline: true }}
                                 value={commentText}
                                 onChange={(e) => setCommentText(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSubmitComment();
+                                    }
+                                }}
                                 sx={{ fontSize: '0.9rem' }}
                             />
                             <Button
-                                disabled={!commentText.trim()}
+                                disabled={!commentText.trim() || submittingComment}
+                                onClick={handleSubmitComment}
                                 sx={{ textTransform: 'none', fontWeight: 600, color: '#6B46C1' }}
                             >
-                                Post
+                                {submittingComment ? <CircularProgress size={18} /> : 'Post'}
                             </Button>
                         </Box>
                     </Box>
                 </Grid>
             </Grid>
+
+            {/* Full Comment Dialog (mobile-style, for "view all comments") */}
+            <CommentDialog
+                open={commentDialogOpen}
+                onClose={() => {
+                    setCommentDialogOpen(false);
+                    loadComments(); // Refresh comments when dialog closes
+                }}
+                contentId={post.id}
+            />
         </Dialog>
     );
 };

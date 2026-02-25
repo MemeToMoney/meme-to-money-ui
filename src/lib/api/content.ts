@@ -466,6 +466,51 @@ export class ContentAPI {
   }
 
   /**
+   * Get replies to a comment
+   * GET /api/content/{contentId}/comments/{commentId}/replies
+   */
+  static async getCommentReplies(
+    contentId: string,
+    commentId: string
+  ): Promise<ApiResponse<Comment[]>> {
+    return handleApiResponse<Comment[]>(
+      contentServiceClient.get(`/api/content/${contentId}/comments/${commentId}/replies`)
+    );
+  }
+
+  /**
+   * Like a comment
+   * POST /api/content/{contentId}/comments/{commentId}/like
+   */
+  static async likeComment(
+    contentId: string,
+    commentId: string,
+    userId: string
+  ): Promise<ApiResponse<{ commentId: string; likeCount: number }>> {
+    return handleApiResponse<any>(
+      contentServiceClient.post(`/api/content/${contentId}/comments/${commentId}/like`, {}, {
+        headers: { 'X-User-Id': userId }
+      })
+    );
+  }
+
+  /**
+   * Unlike a comment
+   * DELETE /api/content/{contentId}/comments/{commentId}/like
+   */
+  static async unlikeComment(
+    contentId: string,
+    commentId: string,
+    userId: string
+  ): Promise<ApiResponse<{ commentId: string; likeCount: number }>> {
+    return handleApiResponse<any>(
+      contentServiceClient.delete(`/api/content/${contentId}/comments/${commentId}/like`, {
+        headers: { 'X-User-Id': userId }
+      })
+    );
+  }
+
+  /**
    * Search content
    * GET /api/content/search
    */
@@ -531,14 +576,63 @@ export class ContentAPI {
     contentIds: string[],
     userId: string
   ): Promise<ApiResponse<{ [contentId: string]: UserEngagementStatus }>> {
-    const response = await handleApiResponse<any>(
+    return handleApiResponse<any>(
       contentServiceClient.post('/api/content/bulk-engagement-status', contentIds, {
-        headers: {
-          'X-User-Id': userId
-        }
+        headers: { 'X-User-Id': userId }
       })
     );
+  }
 
-    return response;
+  /**
+   * Save/bookmark a post
+   * POST /api/content/saved/{contentId}
+   */
+  static async savePost(contentId: string, userId: string): Promise<ApiResponse<any>> {
+    return handleApiResponse<any>(
+      contentServiceClient.post(`/api/content/saved/${contentId}`, {}, {
+        headers: { 'X-User-Id': userId }
+      })
+    );
+  }
+
+  /**
+   * Unsave/unbookmark a post
+   * DELETE /api/content/saved/{contentId}
+   */
+  static async unsavePost(contentId: string, userId: string): Promise<ApiResponse<any>> {
+    return handleApiResponse<any>(
+      contentServiceClient.delete(`/api/content/saved/${contentId}`, {
+        headers: { 'X-User-Id': userId }
+      })
+    );
+  }
+
+  /**
+   * Get saved posts (paginated)
+   * GET /api/content/saved
+   */
+  static async getSavedPosts(
+    userId: string,
+    page = 0,
+    size = 20
+  ): Promise<ApiResponse<{ content: Content[]; totalPages: number; totalElements: number }>> {
+    return handleApiResponse<any>(
+      contentServiceClient.get('/api/content/saved', {
+        params: { page, size },
+        headers: { 'X-User-Id': userId }
+      })
+    );
+  }
+
+  /**
+   * Check if a post is saved
+   * GET /api/content/saved/check/{contentId}
+   */
+  static async isPostSaved(contentId: string, userId: string): Promise<ApiResponse<boolean>> {
+    return handleApiResponse<boolean>(
+      contentServiceClient.get(`/api/content/saved/check/${contentId}`, {
+        headers: { 'X-User-Id': userId }
+      })
+    );
   }
 }

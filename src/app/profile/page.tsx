@@ -83,6 +83,7 @@ function ProfilePageContent() {
   const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
   const [userContent, setUserContent] = useState<Content[]>([]);
   const [likedContent, setLikedContent] = useState<Content[]>([]);
+  const [savedContent, setSavedContent] = useState<Content[]>([]);
   const [loading, setLoading] = useState(false);
   const [contentLoading, setContentLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,6 +113,8 @@ function ProfilePageContent() {
         loadUserContent();
       } else if (tabValue === 1) {
         loadLikedContent();
+      } else if (tabValue === 2) {
+        loadSavedContent();
       }
     }
   }, [user?.id, tabValue]);
@@ -168,6 +171,24 @@ function ProfilePageContent() {
     }
   };
 
+  const loadSavedContent = async () => {
+    if (!user?.id) return;
+    try {
+      setContentLoading(true);
+      const response = await ContentAPI.getSavedPosts(user.id, 0, 30);
+      if (isApiSuccess(response)) {
+        setSavedContent(response.data.content || []);
+      } else {
+        setSavedContent([]);
+      }
+    } catch (err: any) {
+      console.error('Load saved content error:', err);
+      setSavedContent([]);
+    } finally {
+      setContentLoading(false);
+    }
+  };
+
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
@@ -178,7 +199,7 @@ function ProfilePageContent() {
   };
 
   const handleEditProfile = () => {
-    setEditDialogOpen(true);
+    router.push('/profile/edit');
   };
 
   const handleUploadImage = () => {
@@ -407,15 +428,46 @@ function ProfilePageContent() {
               </Typography>
 
               {user.bio && (
-                <Typography variant="body2" sx={{ color: '#4B5563', mb: 3, maxWidth: 400, lineHeight: 1.6 }}>
+                <Typography variant="body2" sx={{ color: '#4B5563', mb: 1, maxWidth: 400, lineHeight: 1.6 }}>
                   {user.bio}
                 </Typography>
+              )}
+
+              {user.website && (
+                <Typography
+                  variant="body2"
+                  component="a"
+                  href={user.website.startsWith('http') ? user.website : `https://${user.website}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ color: '#6B46C1', fontWeight: 600, mb: 1, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+                >
+                  {user.website.replace(/^https?:\/\//, '')}
+                </Typography>
+              )}
+
+              {user.socialLinks && Object.keys(user.socialLinks).length > 0 && (
+                <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                  {Object.entries(user.socialLinks).map(([platform, url]) => url && (
+                    <Typography
+                      key={platform}
+                      variant="caption"
+                      component="a"
+                      href={String(url).startsWith('http') ? String(url) : `https://${String(url)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{ color: '#6B7280', textDecoration: 'none', textTransform: 'capitalize', '&:hover': { color: '#6B46C1' } }}
+                    >
+                      {platform}
+                    </Typography>
+                  ))}
+                </Box>
               )}
 
               {/* Stats Row */}
               <Box sx={{
                 display: 'flex',
-                gap: 6,
+                gap: { xs: 3, sm: 4, md: 6 },
                 mb: 4,
                 p: 2,
                 bgcolor: '#F9FAFB',
@@ -429,7 +481,10 @@ function ProfilePageContent() {
                     Posts
                   </Typography>
                 </Box>
-                <Box sx={{ textAlign: 'center' }}>
+                <Box
+                  sx={{ textAlign: 'center', cursor: 'pointer', '&:hover': { opacity: 0.7 } }}
+                  onClick={() => router.push(`/profile/${user.id}/followers`)}
+                >
                   <Typography variant="h6" sx={{ fontWeight: 800, color: '#111827' }}>
                     {user.followerCount || 0}
                   </Typography>
@@ -437,7 +492,10 @@ function ProfilePageContent() {
                     Followers
                   </Typography>
                 </Box>
-                <Box sx={{ textAlign: 'center' }}>
+                <Box
+                  sx={{ textAlign: 'center', cursor: 'pointer', '&:hover': { opacity: 0.7 } }}
+                  onClick={() => router.push(`/profile/${user.id}/following`)}
+                >
                   <Typography variant="h6" sx={{ fontWeight: 800, color: '#111827' }}>
                     {user.followingCount || 0}
                   </Typography>
@@ -531,22 +589,23 @@ function ProfilePageContent() {
                   <CircularProgress sx={{ color: '#6B46C1' }} />
                 </Box>
               ) : userContent.length > 0 ? (
-                <Grid container spacing={2}>
+                <Grid container spacing={{ xs: 0.5, sm: 1, md: 2 }}>
                   {userContent.map((content) => {
                     const contentUrl = getContentUrl(content);
                     return (
-                      <Grid item xs={4} key={content.id}>
+                      <Grid item xs={4} sm={4} md={4} key={content.id} sx={{ minWidth: 0 }}>
                         <Card sx={{
-                          borderRadius: 3,
+                          borderRadius: { xs: 1, sm: 2, md: 3 },
                           overflow: 'hidden',
                           aspectRatio: '1',
                           cursor: 'pointer',
                           boxShadow: 'none',
                           position: 'relative',
+                          transition: 'all 0.2s ease-in-out',
                           '&:hover': {
                             opacity: 0.9,
-                            transform: 'scale(1.02)',
-                            transition: 'all 0.2s'
+                            transform: 'scale(1.03)',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
                           }
                         }}
                           onClick={() => handlePostClick(content)}
@@ -652,21 +711,22 @@ function ProfilePageContent() {
                   <CircularProgress sx={{ color: '#6B46C1' }} />
                 </Box>
               ) : likedContent.length > 0 ? (
-                <Grid container spacing={2}>
+                <Grid container spacing={{ xs: 0.5, sm: 1, md: 2 }}>
                   {likedContent.map((content) => {
                     const contentUrl = getContentUrl(content);
                     return (
-                      <Grid item xs={4} key={content.id}>
+                      <Grid item xs={4} sm={4} md={4} key={content.id} sx={{ minWidth: 0 }}>
                         <Card sx={{
-                          borderRadius: 3,
+                          borderRadius: { xs: 1, sm: 2, md: 3 },
                           overflow: 'hidden',
                           aspectRatio: '1',
                           cursor: 'pointer',
                           boxShadow: 'none',
+                          transition: 'all 0.2s ease-in-out',
                           '&:hover': {
                             opacity: 0.9,
-                            transform: 'scale(1.02)',
-                            transition: 'all 0.2s'
+                            transform: 'scale(1.03)',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
                           }
                         }}
                           onClick={() => handlePostClick(content)}
@@ -712,27 +772,69 @@ function ProfilePageContent() {
             </TabPanel>
 
             <TabPanel value={tabValue} index={2}>
-              <Box sx={{ textAlign: 'center', py: 8 }}>
-                <Box sx={{
-                  width: 64,
-                  height: 64,
-                  bgcolor: '#F3F4F6',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  mx: 'auto',
-                  mb: 2
-                }}>
-                  <BookmarkIcon sx={{ fontSize: 32, color: '#9CA3AF' }} />
+              {contentLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+                  <CircularProgress sx={{ color: '#6B46C1' }} />
                 </Box>
-                <Typography variant="h6" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
-                  No saved posts
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Posts you save will appear here
-                </Typography>
-              </Box>
+              ) : savedContent.length > 0 ? (
+                <Grid container spacing={{ xs: 0.5, sm: 1, md: 2 }}>
+                  {savedContent.map((content) => {
+                    const contentUrl = getContentUrl(content);
+                    return (
+                      <Grid item xs={4} sm={4} md={4} key={content.id} sx={{ minWidth: 0 }}>
+                        <Card sx={{
+                          borderRadius: { xs: 1, sm: 2, md: 3 },
+                          overflow: 'hidden',
+                          aspectRatio: '1',
+                          cursor: 'pointer',
+                          boxShadow: 'none',
+                          transition: 'all 0.2s ease-in-out',
+                          '&:hover': {
+                            opacity: 0.9,
+                            transform: 'scale(1.03)',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                          }
+                        }}
+                          onClick={() => handlePostClick(content)}
+                        >
+                          <CardMedia
+                            component="img"
+                            image={contentUrl}
+                            alt={content.title}
+                            sx={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
+                          />
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 8 }}>
+                  <Box sx={{
+                    width: 64,
+                    height: 64,
+                    bgcolor: '#F3F4F6',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mx: 'auto',
+                    mb: 2
+                  }}>
+                    <BookmarkIcon sx={{ fontSize: 32, color: '#9CA3AF' }} />
+                  </Box>
+                  <Typography variant="h6" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
+                    No saved posts
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Posts you save will appear here
+                  </Typography>
+                </Box>
+              )}
             </TabPanel>
           </Box>
         </Container>

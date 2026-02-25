@@ -1,309 +1,164 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Container,
-  Paper,
   Typography,
   Box,
-  Button,
   Card,
   CardContent,
   Grid,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  Button,
+  Divider,
   Chip,
-  TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Tab,
-  Tabs
 } from '@mui/material';
 import {
   AccountBalanceWallet as WalletIcon,
   TrendingUp as EarningsIcon,
-  Send as SendIcon,
-  Download as DownloadIcon,
-  History
+  Star as CoinIcon,
+  VerifiedUser as KycIcon,
+  ArrowBack as BackIcon,
 } from '@mui/icons-material';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`wallet-tabpanel-${index}`}
-      aria-labelledby={`wallet-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-}
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
+import { IconButton } from '@mui/material';
 
 function WalletPageContent() {
-  const [tabValue, setTabValue] = useState(0);
-  const [withdrawDialog, setWithdrawDialog] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const { user } = useAuth();
+  const router = useRouter();
 
-  const walletData = {
-    balance: 156.78,
-    totalEarnings: 892.45,
-    pendingEarnings: 23.50,
-    thisMonthEarnings: 127.30
-  };
+  if (!user) return null;
 
-  const transactions = [
-    { id: 1, type: 'tip', amount: 5.00, from: 'user123', date: '2024-01-15', status: 'completed' },
-    { id: 2, type: 'content', amount: 12.50, from: 'Content Revenue', date: '2024-01-14', status: 'completed' },
-    { id: 3, type: 'withdraw', amount: -50.00, from: 'Bank Transfer', date: '2024-01-13', status: 'pending' },
-    { id: 4, type: 'tip', amount: 8.75, from: 'meme_lover', date: '2024-01-12', status: 'completed' },
-    { id: 5, type: 'content', amount: 15.25, from: 'Content Revenue', date: '2024-01-11', status: 'completed' }
-  ];
+  const kycStatusColor = {
+    NOT_SUBMITTED: '#6B7280',
+    PENDING: '#F59E0B',
+    VERIFIED: '#10B981',
+    REJECTED: '#EF4444',
+    EXPIRED: '#EF4444',
+  }[user.kycStatus || 'NOT_SUBMITTED'];
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
-
-  const handleWithdraw = () => {
-    // TODO: Implement withdraw API call
-    setWithdrawDialog(false);
-    setWithdrawAmount('');
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'success';
-      case 'pending': return 'warning';
-      case 'failed': return 'error';
-      default: return 'default';
-    }
-  };
-
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case 'tip': return '💰';
-      case 'content': return '📈';
-      case 'withdraw': return '💸';
-      default: return '💳';
-    }
-  };
+  const kycStatusLabel = {
+    NOT_SUBMITTED: 'Not Submitted',
+    PENDING: 'Pending Review',
+    VERIFIED: 'Verified',
+    REJECTED: 'Rejected',
+    EXPIRED: 'Expired',
+  }[user.kycStatus || 'NOT_SUBMITTED'];
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, pb: 4 }}>
-      {/* Wallet Overview */}
-      <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <WalletIcon /> My Wallet
-      </Typography>
-
-      {/* Balance Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={3}>
-          <Card sx={{ bgcolor: 'primary.main', color: 'white' }}>
-            <CardContent>
-              <Typography variant="h4" gutterBottom>
-                ${walletData.balance}
-              </Typography>
-              <Typography variant="body2">Available Balance</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="h4" gutterBottom color="success.main">
-                ${walletData.totalEarnings}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">Total Earnings</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="h4" gutterBottom color="warning.main">
-                ${walletData.pendingEarnings}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">Pending Earnings</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="h4" gutterBottom color="info.main">
-                ${walletData.thisMonthEarnings}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">This Month</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Action Buttons */}
-      <Box sx={{ mb: 4, display: 'flex', gap: 2 }}>
-        <Button
-          variant="contained"
-          startIcon={<DownloadIcon />}
-          onClick={() => setWithdrawDialog(true)}
-          disabled={walletData.balance < 10}
-        >
-          Withdraw Funds
-        </Button>
-        <Button variant="outlined" startIcon={<EarningsIcon />}>
-          View Earnings Report
-        </Button>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa', pb: 10 }}>
+      {/* Header */}
+      <Box sx={{
+        position: 'sticky', top: 0, bgcolor: 'white', zIndex: 1,
+        p: 2, borderBottom: '1px solid #E5E7EB',
+        display: 'flex', alignItems: 'center', gap: 1,
+      }}>
+        <IconButton onClick={() => router.back()}>
+          <BackIcon />
+        </IconButton>
+        <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#6B46C1', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <WalletIcon /> Wallet
+        </Typography>
       </Box>
 
-      {/* Tabs */}
-      <Paper elevation={2}>
-        <Tabs value={tabValue} onChange={handleTabChange} variant="fullWidth">
-          <Tab label="Transaction History" icon={<History />} />
-          <Tab label="Earnings Overview" icon={<EarningsIcon />} />
-        </Tabs>
-
-        <TabPanel value={tabValue} index={0}>
-          <Typography variant="h6" gutterBottom>Recent Transactions</Typography>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Amount</TableCell>
-                  <TableCell>From/To</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {transactions.map((transaction) => (
-                  <TableRow key={transaction.id}>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span>{getTransactionIcon(transaction.type)}</span>
-                        {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography
-                        color={transaction.amount > 0 ? 'success.main' : 'error.main'}
-                        fontWeight="bold"
-                      >
-                        {transaction.amount > 0 ? '+' : ''}${Math.abs(transaction.amount).toFixed(2)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{transaction.from}</TableCell>
-                    <TableCell>{transaction.date}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={transaction.status}
-                        size="small"
-                        color={getStatusColor(transaction.status) as any}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </TabPanel>
-
-        <TabPanel value={tabValue} index={1}>
-          <Typography variant="h6" gutterBottom>Earnings Breakdown</Typography>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>Revenue Sources</Typography>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2">Content Tips</Typography>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="textSecondary">68%</Typography>
-                      <Typography variant="body2" fontWeight="bold">$607.27</Typography>
-                    </Box>
-                  </Box>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2">Direct Tips</Typography>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="textSecondary">32%</Typography>
-                      <Typography variant="body2" fontWeight="bold">$285.18</Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
+      <Container maxWidth="sm" sx={{ py: 3 }}>
+        {/* Main Balance Card */}
+        <Card sx={{
+          borderRadius: 4, mb: 3,
+          background: 'linear-gradient(135deg, #6B46C1 0%, #8B5CF6 50%, #A78BFA 100%)',
+          color: 'white', boxShadow: '0 8px 32px rgba(107, 70, 193, 0.3)',
+        }}>
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="body2" sx={{ opacity: 0.9, mb: 1, textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>Coin Balance</Typography>
+            <Typography variant="h3" sx={{ fontWeight: 800, mb: 2, textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+              {(user.coinBalance || 0).toLocaleString()}
+              <Typography component="span" variant="h6" sx={{ ml: 1, opacity: 0.8, textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>coins</Typography>
+            </Typography>
+            <Divider sx={{ bgcolor: 'rgba(255,255,255,0.2)', my: 2 }} />
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <Typography variant="caption" sx={{ opacity: 0.8, textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>Total Earnings</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>{(user.totalEarnings || 0).toLocaleString()}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="caption" sx={{ opacity: 0.8, textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>This Week</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>{(user.weeklyEarnings || 0).toLocaleString()}</Typography>
+              </Grid>
             </Grid>
-            <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>Top Performing Content</Typography>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2">&quot;Funny Cat Meme #42&quot;</Typography>
-                    <Typography variant="body2" color="success.main" fontWeight="bold">$45.80</Typography>
-                  </Box>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2">&quot;Dancing Dog Video&quot;</Typography>
-                    <Typography variant="body2" color="success.main" fontWeight="bold">$38.25</Typography>
-                  </Box>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2">&quot;Relatable Work Meme&quot;</Typography>
-                    <Typography variant="body2" color="success.main" fontWeight="bold">$32.10</Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </TabPanel>
-      </Paper>
+          </CardContent>
+        </Card>
 
-      {/* Withdraw Dialog */}
-      <Dialog open={withdrawDialog} onClose={() => setWithdrawDialog(false)}>
-        <DialogTitle>Withdraw Funds</DialogTitle>
-        <DialogContent>
-          <Typography gutterBottom>
-            Available Balance: ${walletData.balance}
-          </Typography>
-          <Typography variant="body2" color="textSecondary" gutterBottom>
-            Minimum withdrawal amount: $10.00
-          </Typography>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Withdrawal Amount"
-            type="number"
-            fullWidth
-            variant="outlined"
-            value={withdrawAmount}
-            onChange={(e) => setWithdrawAmount(e.target.value)}
-            inputProps={{ min: 10, max: walletData.balance }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setWithdrawDialog(false)}>Cancel</Button>
-          <Button
-            onClick={handleWithdraw}
-            variant="contained"
-            disabled={!withdrawAmount || parseFloat(withdrawAmount) < 10 || parseFloat(withdrawAmount) > walletData.balance}
-          >
-            Withdraw
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+        {/* KYC Status */}
+        <Card sx={{ borderRadius: 3, mb: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', transition: 'all 0.2s ease-in-out', '&:hover': { boxShadow: '0 8px 25px rgba(0,0,0,0.12)' } }}>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <KycIcon sx={{ color: kycStatusColor }} />
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>KYC Verification</Typography>
+                  <Typography variant="caption" sx={{ color: '#6B7280' }}>Required for payouts</Typography>
+                </Box>
+              </Box>
+              <Chip label={kycStatusLabel} size="small" sx={{ bgcolor: `${kycStatusColor}15`, color: kycStatusColor, fontWeight: 600 }} />
+            </Box>
+            {user.kycStatus === 'NOT_SUBMITTED' && (
+              <Button
+                variant="outlined"
+                fullWidth
+                sx={{ mt: 2, textTransform: 'none', borderColor: '#6B46C1', color: '#6B46C1', borderRadius: 2, transition: 'all 0.2s ease', '&:hover': { bgcolor: 'rgba(107, 70, 193, 0.04)', borderColor: '#553C9A', transform: 'translateY(-1px)' } }}
+                onClick={() => router.push('/settings')}
+              >
+                Submit KYC Documents
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* How to Earn */}
+        <Card sx={{ borderRadius: 3, mb: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', transition: 'all 0.2s ease-in-out', '&:hover': { boxShadow: '0 8px 25px rgba(0,0,0,0.12)' } }}>
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>How to Earn</Typography>
+            {[
+              { icon: '👁️', label: 'Get views on your content', detail: 'Earn coins per 1000 views' },
+              { icon: '❤️', label: 'Get likes on your posts', detail: 'Earn coins per 100 likes' },
+              { icon: '🔥', label: 'Go viral', detail: 'Bonus for 10K+ views in 24hrs' },
+              { icon: '👥', label: 'Grow followers', detail: 'Milestone bonuses at 1K, 5K, 10K+' },
+            ].map((item, i) => (
+              <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5, borderBottom: i < 3 ? '1px solid #f0f0f0' : 'none' }}>
+                <Typography sx={{ fontSize: '1.5rem' }}>{item.icon}</Typography>
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.label}</Typography>
+                  <Typography variant="caption" sx={{ color: '#6B7280' }}>{item.detail}</Typography>
+                </Box>
+              </Box>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Eligibility */}
+        <Card sx={{ borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', transition: 'all 0.2s ease-in-out', '&:hover': { boxShadow: '0 8px 25px rgba(0,0,0,0.12)' } }}>
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>Payout Eligibility</Typography>
+            {[
+              { label: '100+ followers', met: (user.followerCount || 0) >= 100 },
+              { label: 'KYC verified', met: user.kycStatus === 'VERIFIED' },
+              { label: 'Content creator enabled', met: user.isContentCreator || false },
+            ].map((req, i) => (
+              <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1 }}>
+                <Box sx={{
+                  width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  bgcolor: req.met ? '#ECFDF5' : '#FEF2F2', color: req.met ? '#10B981' : '#EF4444', fontSize: '0.8rem',
+                }}>
+                  {req.met ? '✓' : '✗'}
+                </Box>
+                <Typography variant="body2" sx={{ color: req.met ? '#374151' : '#6B7280' }}>{req.label}</Typography>
+              </Box>
+            ))}
+          </CardContent>
+        </Card>
+      </Container>
+    </Box>
   );
 }
 

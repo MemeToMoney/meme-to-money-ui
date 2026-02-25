@@ -8,7 +8,8 @@ import {
   IconButton,
   Avatar,
   Button,
-  Chip
+  Chip,
+  CircularProgress,
 } from '@mui/material';
 import {
   PlayArrow as PlayIcon,
@@ -17,154 +18,61 @@ import {
   VolumeUp as VolumeIcon,
   Favorite as LikeIcon,
   FavoriteBorder as UnlikeIcon,
-  Comment as CommentIcon,
+  ChatBubbleOutline as CommentIcon,
   Share as ShareIcon,
-  PersonAdd as FollowIcon
+  PersonAdd as FollowIcon,
+  Check as CheckIcon,
+  Bookmark,
+  BookmarkBorder,
 } from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-
-interface ShortVideo {
-  id: string;
-  userId: string;
-  title: string;
-  description: string;
-  videoUrl: string;
-  thumbnailUrl: string;
-  duration: number;
-  likes: number;
-  comments: number;
-  shares: number;
-  views: number;
-  isLiked: boolean;
-  hashtags: string[];
-  createdAt: string;
-  user: {
-    id: string;
-    username: string;
-    displayName: string;
-    profilePicture?: string;
-  };
-}
-
-const mockShorts: ShortVideo[] = [
-  {
-    id: '1',
-    userId: 'user1',
-    title: 'Funny Cat Compilation',
-    description: 'Check out these hilarious cats! 😂 #cats #funny #viral',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    thumbnailUrl: '/api/placeholder/400/600',
-    duration: 30,
-    likes: 1234,
-    comments: 89,
-    shares: 45,
-    views: 12500,
-    isLiked: false,
-    hashtags: ['cats', 'funny', 'viral'],
-    createdAt: '2 hours ago',
-    user: {
-      id: 'user1',
-      username: 'catman',
-      displayName: 'Cat Lover',
-      profilePicture: '/api/placeholder/50/50'
-    }
-  },
-  {
-    id: '2',
-    userId: 'user2',
-    title: 'Epic Dance Moves',
-    description: 'New dance trend is here! 🕺 #dance #trending #moves',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-    thumbnailUrl: '/api/placeholder/400/600',
-    duration: 25,
-    likes: 2156,
-    comments: 156,
-    shares: 78,
-    views: 25600,
-    isLiked: true,
-    hashtags: ['dance', 'trending', 'moves'],
-    createdAt: '4 hours ago',
-    user: {
-      id: 'user2',
-      username: 'dancequeen',
-      displayName: 'Dance Queen',
-      profilePicture: '/api/placeholder/50/50'
-    }
-  },
-  {
-    id: '3',
-    userId: 'user3',
-    title: 'Cooking Hack',
-    description: 'This will change how you cook forever! 👨‍🍳 #cooking #hack #food',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    thumbnailUrl: '/api/placeholder/400/600',
-    duration: 45,
-    likes: 3456,
-    comments: 234,
-    shares: 123,
-    views: 45000,
-    isLiked: false,
-    hashtags: ['cooking', 'hack', 'food'],
-    createdAt: '6 hours ago',
-    user: {
-      id: 'user3',
-      username: 'chefmaster',
-      displayName: 'Chef Master',
-      profilePicture: '/api/placeholder/50/50'
-    }
-  },
-  {
-    id: '4',
-    userId: 'user4',
-    title: 'Travel Vibes',
-    description: 'Beautiful sunset at the beach 🌅 #travel #sunset #beach',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-    thumbnailUrl: '/api/placeholder/400/600',
-    duration: 35,
-    likes: 987,
-    comments: 67,
-    shares: 34,
-    views: 8900,
-    isLiked: true,
-    hashtags: ['travel', 'sunset', 'beach'],
-    createdAt: '8 hours ago',
-    user: {
-      id: 'user4',
-      username: 'traveler',
-      displayName: 'World Traveler',
-      profilePicture: '/api/placeholder/50/50'
-    }
-  }
-];
+import { ContentAPI, Content } from '@/lib/api/content';
+import { UserAPI } from '@/lib/api/user';
+import { isApiSuccess, formatCreatorHandle, getHandleInitial } from '@/lib/api/client';
+import CommentDialog from '@/components/content/CommentDialog';
+import ShareDialog from '@/components/ShareDialog';
 
 interface VideoPlayerProps {
-  video: ShortVideo;
+  content: Content;
   isPlaying: boolean;
   isMuted: boolean;
+  isLiked: boolean;
+  isSaved: boolean;
+  isFollowing: boolean;
   onPlayPause: () => void;
   onMuteToggle: () => void;
   onLike: () => void;
   onComment: () => void;
   onShare: () => void;
+  onSave: () => void;
+  onFollow: () => void;
+  onProfileClick: () => void;
 }
 
 function VideoPlayer({
-  video,
+  content,
   isPlaying,
   isMuted,
+  isLiked,
+  isSaved,
+  isFollowing,
   onPlayPause,
   onMuteToggle,
   onLike,
   onComment,
-  onShare
+  onShare,
+  onSave,
+  onFollow,
+  onProfileClick,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (videoRef.current) {
       if (isPlaying) {
-        videoRef.current.play();
+        videoRef.current.play().catch(() => {});
       } else {
         videoRef.current.pause();
       }
@@ -177,266 +85,134 @@ function VideoPlayer({
     }
   }, [isMuted]);
 
+  const videoUrl = content.processedFile?.cdnUrl || content.originalFile?.cdnUrl;
+  const formatCount = (n: number) => n > 999 ? `${(n / 1000).toFixed(1)}K` : String(n);
+
   return (
-    <Box sx={{
-      position: 'relative',
-      width: '100%',
-      height: '100vh',
-      bgcolor: 'black',
-      overflow: 'hidden'
-    }}>
+    <Box sx={{ position: 'relative', width: '100%', height: '100vh', bgcolor: 'black', overflow: 'hidden' }}>
       <video
         ref={videoRef}
-        src={video.videoUrl}
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover'
-        }}
+        src={videoUrl}
+        poster={content.thumbnailUrl}
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         loop
         playsInline
         onClick={onPlayPause}
       />
 
-      {/* Play/Pause Center Icon */}
       {!isPlaying && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            zIndex: 2
-          }}
-        >
+        <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 2 }}>
           <IconButton
             onClick={onPlayPause}
-            sx={{
-              color: 'white',
-              bgcolor: 'rgba(255,255,255,0.2)',
-              backdropFilter: 'blur(10px)',
-              width: 80,
-              height: 80,
-              '&:hover': {
-                bgcolor: 'rgba(255,255,255,0.3)',
-                transform: 'scale(1.1)'
-              }
-            }}
+            sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)', width: 80, height: 80 }}
           >
             <PlayIcon sx={{ fontSize: 40 }} />
           </IconButton>
         </Box>
       )}
 
-      {/* Top Controls */}
-      <Box sx={{
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        zIndex: 3
-      }}>
-        <IconButton
-          onClick={onMuteToggle}
-          sx={{
-            color: 'white',
-            bgcolor: 'rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(10px)',
-            mb: 1
-          }}
-        >
+      {/* Mute Toggle */}
+      <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 3 }}>
+        <IconButton onClick={onMuteToggle} sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)' }}>
           {isMuted ? <MuteIcon /> : <VolumeIcon />}
         </IconButton>
       </Box>
 
       {/* Creator Info */}
-      <Box sx={{
-        position: 'absolute',
-        bottom: 16,
-        left: 16,
-        right: 80,
-        color: 'white',
-        zIndex: 3
-      }}>
+      <Box sx={{ position: 'absolute', bottom: 16, left: 16, right: 80, color: 'white', zIndex: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
           <Avatar
-            src={video.user.profilePicture}
-            sx={{ width: 40, height: 40, border: '2px solid white' }}
+            onClick={onProfileClick}
+            sx={{ width: 40, height: 40, border: '2px solid white', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
           >
-            {video.user.displayName.charAt(0)}
+            {getHandleInitial(content.creatorHandle)}
           </Avatar>
           <Box sx={{ flex: 1 }}>
-            <Typography variant="subtitle1" sx={{
-              fontWeight: 'bold',
-              textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
-            }}>
-              @{video.user.username}
-            </Typography>
-            <Typography variant="caption" sx={{
-              color: 'rgba(255,255,255,0.8)',
-              textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
-            }}>
-              {video.createdAt}
+            <Typography
+              variant="subtitle1"
+              onClick={onProfileClick}
+              sx={{ fontWeight: 'bold', textShadow: '0 2px 6px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.9)', cursor: 'pointer' }}
+            >
+              {formatCreatorHandle(content.creatorHandle)}
             </Typography>
           </Box>
           <Button
-            startIcon={<FollowIcon />}
+            startIcon={isFollowing ? <CheckIcon /> : <FollowIcon />}
             variant="contained"
             size="small"
+            onClick={onFollow}
             sx={{
-              bgcolor: '#6B46C1',
+              bgcolor: isFollowing ? 'rgba(255,255,255,0.2)' : '#6B46C1',
               color: 'white',
               textTransform: 'none',
               borderRadius: 20,
               px: 2,
               py: 0.5,
-              '&:hover': {
-                bgcolor: '#553C9A'
-              }
+              '&:hover': { bgcolor: isFollowing ? 'rgba(255,255,255,0.3)' : '#553C9A' },
             }}
           >
-            Follow
+            {isFollowing ? 'Following' : 'Follow'}
           </Button>
         </Box>
 
-        <Typography variant="body1" sx={{
-          mb: 1.5,
-          lineHeight: 1.4,
-          textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
-        }}>
-          {video.description}
+        <Typography variant="body1" sx={{ mb: 1.5, lineHeight: 1.4, textShadow: '0 2px 6px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.9)' }}>
+          {content.title || content.description}
         </Typography>
 
-        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-          {video.hashtags.map((tag) => (
-            <Chip
-              key={tag}
-              label={`#${tag}`}
-              size="small"
-              sx={{
-                bgcolor: 'rgba(107, 70, 193, 0.8)',
-                color: 'white',
-                fontSize: '0.75rem',
-                height: 24,
-                borderRadius: 12,
-                backdropFilter: 'blur(10px)'
-              }}
-            />
-          ))}
-        </Box>
+        {content.hashtags && content.hashtags.length > 0 && (
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+            {content.hashtags.map((tag) => (
+              <Chip
+                key={tag}
+                label={`#${tag}`}
+                size="small"
+                sx={{ bgcolor: 'rgba(107,70,193,0.8)', color: 'white', fontSize: '0.75rem', height: 24, borderRadius: 12 }}
+              />
+            ))}
+          </Box>
+        )}
       </Box>
 
       {/* Right Side Actions */}
-      <Box sx={{
-        position: 'absolute',
-        bottom: 100,
-        right: 12,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 3,
-        alignItems: 'center',
-        zIndex: 3
-      }}>
+      <Box sx={{ position: 'absolute', bottom: 100, right: 12, display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', zIndex: 3 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <IconButton
-            onClick={onLike}
-            sx={{
-              color: video.isLiked ? '#ff4444' : 'white',
-              bgcolor: 'rgba(0,0,0,0.5)',
-              backdropFilter: 'blur(10px)',
-              width: 48,
-              height: 48,
-              '&:hover': {
-                bgcolor: 'rgba(0,0,0,0.7)',
-                transform: 'scale(1.1)'
-              }
-            }}
-          >
-            {video.isLiked ? <LikeIcon sx={{ fontSize: 28 }} /> : <UnlikeIcon sx={{ fontSize: 28 }} />}
+          <IconButton onClick={onLike} sx={{ color: isLiked ? '#ff4444' : 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', width: 48, height: 48, transition: 'all 0.2s ease', '&:hover': { transform: 'scale(1.1)', bgcolor: 'rgba(0,0,0,0.65)' } }}>
+            {isLiked ? <LikeIcon sx={{ fontSize: 28 }} /> : <UnlikeIcon sx={{ fontSize: 28 }} />}
           </IconButton>
-          <Typography variant="caption" sx={{
-            color: 'white',
-            fontSize: '0.75rem',
-            fontWeight: 'bold',
-            mt: 0.5,
-            textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
-          }}>
-            {video.likes > 999 ? `${(video.likes / 1000).toFixed(1)}K` : video.likes}
+          <Typography variant="caption" sx={{ color: 'white', fontSize: '0.75rem', fontWeight: 'bold', mt: 0.5, textShadow: '0 2px 6px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.9)' }}>
+            {formatCount(content.likeCount || 0)}
           </Typography>
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <IconButton
-            onClick={onComment}
-            sx={{
-              color: 'white',
-              bgcolor: 'rgba(0,0,0,0.5)',
-              backdropFilter: 'blur(10px)',
-              width: 48,
-              height: 48,
-              '&:hover': {
-                bgcolor: 'rgba(0,0,0,0.7)',
-                transform: 'scale(1.1)'
-              }
-            }}
-          >
+          <IconButton onClick={onComment} sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', width: 48, height: 48, transition: 'all 0.2s ease', '&:hover': { transform: 'scale(1.1)', bgcolor: 'rgba(0,0,0,0.65)' } }}>
             <CommentIcon sx={{ fontSize: 28 }} />
           </IconButton>
-          <Typography variant="caption" sx={{
-            color: 'white',
-            fontSize: '0.75rem',
-            fontWeight: 'bold',
-            mt: 0.5,
-            textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
-          }}>
-            {video.comments}
+          <Typography variant="caption" sx={{ color: 'white', fontSize: '0.75rem', fontWeight: 'bold', mt: 0.5, textShadow: '0 2px 6px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.9)' }}>
+            {formatCount(content.commentCount || 0)}
           </Typography>
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <IconButton
-            onClick={onShare}
-            sx={{
-              color: 'white',
-              bgcolor: 'rgba(0,0,0,0.5)',
-              backdropFilter: 'blur(10px)',
-              width: 48,
-              height: 48,
-              '&:hover': {
-                bgcolor: 'rgba(0,0,0,0.7)',
-                transform: 'scale(1.1)'
-              }
-            }}
-          >
+          <IconButton onClick={onShare} sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', width: 48, height: 48, transition: 'all 0.2s ease', '&:hover': { transform: 'scale(1.1)', bgcolor: 'rgba(0,0,0,0.65)' } }}>
             <ShareIcon sx={{ fontSize: 28 }} />
           </IconButton>
-          <Typography variant="caption" sx={{
-            color: 'white',
-            fontSize: '0.75rem',
-            fontWeight: 'bold',
-            mt: 0.5,
-            textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
-          }}>
-            {video.shares}
+          <Typography variant="caption" sx={{ color: 'white', fontSize: '0.75rem', fontWeight: 'bold', mt: 0.5, textShadow: '0 2px 6px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.9)' }}>
+            {formatCount(content.shareCount || 0)}
           </Typography>
         </Box>
+
+        <IconButton onClick={onSave} sx={{ color: isSaved ? '#FFD700' : 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', width: 48, height: 48, transition: 'all 0.2s ease', '&:hover': { transform: 'scale(1.1)', bgcolor: 'rgba(0,0,0,0.65)' } }}>
+          {isSaved ? <Bookmark sx={{ fontSize: 28 }} /> : <BookmarkBorder sx={{ fontSize: 28 }} />}
+        </IconButton>
       </Box>
 
       {/* View Count Badge */}
-      <Box sx={{
-        position: 'absolute',
-        top: 16,
-        left: 16,
-        zIndex: 3
-      }}>
+      <Box sx={{ position: 'absolute', top: 16, left: 16, zIndex: 3 }}>
         <Chip
-          label={`${video.views.toLocaleString()} views`}
+          label={`${(content.viewCount || 0).toLocaleString()} views`}
           size="small"
-          sx={{
-            bgcolor: 'rgba(0,0,0,0.7)',
-            color: 'white',
-            fontSize: '0.75rem',
-            backdropFilter: 'blur(10px)'
-          }}
+          sx={{ bgcolor: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '0.75rem', backdropFilter: 'blur(10px)' }}
         />
       </Box>
     </Box>
@@ -444,57 +220,131 @@ function VideoPlayer({
 }
 
 function ShortsPageContent() {
-  const [shorts, setShorts] = useState<ShortVideo[]>(mockShorts);
+  const [shorts, setShorts] = useState<Content[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
-  const [playingVideo, setPlayingVideo] = useState<string | null>(mockShorts[0]?.id || null);
-  const [mutedVideos, setMutedVideos] = useState<Set<string>>(new Set());
+  const [playingVideo, setPlayingVideo] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState(true);
+  const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
+  const [savedMap, setSavedMap] = useState<Record<string, boolean>>({});
+  const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const [commentContentId, setCommentContentId] = useState('');
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareContentId, setShareContentId] = useState('');
+  const [page, setPage] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  const router = useRouter();
 
-  const handlePlayPause = (videoId: string) => {
-    setPlayingVideo(prev => prev === videoId ? null : videoId);
-  };
+  useEffect(() => {
+    loadShorts(0);
+  }, []);
 
-  const handleMuteToggle = (videoId: string) => {
-    setMutedVideos(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(videoId)) {
-        newSet.delete(videoId);
-      } else {
-        newSet.add(videoId);
+  const loadShorts = async (pageNum: number) => {
+    try {
+      setLoading(true);
+      // Use trending feed filtered for SHORT_VIDEO
+      const response = await ContentAPI.getTrendingFeed(pageNum, 10, 168, user?.id);
+      if (isApiSuccess(response)) {
+        const videoContent = (response.data.content?.content || []).filter(
+          (c: Content) => c.type === 'SHORT_VIDEO' && c.status === 'PUBLISHED'
+        );
+        if (pageNum === 0) {
+          setShorts(videoContent);
+          if (videoContent.length > 0) setPlayingVideo(videoContent[0].id);
+        } else {
+          setShorts(prev => [...prev, ...videoContent]);
+        }
+        setPage(pageNum);
+
+        // Load engagement statuses
+        if (user?.id && videoContent.length > 0) {
+          const ids = videoContent.map((c: Content) => c.id);
+          try {
+            const engRes = await ContentAPI.getBulkEngagementStatus(ids, user.id);
+            if (isApiSuccess(engRes)) {
+              const engData = engRes.data;
+              const newLiked: Record<string, boolean> = {};
+              const newSaved: Record<string, boolean> = {};
+              for (const [cid, status] of Object.entries(engData)) {
+                newLiked[cid] = status.liked;
+                newSaved[cid] = status.bookmarked;
+              }
+              setLikedMap(prev => ({ ...prev, ...newLiked }));
+              setSavedMap(prev => ({ ...prev, ...newSaved }));
+            }
+          } catch {}
+        }
       }
-      return newSet;
-    });
+    } catch (err) {
+      console.error('Failed to load shorts:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleLike = (videoId: string) => {
-    setShorts(prev => prev.map(video =>
-      video.id === videoId
-        ? {
-            ...video,
-            isLiked: !video.isLiked,
-            likes: video.isLiked ? video.likes - 1 : video.likes + 1
-          }
-        : video
+  const handleLike = async (contentId: string) => {
+    if (!user?.id) return;
+    const isLiked = likedMap[contentId] || false;
+    setLikedMap(prev => ({ ...prev, [contentId]: !isLiked }));
+    setShorts(prev => prev.map(s => s.id === contentId
+      ? { ...s, likeCount: (s.likeCount || 0) + (isLiked ? -1 : 1) } : s
     ));
+    try {
+      await ContentAPI.recordEngagement(contentId, { action: isLiked ? 'UNLIKE' : 'LIKE' }, user.id, user.username);
+    } catch {
+      setLikedMap(prev => ({ ...prev, [contentId]: isLiked }));
+    }
   };
 
-  const handleComment = (videoId: string) => {
-    // TODO: Implement comment modal
+  const handleSave = async (contentId: string) => {
+    if (!user?.id) return;
+    const isSaved = savedMap[contentId] || false;
+    setSavedMap(prev => ({ ...prev, [contentId]: !isSaved }));
+    try {
+      if (isSaved) await ContentAPI.unsavePost(contentId, user.id);
+      else await ContentAPI.savePost(contentId, user.id);
+    } catch {
+      setSavedMap(prev => ({ ...prev, [contentId]: isSaved }));
+    }
   };
 
-  const handleShare = (videoId: string) => {
-    // TODO: Implement share functionality
+  const handleFollow = async (creatorId: string) => {
+    if (!user?.id || !creatorId) return;
+    const isFollowing = followingMap[creatorId] || false;
+    setFollowingMap(prev => ({ ...prev, [creatorId]: !isFollowing }));
+    try {
+      if (isFollowing) await UserAPI.unfollowUser(creatorId);
+      else await UserAPI.followUser(creatorId);
+    } catch {
+      setFollowingMap(prev => ({ ...prev, [creatorId]: isFollowing }));
+    }
   };
 
-  // Auto-play current video
+  const handleComment = (contentId: string) => {
+    setCommentContentId(contentId);
+    setCommentDialogOpen(true);
+  };
+
+  const handleShare = (contentId: string) => {
+    setShareContentId(contentId);
+    setShareDialogOpen(true);
+    if (user?.id) {
+      ContentAPI.recordEngagement(contentId, { action: 'SHARE' }, user.id, user.username).catch(() => {});
+    }
+  };
+
   useEffect(() => {
     if (shorts[currentVideoIndex]) {
       setPlayingVideo(shorts[currentVideoIndex].id);
+      // Record view
+      if (user?.id) {
+        ContentAPI.recordView(shorts[currentVideoIndex].id, user.id).catch(() => {});
+      }
     }
-  }, [currentVideoIndex, shorts]);
+  }, [currentVideoIndex]);
 
-  // Handle scroll to detect current video
   const handleScroll = () => {
     if (scrollContainerRef.current) {
       const scrollTop = scrollContainerRef.current.scrollTop;
@@ -503,12 +353,35 @@ function ShortsPageContent() {
       if (newIndex !== currentVideoIndex && newIndex >= 0 && newIndex < shorts.length) {
         setCurrentVideoIndex(newIndex);
       }
+      // Load more when near end
+      if (newIndex >= shorts.length - 2) {
+        loadShorts(page + 1);
+      }
     }
   };
 
+  if (loading && shorts.length === 0) {
+    return (
+      <Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'black' }}>
+        <CircularProgress sx={{ color: '#6B46C1' }} />
+      </Box>
+    );
+  }
+
+  if (!loading && shorts.length === 0) {
+    return (
+      <Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'black', color: 'white', flexDirection: 'column', gap: 2 }}>
+        <Typography variant="h6">No shorts yet</Typography>
+        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>Be the first to upload a short video!</Typography>
+        <Button onClick={() => router.push('/upload')} sx={{ color: '#6B46C1', textTransform: 'none', fontWeight: 600 }}>
+          Create Short
+        </Button>
+      </Box>
+    );
+  }
+
   return (
     <Container maxWidth={false} sx={{ p: 0, height: '100vh', overflow: 'hidden' }}>
-      {/* Vertical scroll container */}
       <Box
         ref={scrollContainerRef}
         onScroll={handleScroll}
@@ -516,46 +389,34 @@ function ShortsPageContent() {
           height: '100vh',
           overflowY: 'auto',
           scrollSnapType: 'y mandatory',
-          '&::-webkit-scrollbar': {
-            display: 'none'
-          },
-          scrollbarWidth: 'none'
+          '&::-webkit-scrollbar': { display: 'none' },
+          scrollbarWidth: 'none',
         }}
       >
-        {shorts.map((video, index) => (
-          <Box
-            key={video.id}
-            sx={{
-              height: '100vh',
-              scrollSnapAlign: 'start',
-              scrollSnapStop: 'always'
-            }}
-          >
+        {shorts.map((content) => (
+          <Box key={content.id} sx={{ height: '100vh', scrollSnapAlign: 'start', scrollSnapStop: 'always' }}>
             <VideoPlayer
-              video={video}
-              isPlaying={playingVideo === video.id}
-              isMuted={mutedVideos.has(video.id)}
-              onPlayPause={() => handlePlayPause(video.id)}
-              onMuteToggle={() => handleMuteToggle(video.id)}
-              onLike={() => handleLike(video.id)}
-              onComment={() => handleComment(video.id)}
-              onShare={() => handleShare(video.id)}
+              content={content}
+              isPlaying={playingVideo === content.id}
+              isMuted={isMuted}
+              isLiked={likedMap[content.id] || false}
+              isSaved={savedMap[content.id] || false}
+              isFollowing={followingMap[content.creatorId] || false}
+              onPlayPause={() => setPlayingVideo(prev => prev === content.id ? null : content.id)}
+              onMuteToggle={() => setIsMuted(prev => !prev)}
+              onLike={() => handleLike(content.id)}
+              onComment={() => handleComment(content.id)}
+              onShare={() => handleShare(content.id)}
+              onSave={() => handleSave(content.id)}
+              onFollow={() => handleFollow(content.creatorId)}
+              onProfileClick={() => router.push(`/profile/${content.creatorId}`)}
             />
           </Box>
         ))}
       </Box>
 
       {/* Page Indicator */}
-      <Box sx={{
-        position: 'fixed',
-        right: 8,
-        top: '50%',
-        transform: 'translateY(-50%)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 1,
-        zIndex: 10
-      }}>
+      <Box sx={{ position: 'fixed', right: 8, top: '50%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', gap: 1, zIndex: 10 }}>
         {shorts.map((_, index) => (
           <Box
             key={index}
@@ -564,36 +425,32 @@ function ShortsPageContent() {
               height: currentVideoIndex === index ? 20 : 8,
               bgcolor: currentVideoIndex === index ? 'white' : 'rgba(255,255,255,0.5)',
               borderRadius: 2,
-              transition: 'all 0.3s ease'
+              transition: 'all 0.3s ease',
             }}
           />
         ))}
       </Box>
 
-      {/* Header - Shorts title */}
-      <Box sx={{
-        position: 'fixed',
-        top: 16,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 10
-      }}>
-        <Typography
-          variant="h6"
-          sx={{
-            color: 'white',
-            fontWeight: 'bold',
-            textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
-            backdropFilter: 'blur(10px)',
-            bgcolor: 'rgba(0,0,0,0.3)',
-            px: 2,
-            py: 0.5,
-            borderRadius: 20
-          }}
-        >
+      {/* Header */}
+      <Box sx={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
+        <Typography variant="h6" sx={{ color: 'white', fontWeight: 'bold', textShadow: '0 2px 6px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.9)', bgcolor: 'rgba(0,0,0,0.3)', px: 2, py: 0.5, borderRadius: 20, backdropFilter: 'blur(10px)' }}>
           Shorts
         </Typography>
       </Box>
+
+      {/* Comment Dialog */}
+      <CommentDialog
+        open={commentDialogOpen}
+        onClose={() => setCommentDialogOpen(false)}
+        contentId={commentContentId}
+      />
+
+      {/* Share Dialog */}
+      <ShareDialog
+        open={shareDialogOpen}
+        onClose={() => setShareDialogOpen(false)}
+        contentId={shareContentId}
+      />
     </Container>
   );
 }

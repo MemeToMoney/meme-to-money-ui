@@ -38,7 +38,8 @@ import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { ContentAPI, Content, UIFeedResponse, UserEngagementStatus } from '@/lib/api/content';
-import { isApiSuccess } from '@/lib/api/client';
+import { isApiSuccess, formatTimeAgo as formatTimeAgoUtil, formatCreatorHandle, getHandleInitial } from '@/lib/api/client';
+import CommentDialog from '@/components/content/CommentDialog';
 
 // Category data matching your design
 const categories = [
@@ -66,6 +67,8 @@ function FeedPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const [commentContentId, setCommentContentId] = useState<string>('');
   const router = useRouter();
   const theme = useTheme();
   const { user } = useAuth();
@@ -241,23 +244,11 @@ function FeedPageContent() {
   };
 
   const handleComment = (contentId: string) => {
-    // TODO: Open comment modal or navigate to post detail
+    setCommentContentId(contentId);
+    setCommentDialogOpen(true);
   };
 
-  const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMs = now.getTime() - date.getTime();
-    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    const diffInDays = Math.floor(diffInHours / 24);
-
-    if (diffInMinutes < 1) return 'now';
-    if (diffInMinutes < 60) return `${diffInMinutes}m`;
-    if (diffInHours < 24) return `${diffInHours}h`;
-    if (diffInDays < 7) return `${diffInDays}d`;
-    return date.toLocaleDateString();
-  };
+  const formatTimeAgo = formatTimeAgoUtil;
 
   const getContentUrl = (content: Content) => {
     return content.processedFile?.cdnUrl || content.originalFile?.cdnUrl || content.thumbnailUrl;
@@ -478,10 +469,10 @@ function FeedPageContent() {
 
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Avatar sx={{ width: 18, height: 18, fontSize: '0.6rem' }}>
-                              {short.creatorHandle?.charAt(1)?.toUpperCase() || 'U'}
+                              {getHandleInitial(short.creatorHandle)}
                             </Avatar>
                             <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.65rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              @{short.creatorHandle || 'user'}
+                              {formatCreatorHandle(short.creatorHandle)}
                             </Typography>
                           </Box>
                         </Box>
@@ -581,18 +572,18 @@ function FeedPageContent() {
             const contentUrl = getContentUrl(post);
 
             return (
-              <Card key={post.id} sx={{ borderRadius: 2, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+              <Card key={post.id} sx={{ borderRadius: 2, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', transition: 'all 0.2s ease-in-out', '&:hover': { boxShadow: '0 8px 25px rgba(0,0,0,0.15)' } }}>
                 {/* Post Header */}
                 <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Avatar sx={{ bgcolor: '#6B46C1' }}>
-                      {post.creatorHandle ? post.creatorHandle.charAt(1)?.toUpperCase() : 'U'}
+                      {getHandleInitial(post.creatorHandle)}
                     </Avatar>
                     <Box>
                       <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                        {post.creatorHandle || 'Unknown User'}
+                        {formatCreatorHandle(post.creatorHandle)}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: '#666' }}>
+                      <Typography variant="caption" sx={{ color: '#6B7280' }}>
                         {formatTimeAgo(post.publishedAt || post.createdAt)}
                       </Typography>
                     </Box>
@@ -649,21 +640,21 @@ function FeedPageContent() {
                 <Box sx={{ p: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                     <Box sx={{ display: 'flex', gap: 2 }}>
-                      <IconButton onClick={() => handleLike(post.id)} sx={{ p: 0 }}>
+                      <IconButton onClick={() => handleLike(post.id)} sx={{ p: 0, transition: 'transform 0.2s ease', '&:hover': { transform: 'scale(1.15)' } }}>
                         {isLiked ? (
                           <Favorite sx={{ color: '#E91E63' }} />
                         ) : (
                           <FavoriteBorder />
                         )}
                       </IconButton>
-                      <IconButton onClick={() => handleComment(post.id)} sx={{ p: 0 }}>
+                      <IconButton onClick={() => handleComment(post.id)} sx={{ p: 0, transition: 'transform 0.2s ease', '&:hover': { transform: 'scale(1.15)' } }}>
                         <ChatBubbleOutline />
                       </IconButton>
-                      <IconButton onClick={() => handleShare(post.id)} sx={{ p: 0 }}>
+                      <IconButton onClick={() => handleShare(post.id)} sx={{ p: 0, transition: 'transform 0.2s ease', '&:hover': { transform: 'scale(1.15)' } }}>
                         <Share />
                       </IconButton>
                     </Box>
-                    <IconButton onClick={() => handleSave(post.id)} sx={{ p: 0 }}>
+                    <IconButton onClick={() => handleSave(post.id)} sx={{ p: 0, transition: 'transform 0.2s ease', '&:hover': { transform: 'scale(1.15)' } }}>
                       <BookmarkBorder />
                     </IconButton>
                   </Box>
@@ -678,7 +669,7 @@ function FeedPageContent() {
                   {/* Caption */}
                   {(post.title || post.description) && (
                     <Typography variant="body2" sx={{ mb: 1 }}>
-                      <span style={{ fontWeight: 'bold' }}>{post.creatorHandle}</span>{' '}
+                      <span style={{ fontWeight: 'bold' }}>{formatCreatorHandle(post.creatorHandle)}</span>{' '}
                       {post.title || post.description}
                     </Typography>
                   )}
@@ -687,7 +678,7 @@ function FeedPageContent() {
                   {post.commentCount > 0 && (
                     <Typography
                       variant="body2"
-                      sx={{ color: '#666', cursor: 'pointer', mb: 1 }}
+                      sx={{ color: '#6B7280', cursor: 'pointer', mb: 1 }}
                       onClick={() => handleComment(post.id)}
                     >
                       View all {post.commentCount} comments
@@ -704,10 +695,10 @@ function FeedPageContent() {
                   {/* Views and Shares */}
                   {(post.viewCount > 0 || post.shareCount > 0) && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2, pt: 1, borderTop: '1px solid #f0f0f0' }}>
-                      <Typography variant="caption" sx={{ color: '#666' }}>
+                      <Typography variant="caption" sx={{ color: '#6B7280' }}>
                         {post.viewCount.toLocaleString()} views
                       </Typography>
-                      <Typography variant="caption" sx={{ color: '#666' }}>
+                      <Typography variant="caption" sx={{ color: '#6B7280' }}>
                         {post.shareCount.toLocaleString()} shares
                       </Typography>
                     </Box>
@@ -761,6 +752,13 @@ function FeedPageContent() {
           </Box>
         )}
       </Container>
+
+      {/* Comment Dialog */}
+      <CommentDialog
+        open={commentDialogOpen}
+        onClose={() => setCommentDialogOpen(false)}
+        contentId={commentContentId}
+      />
     </Box>
   );
 }

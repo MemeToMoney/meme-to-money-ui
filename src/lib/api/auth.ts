@@ -189,6 +189,8 @@ export class AuthAPI {
           isGod: userData.isGod,
           authProvider: userData.authProvider,
           onboardingCompleted: userData.onboardingCompleted ?? false,
+          website: userData.website,
+          socialLinks: userData.socialLinks,
           createdAt: userData.createdAt,
           updatedAt: userData.updatedAt
         };
@@ -225,40 +227,16 @@ export class AuthAPI {
         userServiceClient.patch('/api/users/me', profileData)
       );
 
-      if (response.status === 200 && response.data) {
-        const userData = response.data.data || response.data;
-
-        const user: User = {
-          id: userData.id || '',
-          name: userData.name || userData.displayName || '',
-          email: userData.email || '',
-          username: userData.username,
-          displayName: userData.displayName,
-          bio: userData.bio || '',
-          profilePicture: userData.profilePicture,
-          followerCount: userData.followerCount || 0,
-          followingCount: userData.followingCount || 0,
-          totalEarnings: userData.totalEarnings || 0,
-          weeklyEarnings: userData.weeklyEarnings || 0,
-          coinBalance: userData.coinBalance || 0,
-          kycStatus: userData.kycStatus || 'NOT_SUBMITTED',
-          isContentCreator: userData.isContentCreator || false,
-          creatorHandle: userData.creatorHandle,
-          mobileNumber: userData.mobileNumber,
-          country: userData.country,
-          address: userData.address,
-          isGod: userData.isGod,
-          authProvider: userData.authProvider,
-          onboardingCompleted: userData.onboardingCompleted ?? false,
-          createdAt: userData.createdAt,
-          updatedAt: userData.updatedAt
-        };
-
-        return {
-          status: 200,
-          message: 'Profile updated successfully',
-          data: user
-        };
+      if (response.status === 200) {
+        // The PATCH returns just the user ID, so fetch the full profile
+        const profileResponse = await this.getCurrentUser();
+        if (profileResponse.status === 200 && profileResponse.data) {
+          return {
+            status: 200,
+            message: 'Profile updated successfully',
+            data: profileResponse.data
+          };
+        }
       }
 
       return {
