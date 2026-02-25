@@ -5,7 +5,6 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import {
   Box,
   Typography,
-  Container,
   List,
   ListItem,
   ListItemAvatar,
@@ -194,11 +193,12 @@ function MessagesContent() {
   };
 
   return (
-    <Container maxWidth={false} sx={{ p: 0, height: '100vh', display: 'flex', overflow: 'hidden' }}>
+    <Box sx={{ p: 0, height: { xs: 'calc(100dvh - 90px)', md: '100vh' }, display: 'flex', overflow: 'hidden', width: '100%' }}>
       {/* Conversation List */}
       <Box sx={{
         width: { xs: '100%', md: 360 },
-        borderRight: '1px solid rgba(0,0,0,0.08)',
+        minWidth: { md: 360 },
+        borderRight: { md: '1px solid rgba(0,0,0,0.08)' },
         bgcolor: 'white',
         display: { xs: selectedConversation ? 'none' : 'flex', md: 'flex' },
         flexDirection: 'column',
@@ -354,7 +354,7 @@ function MessagesContent() {
           )}
         </DialogContent>
       </Dialog>
-    </Container>
+    </Box>
   );
 }
 

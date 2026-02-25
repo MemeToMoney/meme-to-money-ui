@@ -29,6 +29,7 @@ import {
   ChatBubbleOutline,
   Share,
   BookmarkBorder,
+  Bookmark,
   MoreVert,
   PlayArrow,
   VolumeOff,
@@ -39,6 +40,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { ContentAPI, Content, UIFeedResponse, UserEngagementStatus } from '@/lib/api/content';
 import { isApiSuccess, formatTimeAgo as formatTimeAgoUtil, formatCreatorHandle, getHandleInitial } from '@/lib/api/client';
+import { UserAPI } from '@/lib/api/user';
 import CommentDialog from '@/components/content/CommentDialog';
 
 // Category data matching your design
@@ -69,9 +71,68 @@ function FeedPageContent() {
   const [hasMore, setHasMore] = useState(true);
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
   const [commentContentId, setCommentContentId] = useState<string>('');
+  const [creatorProfiles, setCreatorProfiles] = useState<{ [id: string]: { name: string; avatar?: string } }>({});
   const router = useRouter();
   const theme = useTheme();
   const { user } = useAuth();
+
+  // Resolve creator names from user profiles
+  const resolveCreatorProfiles = async (posts: Content[]) => {
+    const unknownCreatorIds = posts
+      .filter(p => !creatorProfiles[p.creatorId] && (
+        !p.creatorHandle || p.creatorHandle.startsWith('user_') || /^[a-f0-9]{24}$/.test(p.creatorHandle)
+      ))
+      .map(p => p.creatorId)
+      .filter((id, i, arr) => arr.indexOf(id) === i);
+
+    if (unknownCreatorIds.length === 0) return;
+
+    const profiles: { [id: string]: { name: string; avatar?: string } } = {};
+    await Promise.all(
+      unknownCreatorIds.map(async (cid) => {
+        try {
+          const res = await UserAPI.getUserProfile(cid);
+          if (isApiSuccess(res)) {
+            const u = res.data;
+            profiles[cid] = {
+              name: u.creatorHandle || u.displayName || u.name || u.username || 'User',
+              avatar: u.profilePicture,
+            };
+          }
+        } catch {
+          // ignore
+        }
+      })
+    );
+    if (Object.keys(profiles).length > 0) {
+      setCreatorProfiles(prev => ({ ...prev, ...profiles }));
+    }
+  };
+
+  // Helper to get display name for a post
+  const getCreatorDisplayName = (post: Content) => {
+    // If handle is a real name/handle, use it
+    if (post.creatorHandle && !post.creatorHandle.startsWith('user_') && !/^[a-f0-9]{24}$/.test(post.creatorHandle)) {
+      return formatCreatorHandle(post.creatorHandle);
+    }
+    // Otherwise use resolved profile
+    const profile = creatorProfiles[post.creatorId];
+    if (profile) return formatCreatorHandle(profile.name);
+    return 'User';
+  };
+
+  const getCreatorInitial = (post: Content) => {
+    if (post.creatorHandle && !post.creatorHandle.startsWith('user_') && !/^[a-f0-9]{24}$/.test(post.creatorHandle)) {
+      return getHandleInitial(post.creatorHandle);
+    }
+    const profile = creatorProfiles[post.creatorId];
+    if (profile) return getHandleInitial(profile.name);
+    return 'U';
+  };
+
+  const getCreatorAvatar = (post: Content) => {
+    return creatorProfiles[post.creatorId]?.avatar;
+  };
 
   // Load shorts on component mount
   useEffect(() => {
@@ -140,6 +201,9 @@ function FeedPageContent() {
 
         setEngagements(prev => ({ ...prev, ...newEngagements }));
         setHasMore(!response.data.content.last);
+
+        // Resolve creator profiles for posts with placeholder handles
+        resolveCreatorProfiles(newContent);
       } else {
         setError((response as any).message || 'Failed to load feed');
       }
@@ -219,6 +283,18 @@ function FeedPageContent() {
     if (!user?.id) return;
 
     try {
+      // Use native share if available, else copy link
+      const shareUrl = `${window.location.origin}/post/${contentId}`;
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Check this out on MemeToMoney!',
+          url: shareUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        alert('Link copied to clipboard!');
+      }
+
       await ContentAPI.recordEngagement(
         contentId,
         { action: 'SHARE' },
@@ -226,21 +302,49 @@ function FeedPageContent() {
         user.username
       );
 
-      // Update share count
       setFeedData(prev => prev.map(post =>
         post.id === contentId
           ? { ...post, shareCount: post.shareCount + 1 }
           : post
       ));
-
-      // TODO: Implement actual sharing functionality
     } catch (error) {
       console.error('Share error:', error);
     }
   };
 
-  const handleSave = (contentId: string) => {
-    // TODO: Implement bookmark functionality when API supports it
+  const handleSave = async (contentId: string) => {
+    if (!user?.id) return;
+
+    try {
+      const isCurrentlySaved = engagements[contentId]?.bookmarked || false;
+
+      // Optimistic update
+      setEngagements(prev => ({
+        ...prev,
+        [contentId]: {
+          ...prev[contentId],
+          bookmarked: !isCurrentlySaved,
+          contentId,
+          userId: user.id
+        }
+      }));
+
+      if (isCurrentlySaved) {
+        await ContentAPI.unsavePost(contentId, user.id);
+      } else {
+        await ContentAPI.savePost(contentId, user.id);
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      // Revert on failure
+      setEngagements(prev => ({
+        ...prev,
+        [contentId]: {
+          ...prev[contentId],
+          bookmarked: engagements[contentId]?.bookmarked || false
+        }
+      }));
+    }
   };
 
   const handleComment = (contentId: string) => {
@@ -575,13 +679,13 @@ function FeedPageContent() {
               <Card key={post.id} sx={{ borderRadius: 2, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', transition: 'all 0.2s ease-in-out', '&:hover': { boxShadow: '0 8px 25px rgba(0,0,0,0.15)' } }}>
                 {/* Post Header */}
                 <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar sx={{ bgcolor: '#6B46C1' }}>
-                      {getHandleInitial(post.creatorHandle)}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, cursor: 'pointer' }} onClick={() => router.push(`/profile/${post.creatorId}`)}>
+                    <Avatar src={getCreatorAvatar(post)} sx={{ bgcolor: '#6B46C1' }}>
+                      {getCreatorInitial(post)}
                     </Avatar>
                     <Box>
                       <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                        {formatCreatorHandle(post.creatorHandle)}
+                        {getCreatorDisplayName(post)}
                       </Typography>
                       <Typography variant="caption" sx={{ color: '#6B7280' }}>
                         {formatTimeAgo(post.publishedAt || post.createdAt)}
@@ -655,7 +759,7 @@ function FeedPageContent() {
                       </IconButton>
                     </Box>
                     <IconButton onClick={() => handleSave(post.id)} sx={{ p: 0, transition: 'transform 0.2s ease', '&:hover': { transform: 'scale(1.15)' } }}>
-                      <BookmarkBorder />
+                      {engagement?.bookmarked ? <Bookmark sx={{ color: '#6B46C1' }} /> : <BookmarkBorder />}
                     </IconButton>
                   </Box>
 
@@ -669,7 +773,7 @@ function FeedPageContent() {
                   {/* Caption */}
                   {(post.title || post.description) && (
                     <Typography variant="body2" sx={{ mb: 1 }}>
-                      <span style={{ fontWeight: 'bold' }}>{formatCreatorHandle(post.creatorHandle)}</span>{' '}
+                      <span style={{ fontWeight: 'bold' }}>{getCreatorDisplayName(post)}</span>{' '}
                       {post.title || post.description}
                     </Typography>
                   )}

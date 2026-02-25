@@ -56,9 +56,11 @@ function EditProfileContent() {
     displayName: '',
     username: '',
     bio: '',
+    mobileNumber: '',
     creatorHandle: '',
     website: '',
     isContentCreator: false,
+    isPrivateAccount: false,
     socialLinks: { instagram: '', twitter: '', youtube: '' } as { [key: string]: string },
   });
 
@@ -68,9 +70,11 @@ function EditProfileContent() {
         displayName: user.displayName || user.name || '',
         username: user.username || '',
         bio: user.bio || '',
+        mobileNumber: user.mobileNumber ? String(user.mobileNumber) : '',
         creatorHandle: user.creatorHandle || '',
         website: user.website || '',
         isContentCreator: user.isContentCreator || false,
+        isPrivateAccount: user.isPrivateAccount || false,
         socialLinks: {
           instagram: user.socialLinks?.instagram || '',
           twitter: user.socialLinks?.twitter || '',
@@ -226,9 +230,11 @@ function EditProfileContent() {
         displayName: form.displayName.trim(),
         username: form.username.trim(),
         bio: form.bio.trim(),
+        mobileNumber: form.mobileNumber.trim() ? Number(form.mobileNumber.trim()) : undefined,
         creatorHandle: form.creatorHandle.trim() || undefined,
         website: form.website.trim(),
         isContentCreator: form.isContentCreator,
+        isPrivateAccount: form.isPrivateAccount,
         socialLinks: Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
       });
 
@@ -388,6 +394,39 @@ function EditProfileContent() {
             multiline
             rows={3}
             helperText={`${form.bio.length}/${BIO_MAX}`}
+            sx={{ mb: 1 }}
+          />
+
+          <TextField
+            fullWidth
+            label="Mobile Number"
+            value={form.mobileNumber}
+            onChange={(e) => setForm({ ...form, mobileNumber: e.target.value.replace(/[^0-9]/g, '').slice(0, 15) })}
+            margin="dense"
+            type="tel"
+            placeholder="Enter your mobile number"
+            helperText="Your mobile number (optional)"
+          />
+        </Box>
+
+        {/* Privacy Settings */}
+        <Box sx={{ bgcolor: 'white', borderRadius: 3, p: 3, mb: 3, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, color: '#374151' }}>Privacy</Typography>
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={form.isPrivateAccount}
+                onChange={(e) => setForm({ ...form, isPrivateAccount: e.target.checked })}
+                sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: '#6B46C1' }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#6B46C1' } }}
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>Private Account</Typography>
+                <Typography variant="caption" sx={{ color: '#6B7280' }}>Only approved followers can see your posts</Typography>
+              </Box>
+            }
           />
         </Box>
 

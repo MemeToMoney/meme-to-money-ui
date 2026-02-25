@@ -21,6 +21,9 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
     return <>{children}</>;
   }
 
+  // Full-width pages (no 428px constraint)
+  const isFullWidthPage = pathname === '/messages';
+
   return (
     <Box sx={{
       minHeight: '100vh',
@@ -32,7 +35,7 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
       <Container
         maxWidth={false}
         sx={{
-          maxWidth: '428px !important',
+          maxWidth: isFullWidthPage ? '100% !important' : '428px !important',
           px: 0,
           flex: 1,
           display: 'flex',

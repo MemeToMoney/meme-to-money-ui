@@ -9,6 +9,7 @@ import {
   TextField,
   Paper,
   CircularProgress,
+  Popover,
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -18,9 +19,15 @@ import {
   ArrowBack as BackIcon,
   DoneAll as ReadIcon,
   Done as SentIcon,
+  Image as ImageIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { MessagingAPI, Message } from '@/lib/api/messaging';
+import { ContentAPI } from '@/lib/api/content';
 import { isApiSuccess } from '@/lib/api/client';
+import dynamic from 'next/dynamic';
+
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
 interface ChatWindowProps {
   conversationId: string;
@@ -41,8 +48,13 @@ export default function ChatWindow({
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [emojiAnchor, setEmojiAnchor] = useState<HTMLElement | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -53,7 +65,6 @@ export default function ChatWindow({
       const response = await MessagingAPI.getMessages(conversationId, 0, 100);
       if (isApiSuccess(response)) {
         const msgs = response.data.content || response.data || [];
-        // Messages come newest first from API, reverse for display
         setMessages(Array.isArray(msgs) ? [...msgs].reverse() : []);
       }
     } catch (err) {
@@ -69,7 +80,6 @@ export default function ChatWindow({
     loadMessages();
   }, [conversationId, loadMessages]);
 
-  // Poll for new messages every 3 seconds
   useEffect(() => {
     const interval = setInterval(loadMessages, 3000);
     return () => clearInterval(interval);
@@ -79,7 +89,6 @@ export default function ChatWindow({
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Mark conversation as read when viewing
   useEffect(() => {
     if (messages.length > 0) {
       const lastMsg = messages[messages.length - 1];
@@ -90,37 +99,64 @@ export default function ChatWindow({
   }, [messages, conversationId, currentUserId]);
 
   const handleSend = async () => {
-    if (!messageText.trim() || sending) return;
+    if ((!messageText.trim() && !attachmentFile) || sending) return;
 
     const text = messageText.trim();
     setMessageText('');
     setSending(true);
+
+    let mediaUrl: string | undefined;
+    let mediaType: string | undefined;
+    let msgType: 'TEXT' | 'IMAGE' = 'TEXT';
+
+    // Upload attachment if present
+    if (attachmentFile) {
+      setUploading(true);
+      try {
+        const uploadRes = await ContentAPI.uploadFile(attachmentFile);
+        if (isApiSuccess(uploadRes)) {
+          mediaUrl = uploadRes.data;
+          mediaType = attachmentFile.type;
+          msgType = attachmentFile.type.startsWith('image/') ? 'IMAGE' : 'TEXT';
+        }
+      } catch (err) {
+        console.error('Failed to upload file:', err);
+      } finally {
+        setUploading(false);
+        setAttachmentFile(null);
+        setAttachmentPreview(null);
+      }
+    }
 
     // Optimistic update
     const optimisticMsg: Message = {
       id: `temp-${Date.now()}`,
       conversationId,
       senderId: currentUserId,
-      type: 'TEXT',
-      text,
+      type: msgType,
+      text: text || undefined,
+      mediaUrl,
       createdAt: new Date().toISOString(),
       status: 'SENT',
     };
     setMessages((prev) => [...prev, optimisticMsg]);
 
     try {
-      const response = await MessagingAPI.sendMessage(conversationId, { type: 'TEXT', text });
+      const payload: any = { type: msgType, text: text || undefined };
+      if (mediaUrl) {
+        payload.mediaUrl = mediaUrl;
+        payload.mediaType = mediaType;
+      }
+      const response = await MessagingAPI.sendMessage(conversationId, payload);
       if (isApiSuccess(response)) {
-        // Replace optimistic message with real one
         setMessages((prev) =>
           prev.map((m) => (m.id === optimisticMsg.id ? response.data : m))
         );
       }
     } catch (err) {
       console.error('Failed to send message:', err);
-      // Remove optimistic message on failure
       setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
-      setMessageText(text); // Restore text
+      setMessageText(text);
     } finally {
       setSending(false);
     }
@@ -131,6 +167,36 @@ export default function ChatWindow({
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleEmojiClick = (emojiData: any) => {
+    setMessageText((prev) => prev + emojiData.emoji);
+    setEmojiAnchor(null);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size must be less than 10MB');
+      return;
+    }
+
+    setAttachmentFile(file);
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setAttachmentPreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setAttachmentPreview(null);
+    }
+  };
+
+  const clearAttachment = () => {
+    setAttachmentFile(null);
+    setAttachmentPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const formatTime = (dateStr: string) => {
@@ -147,7 +213,6 @@ export default function ChatWindow({
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-
     if (date.toDateString() === today.toDateString()) return 'Today';
     if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
     return date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
@@ -248,7 +313,9 @@ export default function ChatWindow({
                       <Box
                         component="img"
                         src={msg.mediaUrl}
-                        sx={{ maxWidth: '100%', borderRadius: 1, mb: msg.text ? 1 : 0 }}
+                        alt="attachment"
+                        sx={{ maxWidth: '100%', maxHeight: 300, borderRadius: 1, mb: msg.text ? 1 : 0, cursor: 'pointer' }}
+                        onClick={() => window.open(msg.mediaUrl, '_blank')}
                       />
                     )}
                     {msg.text && (
@@ -274,16 +341,48 @@ export default function ChatWindow({
         <div ref={messagesEndRef} />
       </Box>
 
+      {/* Attachment Preview */}
+      {attachmentFile && (
+        <Box sx={{ px: 2, py: 1, bgcolor: '#F3F4F6', display: 'flex', alignItems: 'center', gap: 1 }}>
+          {attachmentPreview ? (
+            <Box component="img" src={attachmentPreview} sx={{ width: 60, height: 60, borderRadius: 1, objectFit: 'cover' }} />
+          ) : (
+            <Box sx={{ px: 2, py: 1, bgcolor: '#E5E7EB', borderRadius: 1, fontSize: '0.85rem' }}>
+              {attachmentFile.name}
+            </Box>
+          )}
+          <IconButton size="small" onClick={clearAttachment}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+          {uploading && <CircularProgress size={20} sx={{ color: '#6B46C1' }} />}
+        </Box>
+      )}
+
       {/* Input Area */}
       <Box sx={{ p: 2, bgcolor: 'white', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
         <Box sx={{
           display: 'flex', alignItems: 'center', gap: 1,
           bgcolor: '#F3F4F6', borderRadius: 4, p: 1, pl: 2,
         }}>
-          <IconButton size="small" sx={{ color: '#6B7280' }}>
+          <IconButton
+            size="small"
+            sx={{ color: '#6B7280' }}
+            onClick={(e) => setEmojiAnchor(emojiAnchor ? null : e.currentTarget)}
+          >
             <EmojiIcon />
           </IconButton>
-          <IconButton size="small" sx={{ color: '#6B7280' }}>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            accept="image/*,video/*,.pdf,.doc,.docx"
+            style={{ display: 'none' }}
+          />
+          <IconButton
+            size="small"
+            sx={{ color: '#6B7280' }}
+            onClick={() => fileInputRef.current?.click()}
+          >
             <AttachIcon />
           </IconButton>
           <TextField
@@ -300,11 +399,11 @@ export default function ChatWindow({
           />
           <IconButton
             onClick={handleSend}
-            disabled={!messageText.trim() || sending}
+            disabled={(!messageText.trim() && !attachmentFile) || sending}
             sx={{
-              bgcolor: messageText.trim() ? '#6B46C1' : '#E5E7EB',
+              bgcolor: (messageText.trim() || attachmentFile) ? '#6B46C1' : '#E5E7EB',
               color: 'white', width: 40, height: 40,
-              '&:hover': { bgcolor: messageText.trim() ? '#553C9A' : '#E5E7EB' },
+              '&:hover': { bgcolor: (messageText.trim() || attachmentFile) ? '#553C9A' : '#E5E7EB' },
               '&.Mui-disabled': { color: 'white', opacity: 0.7 },
             }}
           >
@@ -312,6 +411,17 @@ export default function ChatWindow({
           </IconButton>
         </Box>
       </Box>
+
+      {/* Emoji Picker Popover */}
+      <Popover
+        open={Boolean(emojiAnchor)}
+        anchorEl={emojiAnchor}
+        onClose={() => setEmojiAnchor(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      >
+        <EmojiPicker onEmojiClick={handleEmojiClick} width={320} height={400} />
+      </Popover>
     </Box>
   );
 }

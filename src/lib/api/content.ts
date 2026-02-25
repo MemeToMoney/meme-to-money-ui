@@ -207,14 +207,20 @@ export class ContentAPI {
   static async createContent(
     contentId: string,
     contentData: ContentCreationRequest,
-    userId: string
+    userId: string,
+    userHandle?: string
   ): Promise<ApiResponse<Content>> {
+    const headers: any = {
+      'X-User-Id': userId
+    };
+    if (userHandle) {
+      headers['X-User-Handle'] = userHandle;
+    }
+
     const response = await handleApiResponse<Content>(
       contentServiceClient.post('/api/content', contentData, {
         params: { contentId },
-        headers: {
-          'X-User-Id': userId
-        }
+        headers
       })
     );
 

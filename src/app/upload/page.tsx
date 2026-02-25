@@ -199,7 +199,8 @@ function UploadPageContent() {
       const contentResponse = await ContentAPI.createContent(
         contentId,
         contentRequest,
-        user.id
+        user.id,
+        user.creatorHandle || user.displayName || user.name || user.username
       );
 
       if (!isApiSuccess(contentResponse)) {
