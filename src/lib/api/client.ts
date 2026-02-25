@@ -11,12 +11,13 @@ const DEV_USER_SERVICE_URL = 'http://localhost:8080';
 const DEV_CONTENT_SERVICE_URL = 'http://localhost:8081';
 const DEV_MONETIZATION_SERVICE_URL = 'http://localhost:8082';
 
-// Production URLs (Cloud Run)
-const PROD_USER_SERVICE_URL = 'https://auth-service-703108401175.asia-south2.run.app';
-const PROD_CONTENT_SERVICE_URL = 'https://content-service-703108401175.asia-south2.run.app';
-const PROD_MONETIZATION_SERVICE_URL = 'https://monetization-service-703108401175.asia-south2.run.app';
-const PROD_MESSAGING_SERVICE_URL = 'https://messaging-service-703108401175.asia-south2.run.app';
-const PROD_NOTIFICATION_SERVICE_URL = 'https://notification-service-703108401175.asia-south2.run.app';
+// Production URLs (via Load Balancer - path-based routing handles service dispatch)
+const PROD_BASE_URL = 'https://www.upgradestacks.com';
+const PROD_USER_SERVICE_URL = PROD_BASE_URL;
+const PROD_CONTENT_SERVICE_URL = PROD_BASE_URL;
+const PROD_MONETIZATION_SERVICE_URL = PROD_BASE_URL;
+const PROD_MESSAGING_SERVICE_URL = PROD_BASE_URL;
+const PROD_NOTIFICATION_SERVICE_URL = PROD_BASE_URL;
 
 // Development URLs
 const DEV_MESSAGING_SERVICE_URL = 'http://localhost:8082';
