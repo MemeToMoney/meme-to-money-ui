@@ -34,7 +34,7 @@ import {
   Check as CheckIcon,
   Edit as EditIcon,
   Public as PublicIcon,
-  MonetizationOn as MonetizationIcon,
+  CurrencyRupee as MonetizationIcon,
   Add as AddIcon,
   Tag as TagIcon,
 } from '@mui/icons-material';

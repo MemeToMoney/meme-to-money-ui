@@ -5,25 +5,18 @@ import {
   Container,
   Box,
   Typography,
-  TextField,
-  InputAdornment,
   Button,
   Card,
   CardContent,
   Avatar,
   IconButton,
-  useTheme,
-  Paper,
-  Tabs,
-  Tab,
-  Grid,
   CardMedia,
   CircularProgress,
   Alert,
+  Chip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  Person,
   Favorite,
   FavoriteBorder,
   ChatBubbleOutline,
@@ -32,8 +25,11 @@ import {
   Bookmark,
   MoreVert,
   PlayArrow,
-  VolumeOff,
   VideoLibrary as ShortsIcon,
+  EmojiEvents as TrophyIcon,
+  Whatshot as FireIcon,
+  CameraAlt as MemeCamIcon,
+  CurrencyRupee as TipIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -43,25 +39,21 @@ import { isApiSuccess, formatTimeAgo as formatTimeAgoUtil, formatCreatorHandle, 
 import { UserAPI } from '@/lib/api/user';
 import CommentDialog from '@/components/content/CommentDialog';
 
-// Category data matching your design
 const categories = [
-  { name: 'All', emoji: '🎯', active: true },
-  { name: 'Memes', emoji: '😂', active: false },
-  { name: 'Comedy', emoji: '🤣', active: false },
-  { name: 'Viral', emoji: '🔥', active: false },
-  { name: 'Dance', emoji: '💃', active: false },
-  { name: 'Food', emoji: '🍔', active: false },
-  { name: 'Pets', emoji: '🐕', active: false },
-  { name: 'Gaming', emoji: '🎮', active: false },
+  { name: 'All', emoji: '\uD83C\uDFAF', active: true },
+  { name: 'Memes', emoji: '\uD83D\uDE02', active: false },
+  { name: 'Comedy', emoji: '\uD83E\uDD23', active: false },
+  { name: 'Viral', emoji: '\uD83D\uDD25', active: false },
+  { name: 'Dance', emoji: '\uD83D\uDC83', active: false },
+  { name: 'Food', emoji: '\uD83C\uDF54', active: false },
+  { name: 'Pets', emoji: '\uD83D\uDC15', active: false },
+  { name: 'Gaming', emoji: '\uD83C\uDFAE', active: false },
 ];
 
-
-
 function FeedPageContent() {
-  const [activeTab, setActiveTab] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [feedData, setFeedData] = useState<Content[]>([]);
+  const [hotNowData, setHotNowData] = useState<Content[]>([]);
   const [shortsData, setShortsData] = useState<Content[]>([]);
   const [shortsLoading, setShortsLoading] = useState(true);
   const [engagements, setEngagements] = useState<{ [contentId: string]: UserEngagementStatus }>({});
@@ -73,10 +65,8 @@ function FeedPageContent() {
   const [commentContentId, setCommentContentId] = useState<string>('');
   const [creatorProfiles, setCreatorProfiles] = useState<{ [id: string]: { name: string; avatar?: string } }>({});
   const router = useRouter();
-  const theme = useTheme();
   const { user } = useAuth();
 
-  // Resolve creator names from user profiles
   const resolveCreatorProfiles = async (posts: Content[]) => {
     const unknownCreatorIds = posts
       .filter(p => !creatorProfiles[p.creatorId] && (
@@ -84,9 +74,7 @@ function FeedPageContent() {
       ))
       .map(p => p.creatorId)
       .filter((id, i, arr) => arr.indexOf(id) === i);
-
     if (unknownCreatorIds.length === 0) return;
-
     const profiles: { [id: string]: { name: string; avatar?: string } } = {};
     await Promise.all(
       unknownCreatorIds.map(async (cid) => {
@@ -94,394 +82,207 @@ function FeedPageContent() {
           const res = await UserAPI.getUserProfile(cid);
           if (isApiSuccess(res)) {
             const u = res.data;
-            profiles[cid] = {
-              name: u.creatorHandle || u.displayName || u.name || u.username || 'User',
-              avatar: u.profilePicture,
-            };
+            profiles[cid] = { name: u.creatorHandle || u.displayName || u.name || u.username || 'User', avatar: u.profilePicture };
           }
-        } catch {
-          // ignore
-        }
+        } catch {}
       })
     );
-    if (Object.keys(profiles).length > 0) {
-      setCreatorProfiles(prev => ({ ...prev, ...profiles }));
-    }
+    if (Object.keys(profiles).length > 0) setCreatorProfiles(prev => ({ ...prev, ...profiles }));
   };
 
-  // Helper to get display name for a post
   const getCreatorDisplayName = (post: Content) => {
-    // If handle is a real name/handle, use it
-    if (post.creatorHandle && !post.creatorHandle.startsWith('user_') && !/^[a-f0-9]{24}$/.test(post.creatorHandle)) {
+    if (post.creatorHandle && !post.creatorHandle.startsWith('user_') && !/^[a-f0-9]{24}$/.test(post.creatorHandle))
       return formatCreatorHandle(post.creatorHandle);
-    }
-    // Otherwise use resolved profile
     const profile = creatorProfiles[post.creatorId];
-    if (profile) return formatCreatorHandle(profile.name);
-    return 'User';
+    return profile ? formatCreatorHandle(profile.name) : 'User';
   };
 
   const getCreatorInitial = (post: Content) => {
-    if (post.creatorHandle && !post.creatorHandle.startsWith('user_') && !/^[a-f0-9]{24}$/.test(post.creatorHandle)) {
+    if (post.creatorHandle && !post.creatorHandle.startsWith('user_') && !/^[a-f0-9]{24}$/.test(post.creatorHandle))
       return getHandleInitial(post.creatorHandle);
-    }
     const profile = creatorProfiles[post.creatorId];
-    if (profile) return getHandleInitial(profile.name);
-    return 'U';
+    return profile ? getHandleInitial(profile.name) : 'U';
   };
 
-  const getCreatorAvatar = (post: Content) => {
-    return creatorProfiles[post.creatorId]?.avatar;
+  const getCreatorAvatar = (post: Content) => creatorProfiles[post.creatorId]?.avatar;
+
+  useEffect(() => { loadShortsData(); loadHotNow(); }, []);
+  useEffect(() => { loadFeedData(true); }, []);
+
+  const loadHotNow = async () => {
+    try {
+      const response = await ContentAPI.getTrendingFeed(0, 5, 24, user?.id);
+      if (isApiSuccess(response)) {
+        setHotNowData(response.data.content.content.slice(0, 5));
+      }
+    } catch {}
   };
-
-  // Load shorts on component mount
-  useEffect(() => {
-    loadShortsData();
-  }, []);
-
-  // Load feed data on component mount and tab changes
-  useEffect(() => {
-    loadFeedData(true);
-  }, [activeTab]);
 
   const loadShortsData = async () => {
     try {
       setShortsLoading(true);
-      // Load trending shorts (SHORT_VIDEO type)
       const response = await ContentAPI.getTrendingFeed(0, 6, 24, user?.id);
-
       if (isApiSuccess(response)) {
-        // Filter only SHORT_VIDEO content
-        const shorts = response.data.content.content.filter(
-          (content: Content) => content.type === 'SHORT_VIDEO'
-        ).slice(0, 3); // Show only 3 shorts in preview
+        const shorts = response.data.content.content.filter((c: Content) => c.type === 'SHORT_VIDEO').slice(0, 3);
         setShortsData(shorts);
       }
-    } catch (err) {
-      console.error('Shorts loading error:', err);
-    } finally {
-      setShortsLoading(false);
-    }
+    } catch {} finally { setShortsLoading(false); }
   };
 
   const loadFeedData = async (resetFeed = false) => {
     try {
-      setLoading(true);
-      setError(null);
-
+      setLoading(true); setError(null);
       const currentPage = resetFeed ? 0 : page;
-      let response;
-
-      // Choose API endpoint based on active tab
-      switch (activeTab) {
-        case 0: // For You
-          response = await ContentAPI.getHomeFeed(currentPage, 10, user?.id);
-          break;
-        case 1: // Trending
-          response = await ContentAPI.getTrendingFeed(currentPage, 10, 24, user?.id);
-          break;
-        case 2: // Fresh
-          response = await ContentAPI.getFreshFeed(currentPage, 10, 6, user?.id);
-          break;
-        default:
-          response = await ContentAPI.getHomeFeed(currentPage, 10, user?.id);
-      }
-
+      const response = await ContentAPI.getHomeFeed(currentPage, 10, user?.id);
       if (isApiSuccess(response)) {
         const newContent = response.data.content.content;
         const newEngagements = response.data.userEngagements;
-
-        if (resetFeed) {
-          setFeedData(newContent);
-          setPage(1);
-        } else {
-          setFeedData(prev => [...prev, ...newContent]);
-          setPage(prev => prev + 1);
-        }
-
+        if (resetFeed) { setFeedData(newContent); setPage(1); }
+        else { setFeedData(prev => [...prev, ...newContent]); setPage(prev => prev + 1); }
         setEngagements(prev => ({ ...prev, ...newEngagements }));
         setHasMore(!response.data.content.last);
-
-        // Resolve creator profiles for posts with placeholder handles
         resolveCreatorProfiles(newContent);
-      } else {
-        setError((response as any).message || 'Failed to load feed');
-      }
-    } catch (err: any) {
-      console.error('Feed loading error:', err);
-      setError(err.message || 'Failed to load feed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
-    setPage(0);
-    setFeedData([]);
-  };
-
-  const handleCategorySelect = (categoryName: string) => {
-    setSelectedCategory(categoryName);
-    // TODO: Implement category filtering when API supports it
+      } else { setError((response as any).message || 'Failed to load feed'); }
+    } catch (err: any) { setError(err.message || 'Failed to load feed'); }
+    finally { setLoading(false); }
   };
 
   const handleLike = async (contentId: string) => {
     if (!user?.id) return;
-
+    const isCurrentlyLiked = engagements[contentId]?.liked || false;
+    const action = isCurrentlyLiked ? 'UNLIKE' : 'LIKE';
+    setEngagements(prev => ({ ...prev, [contentId]: { ...prev[contentId], liked: !isCurrentlyLiked, contentId, userId: user.id } }));
+    setFeedData(prev => prev.map(post => post.id === contentId ? { ...post, likeCount: post.likeCount + (isCurrentlyLiked ? -1 : 1) } : post));
     try {
-      const isCurrentlyLiked = engagements[contentId]?.liked || false;
-      const action = isCurrentlyLiked ? 'UNLIKE' : 'LIKE';
-
-      // Optimistically update UI
-      setEngagements(prev => ({
-        ...prev,
-        [contentId]: {
-          ...prev[contentId],
-          liked: !isCurrentlyLiked,
-          contentId,
-          userId: user.id
-        }
-      }));
-
-      setFeedData(prev => prev.map(post =>
-        post.id === contentId
-          ? { ...post, likeCount: post.likeCount + (isCurrentlyLiked ? -1 : 1) }
-          : post
-      ));
-
-      // Make API call
-      const response = await ContentAPI.recordEngagement(
-        contentId,
-        { action },
-        user.id,
-        user.username
-      );
-
+      const response = await ContentAPI.recordEngagement(contentId, { action }, user.id, user.username);
       if (!isApiSuccess(response)) {
-        // Revert on failure
-        setEngagements(prev => ({
-          ...prev,
-          [contentId]: {
-            ...prev[contentId],
-            liked: isCurrentlyLiked
-          }
-        }));
-
-        setFeedData(prev => prev.map(post =>
-          post.id === contentId
-            ? { ...post, likeCount: post.likeCount + (isCurrentlyLiked ? 1 : -1) }
-            : post
-        ));
+        setEngagements(prev => ({ ...prev, [contentId]: { ...prev[contentId], liked: isCurrentlyLiked } }));
+        setFeedData(prev => prev.map(post => post.id === contentId ? { ...post, likeCount: post.likeCount + (isCurrentlyLiked ? 1 : -1) } : post));
       }
-    } catch (error) {
-      console.error('Like error:', error);
-    }
+    } catch {}
   };
 
   const handleShare = async (contentId: string) => {
     if (!user?.id) return;
-
+    const shareUrl = `${window.location.origin}/post/${contentId}`;
     try {
-      // Use native share if available, else copy link
-      const shareUrl = `${window.location.origin}/post/${contentId}`;
-      if (navigator.share) {
-        await navigator.share({
-          title: 'Check this out on MemeToMoney!',
-          url: shareUrl,
-        });
-      } else {
-        await navigator.clipboard.writeText(shareUrl);
-        alert('Link copied to clipboard!');
-      }
-
-      await ContentAPI.recordEngagement(
-        contentId,
-        { action: 'SHARE' },
-        user.id,
-        user.username
-      );
-
-      setFeedData(prev => prev.map(post =>
-        post.id === contentId
-          ? { ...post, shareCount: post.shareCount + 1 }
-          : post
-      ));
-    } catch (error) {
-      console.error('Share error:', error);
-    }
+      if (navigator.share) { await navigator.share({ title: 'Check this out on MemeToMoney!', url: shareUrl }); }
+      else { await navigator.clipboard.writeText(shareUrl); alert('Link copied!'); }
+      await ContentAPI.recordEngagement(contentId, { action: 'SHARE' }, user.id, user.username);
+      setFeedData(prev => prev.map(post => post.id === contentId ? { ...post, shareCount: post.shareCount + 1 } : post));
+    } catch {}
   };
 
   const handleSave = async (contentId: string) => {
     if (!user?.id) return;
-
+    const isCurrentlySaved = engagements[contentId]?.bookmarked || false;
+    setEngagements(prev => ({ ...prev, [contentId]: { ...prev[contentId], bookmarked: !isCurrentlySaved, contentId, userId: user.id } }));
     try {
-      const isCurrentlySaved = engagements[contentId]?.bookmarked || false;
-
-      // Optimistic update
-      setEngagements(prev => ({
-        ...prev,
-        [contentId]: {
-          ...prev[contentId],
-          bookmarked: !isCurrentlySaved,
-          contentId,
-          userId: user.id
-        }
-      }));
-
-      if (isCurrentlySaved) {
-        await ContentAPI.unsavePost(contentId, user.id);
-      } else {
-        await ContentAPI.savePost(contentId, user.id);
-      }
-    } catch (error) {
-      console.error('Save error:', error);
-      // Revert on failure
-      setEngagements(prev => ({
-        ...prev,
-        [contentId]: {
-          ...prev[contentId],
-          bookmarked: engagements[contentId]?.bookmarked || false
-        }
-      }));
+      if (isCurrentlySaved) await ContentAPI.unsavePost(contentId, user.id);
+      else await ContentAPI.savePost(contentId, user.id);
+    } catch {
+      setEngagements(prev => ({ ...prev, [contentId]: { ...prev[contentId], bookmarked: isCurrentlySaved } }));
     }
   };
 
-  const handleComment = (contentId: string) => {
-    setCommentContentId(contentId);
-    setCommentDialogOpen(true);
-  };
-
+  const handleComment = (contentId: string) => { setCommentContentId(contentId); setCommentDialogOpen(true); };
   const formatTimeAgo = formatTimeAgoUtil;
-
-  const getContentUrl = (content: Content) => {
-    return content.processedFile?.cdnUrl || content.originalFile?.cdnUrl || content.thumbnailUrl;
-  };
-
-  const getContentAlt = (content: Content) => {
-    return content.title || content.description || 'Content';
-  };
+  const getContentUrl = (content: Content) => content.processedFile?.cdnUrl || content.originalFile?.cdnUrl || content.thumbnailUrl;
 
   return (
-    <Box sx={{
-      bgcolor: '#f8f9fa',
-      minHeight: '100vh',
-      pb: 10
-    }}>
-      <Container maxWidth="sm" sx={{ p: 0 }}>
-        {/* Header (Mobile & Desktop) */}
-        <Box sx={{
-          position: 'sticky',
-          top: 0,
-          bgcolor: 'white',
-          zIndex: 1,
-          p: 2,
-          borderBottom: '1px solid #E5E7EB',
-          mb: 2
-        }}>
-          <Box sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between'
-          }}>
-            <Typography
-              variant="h5"
-              sx={{
-                fontFamily: 'cursive',
-                fontWeight: 'bold',
-                color: '#6B46C1',
-                background: 'linear-gradient(135deg, #6B46C1 0%, #9333EA 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                cursor: 'pointer'
-              }}
-              onClick={() => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-            >
+    <Box sx={{ bgcolor: '#f8f9fa', minHeight: '100vh', pb: 10 }}>
+      <Container maxWidth={false} sx={{ p: 0, maxWidth: { xs: '100%', sm: '100%', md: '100%' } }}>
+        {/* Header */}
+        <Box sx={{ position: 'sticky', top: 0, bgcolor: 'white', zIndex: 1, p: 2, borderBottom: '1px solid #E5E7EB' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h5" sx={{ fontFamily: 'cursive', fontWeight: 'bold', background: 'linear-gradient(135deg, #6B46C1 0%, #9333EA 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', cursor: 'pointer' }} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
               MemeToMoney
             </Typography>
-
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <IconButton
-                onClick={() => router.push('/search')}
-                sx={{ color: '#6B7280' }}
-              >
-                <SearchIcon />
-              </IconButton>
-              <IconButton
-                onClick={() => router.push('/messages')}
-                sx={{
-                  color: '#6B7280',
-                  position: 'relative'
-                }}
-              >
-                <Box sx={{
-                  position: 'absolute',
-                  top: 8,
-                  right: 8,
-                  width: 8,
-                  height: 8,
-                  bgcolor: '#EF4444',
-                  borderRadius: '50%',
-                  border: '1px solid white',
-                  display: 'none' // Show this if there are unread messages
-                }} />
-                <ChatBubbleOutline />
-              </IconButton>
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <IconButton onClick={() => router.push('/search')} sx={{ color: '#6B7280' }} size="small"><SearchIcon /></IconButton>
+              <IconButton onClick={() => router.push('/messages')} sx={{ color: '#6B7280' }} size="small"><ChatBubbleOutline /></IconButton>
             </Box>
           </Box>
         </Box>
 
+        {/* Quick Actions Bar - Battles, Leaderboard, Meme Cam */}
+        <Box sx={{ display: 'flex', gap: 1, px: 2, py: 1.5, overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' } }}>
+          <Chip
+            icon={<MemeCamIcon sx={{ fontSize: 16 }} />}
+            label="Meme Cam"
+            onClick={() => router.push('/meme-cam')}
+            sx={{ bgcolor: '#6B46C1', color: 'white', fontWeight: 700, '&:hover': { bgcolor: '#553C9A' }, '& .MuiChip-icon': { color: 'white' } }}
+          />
+          <Chip
+            icon={<FireIcon sx={{ fontSize: 16 }} />}
+            label="Battles"
+            onClick={() => router.push('/battles')}
+            sx={{ bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 700, '&:hover': { bgcolor: '#FDE68A' }, '& .MuiChip-icon': { color: '#92400E' } }}
+          />
+          <Chip
+            icon={<TrophyIcon sx={{ fontSize: 16 }} />}
+            label="Leaderboard"
+            onClick={() => router.push('/leaderboard')}
+            sx={{ bgcolor: '#EDE9FE', color: '#6B46C1', fontWeight: 700, '&:hover': { bgcolor: '#DDD6FE' }, '& .MuiChip-icon': { color: '#6B46C1' } }}
+          />
+        </Box>
+
+        {/* Hot Now Carousel */}
+        {hotNowData.length > 0 && (
+          <Box sx={{ mb: 2, px: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+              <FireIcon sx={{ color: '#EF4444', fontSize: 20 }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1a1a1a' }}>Hot Now</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1.5, overflowX: 'auto', pb: 1, '&::-webkit-scrollbar': { display: 'none' } }}>
+              {hotNowData.map((post) => {
+                const url = getContentUrl(post);
+                return (
+                  <Card
+                    key={post.id}
+                    sx={{
+                      minWidth: 140, maxWidth: 140, borderRadius: 2, overflow: 'hidden',
+                      flexShrink: 0, cursor: 'pointer',
+                      transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.03)' },
+                    }}
+                  >
+                    <Box sx={{ position: 'relative', aspectRatio: '3/4' }}>
+                      {url ? (
+                        <CardMedia component="img" image={url} alt={post.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <Box sx={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #6B46C1, #EC4899)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Typography sx={{ color: 'white', fontWeight: 700, fontSize: '0.7rem', textAlign: 'center', p: 1 }}>{post.title}</Typography>
+                        </Box>
+                      )}
+                      <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', p: 1, pt: 3 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Favorite sx={{ fontSize: 12, color: '#EF4444' }} />
+                          <Typography variant="caption" sx={{ color: 'white', fontSize: '0.65rem', fontWeight: 600 }}>
+                            {post.likeCount > 999 ? `${(post.likeCount / 1000).toFixed(1)}K` : post.likeCount}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      {/* Fire badge */}
+                      <Box sx={{ position: 'absolute', top: 6, right: 6, bgcolor: 'rgba(239,68,68,0.9)', borderRadius: 1, px: 0.5, py: 0.25 }}>
+                        <Typography sx={{ color: 'white', fontSize: '0.55rem', fontWeight: 800 }}>HOT</Typography>
+                      </Box>
+                    </Box>
+                  </Card>
+                );
+              })}
+            </Box>
+          </Box>
+        )}
+
         {/* Category Filter */}
-        <Box sx={{ mb: 3, px: 2 }}>
-          <Box sx={{
-            display: 'flex',
-            gap: 2,
-            overflowX: 'auto',
-            pb: 1,
-            '&::-webkit-scrollbar': { display: 'none' },
-            scrollbarWidth: 'none'
-          }}>
+        <Box sx={{ mb: 2, px: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 1, '&::-webkit-scrollbar': { display: 'none' } }}>
             {categories.map((category) => (
-              <Box
-                key={category.name}
-                onClick={() => handleCategorySelect(category.name)}
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  cursor: 'pointer',
-                  minWidth: 'fit-content',
-                  transition: 'transform 0.2s',
-                  '&:hover': { transform: 'scale(1.05)' },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '20px',
-                    mb: 1,
-                    bgcolor: selectedCategory === category.name ? '#6B46C1' : '#f5f5f5',
-                    border: selectedCategory === category.name ? '2px solid #6B46C1' : '2px solid #e0e0e0',
-                    transition: 'all 0.2s',
-                  }}
-                >
+              <Box key={category.name} onClick={() => setSelectedCategory(category.name)} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', minWidth: 'fit-content', transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.05)' } }}>
+                <Box sx={{ width: 48, height: 48, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', mb: 0.5, bgcolor: selectedCategory === category.name ? '#6B46C1' : '#f5f5f5', border: selectedCategory === category.name ? '2px solid #6B46C1' : '2px solid #e0e0e0' }}>
                   {category.emoji}
                 </Box>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontSize: 12,
-                    fontWeight: selectedCategory === category.name ? 'bold' : 'normal',
-                    color: selectedCategory === category.name ? '#6B46C1' : '#666',
-                  }}
-                >
+                <Typography variant="caption" sx={{ fontSize: 11, fontWeight: selectedCategory === category.name ? 'bold' : 'normal', color: selectedCategory === category.name ? '#6B46C1' : '#666' }}>
                   {category.name}
                 </Typography>
               </Box>
@@ -489,186 +290,66 @@ function FeedPageContent() {
           </Box>
         </Box>
 
-        {/* Shorts Preview Section */}
-        <Box sx={{ mb: 3, px: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Typography variant="h6" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1, color: '#374151' }}>
-              <ShortsIcon sx={{ color: '#6B46C1' }} /> Shorts
-            </Typography>
-            <Button
-              variant="text"
-              onClick={() => router.push('/shorts')}
-              sx={{ color: '#6B46C1', textTransform: 'none', fontWeight: 'bold' }}
-            >
-              View All
-            </Button>
-          </Box>
-
-          {shortsLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress size={24} sx={{ color: '#6B46C1' }} />
-            </Box>
-          ) : shortsData.length > 0 ? (
-            <>
-              <Grid container spacing={1.5}>
-                {shortsData.map((short) => {
-                  const thumbnailUrl = short.thumbnailUrl || short.processedFile?.cdnUrl || short.originalFile?.cdnUrl;
-                  return (
-                    <Grid item xs={4} key={short.id}>
-                      <Card
-                        onClick={() => router.push('/shorts')}
-                        sx={{
-                          borderRadius: 2,
-                          overflow: 'hidden',
-                          position: 'relative',
-                          aspectRatio: '9/16',
-                          cursor: 'pointer',
-                          '&:hover': { transform: 'scale(1.02)' },
-                          transition: 'transform 0.2s'
-                        }}
-                      >
-                        <CardMedia
-                          component="img"
-                          image={thumbnailUrl || 'https://picsum.photos/300/400?random=' + short.id}
-                          alt={short.title || 'Short video'}
-                          sx={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover'
-                          }}
-                        />
-
-                        {/* Play Icon Overlay */}
-                        <Box sx={{
-                          position: 'absolute',
-                          top: 8,
-                          right: 8,
-                          bgcolor: 'rgba(0,0,0,0.5)',
-                          borderRadius: '50%',
-                          width: 28,
-                          height: 28,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}>
-                          <PlayArrow sx={{ color: 'white', fontSize: 18 }} />
-                        </Box>
-
-                        {/* Bottom Info */}
-                        <Box sx={{
-                          position: 'absolute',
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-                          color: 'white',
-                          p: 1.5
-                        }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                            <Favorite sx={{ fontSize: 14 }} />
-                            <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
-                              {short.likeCount > 999 ? `${(short.likeCount / 1000).toFixed(1)}K` : short.likeCount}
-                            </Typography>
-                          </Box>
-
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar sx={{ width: 18, height: 18, fontSize: '0.6rem' }}>
-                              {getHandleInitial(short.creatorHandle)}
-                            </Avatar>
-                            <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.65rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {formatCreatorHandle(short.creatorHandle)}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </Card>
-                    </Grid>
-                  );
-                })}
-              </Grid>
-
-              {/* Watch All Shorts Button */}
-              <Box sx={{ textAlign: 'center', mt: 2 }}>
-                <Button
-                  variant="contained"
-                  onClick={() => router.push('/shorts')}
-                  startIcon={<PlayArrow />}
-                  sx={{
-                    background: 'linear-gradient(135deg, #6B46C1 0%, #9333EA 100%)',
-                    color: 'white',
-                    borderRadius: 3,
-                    px: 3,
-                    py: 1,
-                    textTransform: 'none',
-                    fontWeight: 'bold',
-                    fontSize: '0.85rem',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #553C9A 0%, #7C3AED 100%)'
-                    }
-                  }}
-                >
-                  Watch All Shorts
-                </Button>
-              </Box>
-            </>
-          ) : (
-            <Box sx={{ textAlign: 'center', py: 3, bgcolor: '#f9fafb', borderRadius: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                No shorts available yet
+        {/* Shorts Preview */}
+        {shortsData.length > 0 && (
+          <Box sx={{ mb: 2, px: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1, color: '#374151' }}>
+                <ShortsIcon sx={{ color: '#6B46C1', fontSize: 20 }} /> Shorts
               </Typography>
+              <Button variant="text" onClick={() => router.push('/shorts')} sx={{ color: '#6B46C1', textTransform: 'none', fontWeight: 'bold', fontSize: '0.8rem', p: 0, minWidth: 'auto' }}>
+                View All
+              </Button>
             </Box>
-          )}
+            <Box sx={{ display: 'flex', gap: 1.5, overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' } }}>
+              {shortsData.map((short) => {
+                const thumbnailUrl = short.thumbnailUrl || short.processedFile?.cdnUrl || short.originalFile?.cdnUrl;
+                return (
+                  <Card key={short.id} onClick={() => router.push('/shorts')} sx={{ minWidth: 100, borderRadius: 2, overflow: 'hidden', position: 'relative', aspectRatio: '9/16', cursor: 'pointer', flexShrink: 0, '&:hover': { transform: 'scale(1.02)' }, transition: 'transform 0.2s' }}>
+                    <CardMedia component="img" image={thumbnailUrl || `https://picsum.photos/300/400?random=${short.id}`} alt={short.title || 'Short'} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <Box sx={{ position: 'absolute', top: 6, right: 6, bgcolor: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <PlayArrow sx={{ color: 'white', fontSize: 16 }} />
+                    </Box>
+                    <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', p: 1, pt: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Avatar sx={{ width: 16, height: 16, fontSize: '0.5rem' }}>{getHandleInitial(short.creatorHandle)}</Avatar>
+                        <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.6rem', color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {formatCreatorHandle(short.creatorHandle)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Card>
+                );
+              })}
+            </Box>
+          </Box>
+        )}
+
+        {/* Feed Label */}
+        <Box sx={{ px: 2, mb: 1 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#374151' }}>
+            For You
+          </Typography>
         </Box>
 
-        {/* Feed Tabs */}
-        <Box sx={{ mb: 3, px: 2 }}>
-          <Tabs
-            value={activeTab}
-            onChange={handleTabChange}
-            variant="fullWidth"
-            sx={{
-              '& .MuiTab-root': {
-                textTransform: 'none',
-                fontWeight: 'bold',
-                fontSize: '0.9rem',
-                color: '#6B7280',
-                '&.Mui-selected': {
-                  color: '#6B46C1',
-                },
-              },
-              '& .MuiTabs-indicator': {
-                backgroundColor: '#6B46C1',
-              },
-            }}
-          >
-            <Tab label="For You" />
-            <Tab label="Trending" />
-            <Tab label="Fresh" />
-          </Tabs>
-        </Box>
-
-        {/* Loading State */}
+        {/* Loading */}
         {loading && feedData.length === 0 && (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress sx={{ color: '#6B46C1' }} />
           </Box>
         )}
 
-        {/* Error State */}
+        {/* Error */}
         {error && (
           <Box sx={{ px: 2, mb: 2 }}>
             <Alert severity="error" sx={{ borderRadius: 2 }}>
               {error}
-              <Button
-                onClick={() => loadFeedData(true)}
-                sx={{ ml: 2, color: 'inherit' }}
-              >
-                Retry
-              </Button>
+              <Button onClick={() => loadFeedData(true)} sx={{ ml: 2, color: 'inherit' }}>Retry</Button>
             </Alert>
           </Box>
         )}
 
-        {/* Instagram-style Feed Posts */}
+        {/* Feed Posts */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, px: 1 }}>
           {feedData.map((post) => {
             const engagement = engagements[post.id];
@@ -676,65 +357,29 @@ function FeedPageContent() {
             const contentUrl = getContentUrl(post);
 
             return (
-              <Card key={post.id} sx={{ borderRadius: 2, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', transition: 'all 0.2s ease-in-out', '&:hover': { boxShadow: '0 8px 25px rgba(0,0,0,0.15)' } }}>
+              <Card key={post.id} sx={{ borderRadius: 2, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', transition: 'all 0.2s', '&:hover': { boxShadow: '0 8px 25px rgba(0,0,0,0.15)' } }}>
                 {/* Post Header */}
                 <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, cursor: 'pointer' }} onClick={() => router.push(`/profile/${post.creatorId}`)}>
-                    <Avatar src={getCreatorAvatar(post)} sx={{ bgcolor: '#6B46C1' }}>
-                      {getCreatorInitial(post)}
-                    </Avatar>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }} onClick={() => router.push(`/profile/${post.creatorId}`)}>
+                    <Avatar src={getCreatorAvatar(post)} sx={{ bgcolor: '#6B46C1', width: 36, height: 36, fontSize: '0.9rem' }}>{getCreatorInitial(post)}</Avatar>
                     <Box>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                        {getCreatorDisplayName(post)}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#6B7280' }}>
-                        {formatTimeAgo(post.publishedAt || post.createdAt)}
-                      </Typography>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{getCreatorDisplayName(post)}</Typography>
+                      <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.7rem' }}>{formatTimeAgo(post.publishedAt || post.createdAt)}</Typography>
                     </Box>
                   </Box>
-                  <IconButton>
-                    <MoreVert />
-                  </IconButton>
+                  <IconButton size="small"><MoreVert sx={{ fontSize: 18 }} /></IconButton>
                 </Box>
 
                 {/* Post Content */}
                 {contentUrl && (
                   <Box sx={{ position: 'relative' }}>
                     {post.type === 'SHORT_VIDEO' ? (
-                      <Box
-                        component="video"
-                        src={contentUrl}
-                        poster={post.thumbnailUrl}
-                        controls
-                        sx={{
-                          width: '100%',
-                          maxHeight: 500, // Increased max height for better visibility
-                          objectFit: 'contain', // Changed to contain to prevent cropping
-                          backgroundColor: '#000'
-                        }}
-                        onPlay={() => {
-                          if (user?.id) {
-                            ContentAPI.recordView(post.id, user.id);
-                          }
-                        }}
+                      <Box component="video" src={contentUrl} poster={post.thumbnailUrl} controls sx={{ width: '100%', maxHeight: { xs: 500, md: 600 }, objectFit: 'contain', backgroundColor: '#000' }}
+                        onPlay={() => { if (user?.id) ContentAPI.recordView(post.id, user.id); }}
                       />
                     ) : (
-                      <CardMedia
-                        component="img"
-                        image={contentUrl}
-                        alt={getContentAlt(post)}
-                        sx={{
-                          width: '100%',
-                          maxHeight: 500, // Increased max height
-                          objectFit: 'contain', // Changed to contain
-                          bgcolor: '#f0f0f0',
-                          cursor: 'pointer'
-                        }}
-                        onClick={() => {
-                          if (user?.id) {
-                            ContentAPI.recordView(post.id, user.id);
-                          }
-                        }}
+                      <CardMedia component="img" image={contentUrl} alt={post.title || 'Content'} sx={{ width: '100%', maxHeight: { xs: 500, md: 600 }, objectFit: 'contain', bgcolor: '#f0f0f0', cursor: 'pointer' }}
+                        onClick={() => { if (user?.id) ContentAPI.recordView(post.id, user.id); }}
                       />
                     )}
                   </Box>
@@ -742,37 +387,42 @@ function FeedPageContent() {
 
                 {/* Post Actions */}
                 <Box sx={{ p: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                      <IconButton onClick={() => handleLike(post.id)} sx={{ p: 0, transition: 'transform 0.2s ease', '&:hover': { transform: 'scale(1.15)' } }}>
-                        {isLiked ? (
-                          <Favorite sx={{ color: '#E91E63' }} />
-                        ) : (
-                          <FavoriteBorder />
-                        )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                    <Box sx={{ display: 'flex', gap: 1.5 }}>
+                      <IconButton onClick={() => handleLike(post.id)} sx={{ p: 0 }} size="small">
+                        {isLiked ? <Favorite sx={{ color: '#E91E63', fontSize: 22 }} /> : <FavoriteBorder sx={{ fontSize: 22 }} />}
                       </IconButton>
-                      <IconButton onClick={() => handleComment(post.id)} sx={{ p: 0, transition: 'transform 0.2s ease', '&:hover': { transform: 'scale(1.15)' } }}>
-                        <ChatBubbleOutline />
-                      </IconButton>
-                      <IconButton onClick={() => handleShare(post.id)} sx={{ p: 0, transition: 'transform 0.2s ease', '&:hover': { transform: 'scale(1.15)' } }}>
-                        <Share />
+                      <IconButton onClick={() => handleComment(post.id)} sx={{ p: 0 }} size="small"><ChatBubbleOutline sx={{ fontSize: 22 }} /></IconButton>
+                      <IconButton onClick={() => handleShare(post.id)} sx={{ p: 0 }} size="small"><Share sx={{ fontSize: 22 }} /></IconButton>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      {/* Tip button */}
+                      {post.monetizationEnabled && (
+                        <IconButton sx={{ p: 0, color: '#F59E0B' }} size="small"><TipIcon sx={{ fontSize: 22 }} /></IconButton>
+                      )}
+                      <IconButton onClick={() => handleSave(post.id)} sx={{ p: 0 }} size="small">
+                        {engagement?.bookmarked ? <Bookmark sx={{ color: '#6B46C1', fontSize: 22 }} /> : <BookmarkBorder sx={{ fontSize: 22 }} />}
                       </IconButton>
                     </Box>
-                    <IconButton onClick={() => handleSave(post.id)} sx={{ p: 0, transition: 'transform 0.2s ease', '&:hover': { transform: 'scale(1.15)' } }}>
-                      {engagement?.bookmarked ? <Bookmark sx={{ color: '#6B46C1' }} /> : <BookmarkBorder />}
-                    </IconButton>
                   </Box>
 
-                  {/* Like Count */}
-                  {post.likeCount > 0 && (
-                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      {post.likeCount.toLocaleString()} likes
-                    </Typography>
-                  )}
+                  {/* Like Count + Earnings hint */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    {post.likeCount > 0 && (
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', fontSize: '0.85rem' }}>
+                        {post.likeCount.toLocaleString()} likes
+                      </Typography>
+                    )}
+                    {post.monetizationEnabled && post.likeCount > 50 && (
+                      <Chip label="Earning" size="small" icon={<TipIcon sx={{ fontSize: 12, color: '#059669 !important' }} />}
+                        sx={{ height: 20, bgcolor: '#ECFDF5', color: '#059669', fontSize: '0.6rem', fontWeight: 700, '& .MuiChip-icon': { ml: 0.5 } }}
+                      />
+                    )}
+                  </Box>
 
                   {/* Caption */}
                   {(post.title || post.description) && (
-                    <Typography variant="body2" sx={{ mb: 1 }}>
+                    <Typography variant="body2" sx={{ mb: 0.5, fontSize: '0.85rem' }}>
                       <span style={{ fontWeight: 'bold' }}>{getCreatorDisplayName(post)}</span>{' '}
                       {post.title || post.description}
                     </Typography>
@@ -780,31 +430,27 @@ function FeedPageContent() {
 
                   {/* View Comments */}
                   {post.commentCount > 0 && (
-                    <Typography
-                      variant="body2"
-                      sx={{ color: '#6B7280', cursor: 'pointer', mb: 1 }}
-                      onClick={() => handleComment(post.id)}
-                    >
+                    <Typography variant="body2" sx={{ color: '#6B7280', cursor: 'pointer', mb: 0.5, fontSize: '0.8rem' }} onClick={() => handleComment(post.id)}>
                       View all {post.commentCount} comments
                     </Typography>
                   )}
 
+                  {/* Reply with Meme hint */}
+                  <Typography variant="caption" sx={{ color: '#8B5CF6', cursor: 'pointer', fontWeight: 600, '&:hover': { textDecoration: 'underline' } }} onClick={() => handleComment(post.id)}>
+                    Reply with a meme...
+                  </Typography>
+
                   {/* Hashtags */}
                   {post.hashtags && post.hashtags.length > 0 && (
-                    <Typography variant="body2" sx={{ color: '#6B46C1' }}>
+                    <Typography variant="body2" sx={{ color: '#6B46C1', fontSize: '0.8rem', mt: 0.5 }}>
                       {post.hashtags.map(tag => `#${tag}`).join(' ')}
                     </Typography>
                   )}
 
-                  {/* Views and Shares */}
                   {(post.viewCount > 0 || post.shareCount > 0) && (
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2, pt: 1, borderTop: '1px solid #f0f0f0' }}>
-                      <Typography variant="caption" sx={{ color: '#6B7280' }}>
-                        {post.viewCount.toLocaleString()} views
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#6B7280' }}>
-                        {post.shareCount.toLocaleString()} shares
-                      </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1.5, pt: 1, borderTop: '1px solid #f0f0f0' }}>
+                      <Typography variant="caption" sx={{ color: '#6B7280' }}>{post.viewCount.toLocaleString()} views</Typography>
+                      <Typography variant="caption" sx={{ color: '#6B7280' }}>{post.shareCount.toLocaleString()} shares</Typography>
                     </Box>
                   )}
                 </Box>
@@ -813,21 +459,10 @@ function FeedPageContent() {
           })}
         </Box>
 
-        {/* Load More Button */}
+        {/* Load More */}
         {hasMore && !loading && feedData.length > 0 && (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3, px: 2 }}>
-            <Button
-              variant="outlined"
-              onClick={() => loadFeedData(false)}
-              sx={{
-                borderColor: '#6B46C1',
-                color: '#6B46C1',
-                '&:hover': {
-                  borderColor: '#553C9A',
-                  bgcolor: 'rgba(107, 70, 193, 0.04)'
-                }
-              }}
-            >
+            <Button variant="outlined" onClick={() => loadFeedData(false)} sx={{ borderColor: '#6B46C1', color: '#6B46C1', textTransform: 'none', borderRadius: 2, '&:hover': { borderColor: '#553C9A', bgcolor: 'rgba(107, 70, 193, 0.04)' } }}>
               Load More
             </Button>
           </Box>
@@ -836,33 +471,17 @@ function FeedPageContent() {
         {/* Empty State */}
         {!loading && feedData.length === 0 && !error && (
           <Box sx={{ textAlign: 'center', py: 6, px: 2 }}>
-            <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
-              No content found
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Be the first to share something amazing!
-            </Typography>
-            <Button
-              variant="contained"
-              onClick={() => router.push('/upload')}
-              sx={{
-                mt: 2,
-                bgcolor: '#6B46C1',
-                '&:hover': { bgcolor: '#553C9A' }
-              }}
-            >
-              Create Content
+            <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>No content found</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Be the first to share something amazing!</Typography>
+            <Button variant="contained" onClick={() => router.push('/meme-cam')} startIcon={<MemeCamIcon />}
+              sx={{ bgcolor: '#6B46C1', textTransform: 'none', borderRadius: 2, '&:hover': { bgcolor: '#553C9A' } }}>
+              Create a Meme
             </Button>
           </Box>
         )}
       </Container>
 
-      {/* Comment Dialog */}
-      <CommentDialog
-        open={commentDialogOpen}
-        onClose={() => setCommentDialogOpen(false)}
-        contentId={commentContentId}
-      />
+      <CommentDialog open={commentDialogOpen} onClose={() => setCommentDialogOpen(false)} contentId={commentContentId} />
     </Box>
   );
 }

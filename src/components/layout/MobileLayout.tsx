@@ -13,7 +13,7 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
   const pathname = usePathname();
 
   // Pages that shouldn't have the mobile layout (full-screen pages)
-  const isFullScreenPage = ['/auth', '/landing', '/onboarding'].some(path =>
+  const isFullScreenPage = ['/auth', '/landing', '/onboarding', '/meme-cam', '/leaderboard', '/battles'].some(path =>
     pathname.startsWith(path)
   );
 
@@ -35,7 +35,7 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
       <Container
         maxWidth={false}
         sx={{
-          maxWidth: isFullWidthPage ? '100% !important' : '428px !important',
+          maxWidth: isFullWidthPage ? '100% !important' : { xs: '100% !important', sm: '540px !important', md: '680px !important', lg: '780px !important' },
           px: 0,
           flex: 1,
           display: 'flex',

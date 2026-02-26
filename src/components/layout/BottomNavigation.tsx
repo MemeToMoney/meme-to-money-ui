@@ -7,12 +7,13 @@ import {
   BottomNavigationAction,
   Box,
   Fab,
-  Paper
+  Paper,
+  Typography
 } from '@mui/material';
 import {
   Home as HomeIcon,
   PlayArrow as ShortsIcon,
-  Add as AddIcon,
+  CameraAlt as MemeCamIcon,
   Search as SearchIcon,
   Person as PersonIcon
 } from '@mui/icons-material';
@@ -56,11 +57,11 @@ export default function MobileBottomNavigation() {
   };
 
   const handleCreateClick = () => {
-    router.push('/upload');
+    router.push('/meme-cam');
   };
 
-  // Don't show navigation on auth pages or landing
-  const hideNavigation = ['/auth', '/landing', '/onboarding'].some(path =>
+  // Don't show navigation on auth pages, landing, meme cam, or full-screen pages
+  const hideNavigation = ['/auth', '/landing', '/onboarding', '/meme-cam', '/leaderboard', '/battles'].some(path =>
     pathname.startsWith(path)
   );
 
@@ -69,20 +70,20 @@ export default function MobileBottomNavigation() {
   }
 
   return (
-    <Box sx={{ position: 'relative' }}>
-      {/* Center Create FAB */}
+    <>
+      {/* Center Meme Cam FAB - fixed to viewport */}
       <Fab
         color="primary"
         onClick={handleCreateClick}
         sx={{
-          position: 'absolute',
-          top: -28,
+          position: 'fixed',
+          bottom: 35,
           left: '50%',
           transform: 'translateX(-50%)',
           background: 'linear-gradient(135deg, #6B46C1 0%, #9333EA 100%)',
           width: 56,
           height: 56,
-          zIndex: 1,
+          zIndex: 1001,
           boxShadow: '0 8px 24px rgba(107, 70, 193, 0.4)',
           '&:hover': {
             background: 'linear-gradient(135deg, #553C9A 0%, #7C3AED 100%)',
@@ -94,8 +95,28 @@ export default function MobileBottomNavigation() {
           }
         }}
       >
-        <AddIcon sx={{ color: 'white', fontSize: 28 }} />
+        <MemeCamIcon sx={{ color: 'white', fontSize: 28 }} />
       </Fab>
+
+      {/* "Meme Cam" label below FAB */}
+      <Typography
+        variant="caption"
+        onClick={handleCreateClick}
+        sx={{
+          position: 'fixed',
+          bottom: 8,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1001,
+          fontSize: '0.6rem',
+          fontWeight: 600,
+          color: '#6B46C1',
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        Meme Cam
+      </Typography>
 
       {/* Bottom Navigation */}
       <Paper
@@ -107,7 +128,6 @@ export default function MobileBottomNavigation() {
           zIndex: 1000,
           borderTop: '1px solid rgba(0, 0, 0, 0.12)',
           background: 'white',
-          // Safe area padding for mobile devices
           paddingBottom: 'env(safe-area-inset-bottom)',
         }}
         elevation={8}
@@ -117,7 +137,7 @@ export default function MobileBottomNavigation() {
           onChange={(event, newValue) => handleNavigation(newValue)}
           showLabels
           sx={{
-            height: 70,
+            height: 64,
             '& .MuiBottomNavigationAction-root': {
               minWidth: 'auto',
               padding: '8px 12px',
@@ -131,18 +151,18 @@ export default function MobileBottomNavigation() {
               },
             },
             '& .MuiBottomNavigationAction-label': {
-              fontSize: '0.75rem',
+              fontSize: '0.7rem',
               fontWeight: 500,
               transition: 'font-weight 0.2s ease',
               '&.Mui-selected': {
-                fontSize: '0.75rem',
+                fontSize: '0.7rem',
                 fontWeight: 700,
               }
             }
           }}
         >
           {navigationItems.map((item, index) => {
-            // Skip the center item (create button)
+            // Center spacer for FAB
             if (index === 2) {
               return (
                 <BottomNavigationAction
@@ -154,7 +174,7 @@ export default function MobileBottomNavigation() {
                   sx={{
                     opacity: 0,
                     pointerEvents: 'none',
-                    minWidth: 64 // Reserve space for FAB
+                    minWidth: 72
                   }}
                 />
               );
@@ -181,6 +201,6 @@ export default function MobileBottomNavigation() {
           })}
         </BottomNavigation>
       </Paper>
-    </Box>
+    </>
   );
 }

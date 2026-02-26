@@ -42,6 +42,10 @@ import {
   Close as CloseIcon,
   CloudUpload as UploadIcon,
   Tag as TagIcon,
+  CurrencyRupee as RupeeIcon,
+  EmojiEvents as TrophyIcon,
+  TrendingUp as TrendingUpIcon,
+  Payment as PayoutIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -502,6 +506,92 @@ function ProfilePageContent() {
                   <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Following
                   </Typography>
+                </Box>
+              </Box>
+
+              {/* Wallet & Monetization Section */}
+              <Box sx={{
+                width: '100%',
+                maxWidth: 400,
+                mb: 3,
+                p: 2,
+                bgcolor: 'linear-gradient(135deg, #F5F3FF 0%, #FDF4FF 100%)',
+                background: 'linear-gradient(135deg, #F5F3FF 0%, #FDF4FF 100%)',
+                borderRadius: 3,
+                border: '1px solid #E9D5FF'
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <WalletIcon sx={{ color: '#6B46C1', fontSize: 20 }} />
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#374151' }}>
+                      My Wallet
+                    </Typography>
+                  </Box>
+                  <Chip
+                    icon={<RupeeIcon sx={{ fontSize: 14, color: '#6B46C1 !important' }} />}
+                    label={`${user.coinBalance || 0} coins`}
+                    size="small"
+                    sx={{
+                      bgcolor: '#EDE9FE',
+                      color: '#6B46C1',
+                      fontWeight: 700,
+                      fontSize: '0.8rem'
+                    }}
+                  />
+                </Box>
+
+                <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
+                  <Box sx={{ flex: 1, textAlign: 'center', p: 1, bgcolor: 'white', borderRadius: 2 }}>
+                    <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600 }}>Total Earned</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 800, color: '#059669' }}>
+                      {user.totalEarnings || 0}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ flex: 1, textAlign: 'center', p: 1, bgcolor: 'white', borderRadius: 2 }}>
+                    <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600 }}>This Week</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 800, color: '#6B46C1' }}>
+                      {user.weeklyEarnings || 0}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<TrophyIcon sx={{ fontSize: 16 }} />}
+                    onClick={() => router.push('/leaderboard')}
+                    sx={{
+                      flex: 1,
+                      textTransform: 'none',
+                      borderColor: '#D1D5DB',
+                      color: '#374151',
+                      fontWeight: 600,
+                      borderRadius: 2,
+                      fontSize: '0.75rem',
+                      '&:hover': { borderColor: '#6B46C1', color: '#6B46C1' }
+                    }}
+                  >
+                    Leaderboard
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<TrendingUpIcon sx={{ fontSize: 16 }} />}
+                    onClick={() => router.push('/dashboard')}
+                    sx={{
+                      flex: 1,
+                      textTransform: 'none',
+                      borderColor: '#D1D5DB',
+                      color: '#374151',
+                      fontWeight: 600,
+                      borderRadius: 2,
+                      fontSize: '0.75rem',
+                      '&:hover': { borderColor: '#6B46C1', color: '#6B46C1' }
+                    }}
+                  >
+                    Earnings
+                  </Button>
                 </Box>
               </Box>
 

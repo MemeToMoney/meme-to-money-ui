@@ -23,10 +23,12 @@ import {
     Favorite,
     Reply as ReplyIcon,
     ExpandMore as ExpandMoreIcon,
+    CameraAlt as MemeReplyIcon,
 } from '@mui/icons-material';
 import { ContentAPI, Comment } from '@/lib/api/content';
 import { useAuth } from '@/contexts/AuthContext';
 import { isApiSuccess } from '@/lib/api/client';
+import { useRouter } from 'next/navigation';
 
 interface CommentDialogProps {
     open: boolean;
@@ -50,6 +52,7 @@ export default function CommentDialog({ open, onClose, contentId, onCommentCount
     const { user } = useAuth();
     const theme = useTheme();
     const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
+    const router = useRouter();
 
     const loadComments = useCallback(async (reset = false) => {
         if (!contentId) return;
@@ -459,6 +462,22 @@ export default function CommentDialog({ open, onClose, contentId, onCommentCount
                         alignItems: 'flex-end',
                     }}
                 >
+                    {/* Reply with Meme button */}
+                    <IconButton
+                        onClick={() => {
+                            onClose();
+                            router.push('/meme-cam');
+                        }}
+                        sx={{
+                            color: '#8B5CF6',
+                            mb: 0.5,
+                            bgcolor: '#FAF5FF',
+                            '&:hover': { bgcolor: '#EDE9FE' },
+                        }}
+                        title="Reply with a Meme"
+                    >
+                        <MemeReplyIcon sx={{ fontSize: 20 }} />
+                    </IconButton>
                     <TextField
                         fullWidth
                         multiline

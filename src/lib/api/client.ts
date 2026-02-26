@@ -9,7 +9,7 @@ const isProdApi = process.env.NEXT_PUBLIC_API_ENV === 'production' || process.en
 // Development URLs (localhost)
 const DEV_USER_SERVICE_URL = 'http://localhost:8080';
 const DEV_CONTENT_SERVICE_URL = 'http://localhost:8081';
-const DEV_MONETIZATION_SERVICE_URL = 'http://localhost:8082';
+const DEV_MONETIZATION_SERVICE_URL = 'http://localhost:8084';
 
 // Production URLs (via Load Balancer - path-based routing handles service dispatch)
 const PROD_BASE_URL = 'https://www.upgradestacks.com';
