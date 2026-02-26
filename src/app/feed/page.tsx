@@ -30,6 +30,7 @@ import {
   Whatshot as FireIcon,
   CameraAlt as MemeCamIcon,
   CurrencyRupee as TipIcon,
+  NotificationsOutlined as NotificationsIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -40,19 +41,8 @@ import { isApiSuccess, formatTimeAgo as formatTimeAgoUtil, formatCreatorHandle, 
 import { UserAPI } from '@/lib/api/user';
 import CommentDialog from '@/components/content/CommentDialog';
 
-const categories = [
-  { name: 'All', emoji: '\uD83C\uDFAF', active: true },
-  { name: 'Memes', emoji: '\uD83D\uDE02', active: false },
-  { name: 'Comedy', emoji: '\uD83E\uDD23', active: false },
-  { name: 'Viral', emoji: '\uD83D\uDD25', active: false },
-  { name: 'Dance', emoji: '\uD83D\uDC83', active: false },
-  { name: 'Food', emoji: '\uD83C\uDF54', active: false },
-  { name: 'Pets', emoji: '\uD83D\uDC15', active: false },
-  { name: 'Gaming', emoji: '\uD83C\uDFAE', active: false },
-];
 
 function FeedPageContent() {
-  const [selectedCategory, setSelectedCategory] = useState('All');
   const [feedData, setFeedData] = useState<Content[]>([]);
   const [hotNowData, setHotNowData] = useState<Content[]>([]);
   const [shortsData, setShortsData] = useState<Content[]>([]);
@@ -241,6 +231,7 @@ function FeedPageContent() {
                 sx={{ bgcolor: '#FFFBEB', color: '#92400E', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer', '&:hover': { bgcolor: '#FEF3C7' } }}
               />
               <IconButton onClick={() => router.push('/search')} sx={{ color: '#6B7280' }} size="small"><SearchIcon /></IconButton>
+              <IconButton onClick={() => router.push('/notifications')} sx={{ color: '#6B7280' }} size="small"><NotificationsIcon /></IconButton>
               <IconButton onClick={() => router.push('/messages')} sx={{ color: '#6B7280' }} size="small"><ChatBubbleOutline /></IconButton>
             </Box>
           </Box>
@@ -314,22 +305,6 @@ function FeedPageContent() {
             </Box>
           </Box>
         )}
-
-        {/* Category Filter */}
-        <Box sx={{ mb: 2, px: 2 }}>
-          <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 1, '&::-webkit-scrollbar': { display: 'none' } }}>
-            {categories.map((category) => (
-              <Box key={category.name} onClick={() => setSelectedCategory(category.name)} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', minWidth: 'fit-content', transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.05)' } }}>
-                <Box sx={{ width: 48, height: 48, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', mb: 0.5, bgcolor: selectedCategory === category.name ? '#6B46C1' : '#f5f5f5', border: selectedCategory === category.name ? '2px solid #6B46C1' : '2px solid #e0e0e0' }}>
-                  {category.emoji}
-                </Box>
-                <Typography variant="caption" sx={{ fontSize: 11, fontWeight: selectedCategory === category.name ? 'bold' : 'normal', color: selectedCategory === category.name ? '#6B46C1' : '#666' }}>
-                  {category.name}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-        </Box>
 
         {/* Shorts Preview */}
         {shortsData.length > 0 && (

@@ -47,6 +47,40 @@ export interface Earning {
   createdAt: string;
 }
 
+export type TransactionType =
+  | 'TIP_RECEIVED'
+  | 'TIP_SENT'
+  | 'BATTLE_WIN'
+  | 'BATTLE_ENTRY'
+  | 'REFERRAL_BONUS'
+  | 'DAILY_REWARD'
+  | 'PAYOUT'
+  | 'COIN_PURCHASE'
+  | 'CONTENT_BONUS'
+  | 'MILESTONE_REWARD';
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  type: TransactionType;
+  coins: number;
+  description: string;
+  contentId?: string;
+  relatedUserId?: string;
+  createdAt: string;
+}
+
+export interface PagedTransactions {
+  content: Transaction[];
+  totalPages: number;
+  totalElements: number;
+  number: number;
+  size: number;
+  first: boolean;
+  last: boolean;
+  empty: boolean;
+}
+
 export interface LeaderboardEntry {
   userId: string;
   displayName?: string;
@@ -124,6 +158,19 @@ export class MonetizationAPI {
   // --- Leaderboard ---
   static async getLeaderboard(period: string = 'weekly', limit: number = 10): Promise<ApiResponse<LeaderboardEntry[]>> {
     return handleApiResponse(monetizationServiceClient.get(`/api/monetization/leaderboard?period=${period}&limit=${limit}`));
+  }
+
+  // --- Transactions ---
+  static async getTransactions(
+    userId: string,
+    page: number = 0,
+    size: number = 20
+  ): Promise<ApiResponse<PagedTransactions>> {
+    return handleApiResponse(
+      monetizationServiceClient.get('/api/monetization/transactions', {
+        params: { userId, page, size },
+      })
+    );
   }
 
   // --- Payouts ---

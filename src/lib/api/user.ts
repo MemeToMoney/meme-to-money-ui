@@ -9,6 +9,7 @@ export interface UserSummary {
     bio?: string;
     isContentCreator?: boolean;
     creatorHandle?: string;
+    isPrivateAccount?: boolean;
     followerCount: number;
     followingCount: number;
 }

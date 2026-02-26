@@ -147,11 +147,6 @@ function UploadPageContent() {
       return;
     }
 
-    if (!formData.title.trim()) {
-      showSnackbar('Please add a caption for your content', 'error');
-      return;
-    }
-
     try {
       setIsUploading(true);
       setUploadProgress(10);
@@ -182,7 +177,7 @@ function UploadPageContent() {
       const contentId = crypto.randomUUID();
 
       const contentRequest: ContentCreationRequest = {
-        title: formData.title,
+        title: formData.title.trim() || selectedFile.name.replace(/\.[^.]+$/, ''),
         description: formData.description || undefined,
         type: contentType,
         hashtags: formData.hashtags
@@ -490,7 +485,7 @@ function UploadPageContent() {
               variant="contained"
               size="large"
               onClick={handleUpload}
-              disabled={!selectedFile || !formData.title.trim() || isUploading}
+              disabled={!selectedFile || isUploading}
               startIcon={isUploading ? null : <UploadIcon />}
               sx={{
                 mt: 3,

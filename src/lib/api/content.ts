@@ -551,6 +551,46 @@ export class ContentAPI {
   }
 
   /**
+   * Get content by hashtag
+   * GET /api/explore/hashtags/{tag}
+   */
+  static async getContentByHashtag(
+    tag: string,
+    page = 0,
+    size = 20,
+    days = 30,
+    userId?: string
+  ): Promise<ApiResponse<any>> {
+    const headers: any = {};
+    if (userId) {
+      headers['X-User-Id'] = userId;
+    }
+
+    const response = await handleApiResponse<any>(
+      contentServiceClient.get(`/api/explore/hashtags/${encodeURIComponent(tag)}`, {
+        params: { page, size, days },
+        headers
+      })
+    );
+
+    return response;
+  }
+
+  /**
+   * Get trending hashtags
+   * GET /api/explore/hashtags/trending
+   */
+  static async getTrendingHashtags(limit = 20): Promise<ApiResponse<any>> {
+    const response = await handleApiResponse<any>(
+      contentServiceClient.get('/api/explore/hashtags/trending', {
+        params: { limit }
+      })
+    );
+
+    return response;
+  }
+
+  /**
    * Get search suggestions
    * GET /api/content/search/suggestions
    */

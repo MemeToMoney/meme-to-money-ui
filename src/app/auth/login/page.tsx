@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import {
   Container,
   TextField,
@@ -12,9 +12,9 @@ import {
   Tab,
   Avatar
 } from '@mui/material';
-import { Google as GoogleIcon } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
-import { AuthAPI } from '@/lib/api/auth';
+import { Google as GoogleIcon, CardGiftcard as GiftIcon } from '@mui/icons-material';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { AuthAPI, ReferrerInfo } from '@/lib/api/auth';
 import { isApiSuccess } from '@/lib/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -40,9 +40,13 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-export default function AuthPage() {
+function AuthPageContent() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState(0); // 0 = Login, 1 = Signup
+  const searchParams = useSearchParams();
+  const referralCode = searchParams.get('referralCode') || '';
+
+  const [activeTab, setActiveTab] = useState(referralCode ? 1 : 0); // Auto-switch to signup if referral code present
+  const [referrerInfo, setReferrerInfo] = useState<ReferrerInfo | null>(null);
 
   // Login form state
   const [loginData, setLoginData] = useState({
@@ -62,6 +66,17 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
 
   const { login } = useAuth();
+
+  // Fetch referrer info if referralCode is present
+  useEffect(() => {
+    if (referralCode) {
+      AuthAPI.getReferrerInfo(referralCode).then(res => {
+        if (isApiSuccess(res)) {
+          setReferrerInfo(res.data);
+        }
+      }).catch(() => {});
+    }
+  }, [referralCode]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
@@ -87,7 +102,7 @@ export default function AuthPage() {
       const success = await login(loginData.email, loginData.password);
 
       if (success) {
-        router.push('/onboarding');
+        router.push('/feed');
       } else {
         setError('Login failed. Please check your credentials.');
       }
@@ -108,7 +123,8 @@ export default function AuthPage() {
         name: signupData.name,
         email: signupData.email,
         mobileNumber: 0, // Will be updated later
-        password: signupData.password
+        password: signupData.password,
+        referralCode: referralCode || undefined
       });
 
       if (isApiSuccess(response)) {
@@ -117,7 +133,7 @@ export default function AuthPage() {
         if (loginSuccess) {
           // Add a small delay to ensure auth context is updated
           setTimeout(() => {
-            router.push('/onboarding');
+            router.push('/feed');
           }, 100);
         } else {
           setError('Registration successful but login failed. Please login manually.');
@@ -150,7 +166,7 @@ export default function AuthPage() {
       });
 
       if (isApiSuccess(response)) {
-        router.push('/onboarding');
+        router.push('/feed');
       } else {
         setError('Google authentication failed. Please try again.');
       }
@@ -186,6 +202,42 @@ export default function AuthPage() {
           border: '1px solid rgba(255,255,255,0.2)'
         }}>
 
+          {/* Referral Banner */}
+          {referralCode && referrerInfo && (
+            <Box sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              p: 1.5,
+              mb: 3,
+              bgcolor: '#F5F3FF',
+              borderRadius: 2,
+              border: '1px solid #E9D5FF',
+            }}>
+              <Avatar
+                src={referrerInfo.profilePicture || undefined}
+                sx={{
+                  width: 36,
+                  height: 36,
+                  bgcolor: '#6B46C1',
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                }}
+              >
+                {(referrerInfo.displayName || referrerInfo.name || 'U').charAt(0).toUpperCase()}
+              </Avatar>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500, display: 'block', lineHeight: 1.2 }}>
+                  Referred by
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: '#6B46C1' }}>
+                  {referrerInfo.displayName || referrerInfo.name}
+                </Typography>
+              </Box>
+              <GiftIcon sx={{ color: '#D97706', fontSize: 22 }} />
+            </Box>
+          )}
+
           {/* Header with Avatar */}
           <Box sx={{ textAlign: 'center', mb: 3 }}>
             <Avatar
@@ -198,7 +250,7 @@ export default function AuthPage() {
                 fontSize: '1.8rem'
               }}
             >
-              📱
+              M
             </Avatar>
             <Typography
               variant="h5"
@@ -231,7 +283,7 @@ export default function AuthPage() {
                 mb: 1
               }}
             >
-              Welcome back
+              {referralCode ? 'Join the fun!' : 'Welcome back'}
             </Typography>
             <Typography
               variant="body2"
@@ -239,7 +291,7 @@ export default function AuthPage() {
                 color: '#6B7280'
               }}
             >
-              Sign in to continue to app
+              {referralCode ? 'Sign up to earn your referral bonus' : 'Sign in to continue to app'}
             </Typography>
           </Box>
 
@@ -391,6 +443,26 @@ export default function AuthPage() {
             >
               Create your account
             </Typography>
+
+            {/* Referral bonus reminder on signup tab */}
+            {referralCode && (
+              <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 0.5,
+                p: 1,
+                mb: 2,
+                bgcolor: '#FEF9C3',
+                borderRadius: 2,
+                border: '1px solid #FDE68A',
+              }}>
+                <GiftIcon sx={{ fontSize: 16, color: '#D97706' }} />
+                <Typography variant="caption" sx={{ color: '#92400E', fontWeight: 600 }}>
+                  Sign up to earn your 100 coin referral bonus!
+                </Typography>
+              </Box>
+            )}
 
             <Button
               fullWidth
@@ -546,5 +618,23 @@ export default function AuthPage() {
         </Box>
       </Container>
     </Box>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={
+      <Box sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%)',
+      }}>
+        <Typography variant="body1" color="textSecondary">Loading...</Typography>
+      </Box>
+    }>
+      <AuthPageContent />
+    </Suspense>
   );
 }

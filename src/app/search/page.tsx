@@ -16,6 +16,10 @@ import {
   Tab,
   Chip,
   Skeleton,
+  Card,
+  CardMedia,
+  CardContent,
+  Grid,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -23,24 +27,40 @@ import {
   PersonAdd as PersonAddIcon,
   Check as CheckIcon,
   TrendingUp as TrendingIcon,
+  Lock as LockIcon,
+  Tag as TagIcon,
+  PlayArrow as PlayIcon,
+  Visibility as ViewIcon,
+  ThumbUp as LikeIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserAPI, UserSummary } from '@/lib/api/user';
-import { isApiSuccess } from '@/lib/api/client';
+import { ContentAPI, Content } from '@/lib/api/content';
+import { isApiSuccess, formatCreatorHandle, getHandleInitial } from '@/lib/api/client';
+
+const TRENDING_HASHTAGS = [
+  '#memecam', '#funny', '#viral', '#trending',
+  '#comedy', '#memes', '#reaction', '#relatable',
+];
 
 function SearchPageContent() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [tabValue, setTabValue] = useState(0);
+  const [tabValue, setTabValue] = useState(0); // 0 = People, 1 = Content
   const [users, setUsers] = useState<UserSummary[]>([]);
+  const [contentResults, setContentResults] = useState<Content[]>([]);
   const [suggestions, setSuggestions] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [contentLoading, setContentLoading] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(true);
   const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
   const [followLoadingMap, setFollowLoadingMap] = useState<Record<string, boolean>>({});
   const [page, setPage] = useState(0);
+  const [contentPage, setContentPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [contentHasMore, setContentHasMore] = useState(false);
   const [totalResults, setTotalResults] = useState(0);
+  const [contentTotalResults, setContentTotalResults] = useState(0);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const { user } = useAuth();
@@ -57,20 +77,29 @@ function SearchPageContent() {
 
     if (!searchQuery.trim()) {
       setUsers([]);
+      setContentResults([]);
       setPage(0);
+      setContentPage(0);
       setHasMore(false);
+      setContentHasMore(false);
       setTotalResults(0);
+      setContentTotalResults(0);
       return;
     }
 
     debounceRef.current = setTimeout(() => {
-      searchUsers(searchQuery.trim(), 0);
+      const query = searchQuery.trim();
+      if (tabValue === 0) {
+        searchUsers(query, 0);
+      } else {
+        searchContent(query, 0);
+      }
     }, 300);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [searchQuery]);
+  }, [searchQuery, tabValue]);
 
   const loadSuggestions = async () => {
     try {
@@ -111,6 +140,33 @@ function SearchPageContent() {
     }
   };
 
+  const searchContent = async (query: string, pageNum: number) => {
+    try {
+      setContentLoading(true);
+      const response = await ContentAPI.searchContent(query, undefined, undefined, undefined, pageNum, 20, user?.id);
+      if (isApiSuccess(response)) {
+        const data = response.data;
+        // The response may be Page<Content> or ContentFeedResponse
+        const items = data?.content?.content || data?.content || [];
+        const total = data?.content?.totalElements ?? data?.totalElements ?? 0;
+        const hasNext = data?.content?.last === false || data?.last === false;
+
+        if (pageNum === 0) {
+          setContentResults(items);
+        } else {
+          setContentResults(prev => [...prev, ...items]);
+        }
+        setContentPage(pageNum);
+        setContentHasMore(hasNext);
+        setContentTotalResults(total);
+      }
+    } catch (err) {
+      console.error('Content search failed:', err);
+    } finally {
+      setContentLoading(false);
+    }
+  };
+
   const checkFollowStatuses = async (userList: UserSummary[]) => {
     for (const u of userList) {
       if (u.id === user?.id) continue;
@@ -146,14 +202,54 @@ function SearchPageContent() {
   const handleClear = () => {
     setSearchQuery('');
     setUsers([]);
+    setContentResults([]);
     setPage(0);
+    setContentPage(0);
     setHasMore(false);
+    setContentHasMore(false);
   };
 
   const handleLoadMore = () => {
     if (searchQuery.trim()) {
-      searchUsers(searchQuery.trim(), page + 1);
+      if (tabValue === 0) {
+        searchUsers(searchQuery.trim(), page + 1);
+      } else {
+        searchContent(searchQuery.trim(), contentPage + 1);
+      }
     }
+  };
+
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+    // Trigger search on tab switch if there's a query
+    if (searchQuery.trim()) {
+      if (newValue === 0 && users.length === 0) {
+        searchUsers(searchQuery.trim(), 0);
+      } else if (newValue === 1 && contentResults.length === 0) {
+        searchContent(searchQuery.trim(), 0);
+      }
+    }
+  };
+
+  const handleHashtagClick = (hashtag: string) => {
+    // Strip # prefix for search
+    const tag = hashtag.replace('#', '');
+    router.push(`/hashtag/${tag}`);
+  };
+
+  const handleHashtagSearch = (hashtag: string) => {
+    setSearchQuery(hashtag);
+    setTabValue(1); // Switch to Content tab
+  };
+
+  const getContentUrl = (content: Content) => {
+    return content.thumbnailUrl || content.processedFile?.cdnUrl || content.originalFile?.cdnUrl;
+  };
+
+  const formatCount = (count: number) => {
+    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+    if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
+    return count.toString();
   };
 
   const renderUserCard = (u: UserSummary) => {
@@ -195,17 +291,22 @@ function SearchPageContent() {
         </Avatar>
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography
-            variant="subtitle2"
-            sx={{ fontWeight: 700, color: '#111827' }}
-            noWrap
-          >
-            {u.displayName || u.name}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography
+              variant="subtitle2"
+              sx={{ fontWeight: 700, color: '#111827' }}
+              noWrap
+            >
+              {u.displayName || u.name}
+            </Typography>
+            {u.isPrivateAccount && (
+              <LockIcon sx={{ fontSize: 14, color: '#6B7280' }} />
+            )}
+          </Box>
           <Typography variant="body2" sx={{ color: '#6B46C1', fontWeight: 500 }} noWrap>
             @{u.username || u.creatorHandle || 'user'}
           </Typography>
-          {u.bio && (
+          {!u.isPrivateAccount && u.bio && (
             <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }} noWrap>
               {u.bio}
             </Typography>
@@ -262,6 +363,146 @@ function SearchPageContent() {
     );
   };
 
+  const renderContentGrid = () => {
+    const isLoadingInitial = contentLoading && contentResults.length === 0;
+
+    if (isLoadingInitial) {
+      return (
+        <Box sx={{ p: 2 }}>
+          <Grid container spacing={1}>
+            {[...Array(9)].map((_, i) => (
+              <Grid item xs={4} key={i}>
+                <Skeleton
+                  variant="rectangular"
+                  sx={{ width: '100%', paddingTop: '100%', borderRadius: 1 }}
+                />
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      );
+    }
+
+    if (contentResults.length === 0) {
+      return (
+        <Box sx={{ textAlign: 'center', mt: 8 }}>
+          <SearchIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+          <Typography variant="body1" color="text.secondary">
+            No content found for &quot;{searchQuery}&quot;
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Try different keywords or hashtags
+          </Typography>
+        </Box>
+      );
+    }
+
+    return (
+      <Box>
+        <Typography
+          variant="body2"
+          sx={{ px: 3, py: 1.5, color: '#6B7280', bgcolor: 'white', borderBottom: '1px solid #E5E7EB' }}
+        >
+          {contentTotalResults} result{contentTotalResults !== 1 ? 's' : ''} for &quot;{searchQuery}&quot;
+        </Typography>
+        <Box sx={{ p: 0.5, bgcolor: 'white' }}>
+          <Grid container spacing={0.5}>
+            {contentResults.map((content) => (
+              <Grid item xs={4} key={content.id}>
+                <Box
+                  sx={{
+                    position: 'relative',
+                    paddingTop: '100%',
+                    cursor: 'pointer',
+                    overflow: 'hidden',
+                    borderRadius: 0.5,
+                    '&:hover': {
+                      opacity: 0.85,
+                      transition: 'opacity 0.2s',
+                    },
+                  }}
+                  onClick={() => router.push(`/profile/${content.creatorId}`)}
+                >
+                  <Box
+                    component="img"
+                    src={getContentUrl(content)}
+                    alt={content.title || 'Content'}
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                    }}
+                    onError={(e: any) => {
+                      e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNFNUU3RUIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOUNBM0FGIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+                    }}
+                  />
+                  {/* Video play icon */}
+                  {content.type === 'SHORT_VIDEO' && (
+                    <PlayIcon
+                      sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        fontSize: 22,
+                        color: 'white',
+                        filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))',
+                      }}
+                    />
+                  )}
+                  {/* Overlay stats */}
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)',
+                      p: 0.75,
+                      display: 'flex',
+                      gap: 1.5,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                      <LikeIcon sx={{ fontSize: 12, color: 'white' }} />
+                      <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.65rem' }}>
+                        {formatCount(content.likeCount)}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                      <ViewIcon sx={{ fontSize: 12, color: 'white' }} />
+                      <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.65rem' }}>
+                        {formatCount(content.viewCount)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+        {contentHasMore && (
+          <Box sx={{ textAlign: 'center', py: 3 }}>
+            <Button
+              onClick={handleLoadMore}
+              disabled={contentLoading}
+              sx={{
+                textTransform: 'none',
+                color: '#6B46C1',
+                fontWeight: 600,
+              }}
+            >
+              {contentLoading ? <CircularProgress size={20} /> : 'Load more'}
+            </Button>
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa', pb: 10 }}>
       <Container maxWidth={false} sx={{ p: 0 }}>
@@ -273,6 +514,7 @@ function SearchPageContent() {
             bgcolor: 'white',
             zIndex: 1,
             p: 2,
+            pb: 0,
             borderBottom: '1px solid #E5E7EB',
           }}
         >
@@ -286,7 +528,7 @@ function SearchPageContent() {
           {/* Search Input */}
           <TextField
             fullWidth
-            placeholder="Search users by name, username..."
+            placeholder={tabValue === 0 ? 'Search users by name, username...' : 'Search memes, videos, hashtags...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             InputProps={{
@@ -313,6 +555,33 @@ function SearchPageContent() {
               },
             }}
           />
+
+          {/* Tabs */}
+          <Tabs
+            value={tabValue}
+            onChange={handleTabChange}
+            sx={{
+              mt: 1,
+              '& .MuiTab-root': {
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                color: '#6B7280',
+                minHeight: 42,
+                '&.Mui-selected': {
+                  color: '#6B46C1',
+                },
+              },
+              '& .MuiTabs-indicator': {
+                backgroundColor: '#6B46C1',
+                height: 3,
+                borderRadius: '3px 3px 0 0',
+              },
+            }}
+          >
+            <Tab label="People" />
+            <Tab label="Content" />
+          </Tabs>
         </Box>
 
         {/* Content */}
@@ -320,62 +589,109 @@ function SearchPageContent() {
           {searchQuery.trim() ? (
             // Search Results
             <Box>
-              {loading && users.length === 0 ? (
-                <Box sx={{ p: 2 }}>
-                  {[...Array(5)].map((_, i) => (
-                    <Box key={i} sx={{ display: 'flex', gap: 2, p: 2 }}>
-                      <Skeleton variant="circular" width={52} height={52} />
-                      <Box sx={{ flex: 1 }}>
-                        <Skeleton width="40%" height={20} />
-                        <Skeleton width="30%" height={16} />
-                        <Skeleton width="20%" height={14} />
-                      </Box>
-                      <Skeleton variant="rounded" width={100} height={32} />
+              {tabValue === 0 ? (
+                // People search results
+                <>
+                  {loading && users.length === 0 ? (
+                    <Box sx={{ p: 2 }}>
+                      {[...Array(5)].map((_, i) => (
+                        <Box key={i} sx={{ display: 'flex', gap: 2, p: 2 }}>
+                          <Skeleton variant="circular" width={52} height={52} />
+                          <Box sx={{ flex: 1 }}>
+                            <Skeleton width="40%" height={20} />
+                            <Skeleton width="30%" height={16} />
+                            <Skeleton width="20%" height={14} />
+                          </Box>
+                          <Skeleton variant="rounded" width={100} height={32} />
+                        </Box>
+                      ))}
                     </Box>
-                  ))}
-                </Box>
-              ) : users.length > 0 ? (
-                <Box>
-                  <Typography
-                    variant="body2"
-                    sx={{ px: 3, py: 1.5, color: '#6B7280', bgcolor: 'white', borderBottom: '1px solid #E5E7EB' }}
-                  >
-                    {totalResults} result{totalResults !== 1 ? 's' : ''} for "{searchQuery}"
-                  </Typography>
-                  <Box sx={{ bgcolor: 'white' }}>
-                    {users.map(renderUserCard)}
-                  </Box>
-                  {hasMore && (
-                    <Box sx={{ textAlign: 'center', py: 3 }}>
-                      <Button
-                        onClick={handleLoadMore}
-                        disabled={loading}
-                        sx={{
-                          textTransform: 'none',
-                          color: '#6B46C1',
-                          fontWeight: 600,
-                        }}
+                  ) : users.length > 0 ? (
+                    <Box>
+                      <Typography
+                        variant="body2"
+                        sx={{ px: 3, py: 1.5, color: '#6B7280', bgcolor: 'white', borderBottom: '1px solid #E5E7EB' }}
                       >
-                        {loading ? <CircularProgress size={20} /> : 'Load more'}
-                      </Button>
+                        {totalResults} result{totalResults !== 1 ? 's' : ''} for &quot;{searchQuery}&quot;
+                      </Typography>
+                      <Box sx={{ bgcolor: 'white' }}>
+                        {users.map(renderUserCard)}
+                      </Box>
+                      {hasMore && (
+                        <Box sx={{ textAlign: 'center', py: 3 }}>
+                          <Button
+                            onClick={handleLoadMore}
+                            disabled={loading}
+                            sx={{
+                              textTransform: 'none',
+                              color: '#6B46C1',
+                              fontWeight: 600,
+                            }}
+                          >
+                            {loading ? <CircularProgress size={20} /> : 'Load more'}
+                          </Button>
+                        </Box>
+                      )}
+                    </Box>
+                  ) : (
+                    <Box sx={{ textAlign: 'center', mt: 8 }}>
+                      <SearchIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+                      <Typography variant="body1" color="text.secondary">
+                        No users found for &quot;{searchQuery}&quot;
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        Try a different search term
+                      </Typography>
                     </Box>
                   )}
-                </Box>
+                </>
               ) : (
-                <Box sx={{ textAlign: 'center', mt: 8 }}>
-                  <SearchIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-                  <Typography variant="body1" color="text.secondary">
-                    No users found for "{searchQuery}"
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    Try a different search term
-                  </Typography>
-                </Box>
+                // Content search results
+                renderContentGrid()
               )}
             </Box>
           ) : (
-            // Suggestions (when no search query)
+            // Default view (when no search query)
             <Box>
+              {/* Trending Hashtags */}
+              <Box
+                sx={{
+                  px: 3,
+                  py: 2,
+                  bgcolor: 'white',
+                  borderBottom: '1px solid #E5E7EB',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                  <TagIcon sx={{ color: '#6B46C1', fontSize: 20 }} />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#111827' }}>
+                    Trending Hashtags
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {TRENDING_HASHTAGS.map((hashtag) => (
+                    <Chip
+                      key={hashtag}
+                      label={hashtag}
+                      onClick={() => handleHashtagClick(hashtag)}
+                      sx={{
+                        bgcolor: 'rgba(107, 70, 193, 0.08)',
+                        color: '#6B46C1',
+                        fontWeight: 600,
+                        fontSize: '0.8rem',
+                        border: '1px solid rgba(107, 70, 193, 0.2)',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          bgcolor: 'rgba(107, 70, 193, 0.15)',
+                          borderColor: '#6B46C1',
+                        },
+                      }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+
+              {/* Suggestions */}
               <Box
                 sx={{
                   px: 3,

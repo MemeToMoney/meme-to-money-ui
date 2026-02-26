@@ -15,6 +15,21 @@ export interface RegisterRequest {
   mobileNumber: number;
   password: string;
   address?: string;
+  referralCode?: string;
+}
+
+export interface ReferralInfo {
+  referralCode: string;
+  referralCount: number;
+  referralLink: string;
+  referredBy: string | null;
+}
+
+export interface ReferrerInfo {
+  name: string;
+  displayName: string | null;
+  profilePicture: string | null;
+  referralCode: string;
 }
 
 export interface GoogleAuthRequest {
@@ -106,6 +121,11 @@ export class AuthAPI {
     // Add optional address if provided
     if (userData.address) {
       queryParams.append('address', userData.address);
+    }
+
+    // Add optional referral code if provided
+    if (userData.referralCode) {
+      queryParams.append('referralCode', userData.referralCode);
     }
 
     const response = await handleApiResponse<string>(
@@ -329,5 +349,37 @@ export class AuthAPI {
     );
 
     return response;
+  }
+
+  // ==================== Referral APIs ====================
+
+  /**
+   * Get current user's referral info (authenticated)
+   * GET /api/users/me/referral
+   */
+  static async getReferralInfo(): Promise<ApiResponse<ReferralInfo>> {
+    return handleApiResponse<ReferralInfo>(
+      userServiceClient.get('/api/users/me/referral')
+    );
+  }
+
+  /**
+   * Apply a referral code to the current user's account (authenticated)
+   * POST /api/users/me/apply-referral
+   */
+  static async applyReferralCode(code: string): Promise<ApiResponse<string>> {
+    return handleApiResponse<string>(
+      userServiceClient.post('/api/users/me/apply-referral', { referralCode: code })
+    );
+  }
+
+  /**
+   * Get referrer info by referral code (public, no auth required)
+   * GET /api/users/referral/{code}
+   */
+  static async getReferrerInfo(code: string): Promise<ApiResponse<ReferrerInfo>> {
+    return handleApiResponse<ReferrerInfo>(
+      userServiceClient.get(`/api/users/referral/${encodeURIComponent(code)}`)
+    );
   }
 }

@@ -46,10 +46,12 @@ import {
   EmojiEvents as TrophyIcon,
   TrendingUp as TrendingUpIcon,
   Payment as PayoutIcon,
+  CardGiftcard as GiftIcon,
+  ContentCopy as CopyIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { AuthAPI } from '@/lib/api/auth';
+import { AuthAPI, ReferralInfo } from '@/lib/api/auth';
 import { ContentAPI, Content, PageResponse } from '@/lib/api/content';
 import { MonetizationAPI, WalletResponse, EarningsSummary } from '@/lib/api/monetization';
 import { isApiSuccess } from '@/lib/api/client';
@@ -100,6 +102,8 @@ function ProfilePageContent() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [walletData, setWalletData] = useState<WalletResponse | null>(null);
   const [earningsSummary, setEarningsSummary] = useState<EarningsSummary | null>(null);
+  const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
+  const [referralCopied, setReferralCopied] = useState(false);
 
   // Edit form state
   const [editForm, setEditForm] = useState({
@@ -134,6 +138,9 @@ function ProfilePageContent() {
       }).catch(() => {});
       MonetizationAPI.getEarningsSummary().then(res => {
         if (isApiSuccess(res)) setEarningsSummary(res.data);
+      }).catch(() => {});
+      AuthAPI.getReferralInfo().then(res => {
+        if (isApiSuccess(res)) setReferralInfo(res.data);
       }).catch(() => {});
     }
   }, [user?.id]);
@@ -609,6 +616,95 @@ function ProfilePageContent() {
                   </Button>
                 </Box>
               </Box>
+
+              {/* Refer & Earn Section */}
+              {referralInfo?.referralCode && (
+                <Box sx={{
+                  width: '100%',
+                  maxWidth: 400,
+                  mb: 3,
+                  p: 2,
+                  background: 'linear-gradient(135deg, #FEF9C3 0%, #FFF7ED 100%)',
+                  borderRadius: 3,
+                  border: '1px solid #FDE68A'
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <GiftIcon sx={{ color: '#D97706', fontSize: 20 }} />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#374151' }}>
+                        Refer & Earn
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={`${referralInfo.referralCount || 0} referred`}
+                      size="small"
+                      sx={{
+                        bgcolor: '#FEF3C7',
+                        color: '#D97706',
+                        fontWeight: 700,
+                        fontSize: '0.75rem',
+                        border: '1px solid #FDE68A'
+                      }}
+                    />
+                  </Box>
+                  <Box sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    p: 1.5,
+                    mb: 1.5,
+                    bgcolor: 'white',
+                    borderRadius: 2,
+                    border: '1px dashed #D1D5DB'
+                  }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 800,
+                        color: '#6B46C1',
+                        letterSpacing: '0.1em',
+                        fontFamily: 'monospace',
+                        flex: 1,
+                        textAlign: 'center'
+                      }}
+                    >
+                      {referralInfo.referralCode}
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(referralInfo.referralCode);
+                          setReferralCopied(true);
+                          setTimeout(() => setReferralCopied(false), 2000);
+                        } catch {}
+                      }}
+                      sx={{ color: referralCopied ? '#10B981' : '#6B7280' }}
+                    >
+                      <CopyIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    fullWidth
+                    startIcon={<GiftIcon sx={{ fontSize: 16 }} />}
+                    onClick={() => router.push('/invite')}
+                    sx={{
+                      textTransform: 'none',
+                      bgcolor: '#D97706',
+                      color: 'white',
+                      fontWeight: 600,
+                      borderRadius: 2,
+                      fontSize: '0.8rem',
+                      py: 0.8,
+                      '&:hover': { bgcolor: '#B45309' }
+                    }}
+                  >
+                    Invite Friends
+                  </Button>
+                </Box>
+              )}
 
               {/* Action Buttons */}
               <Box sx={{ display: 'flex', gap: 2, width: '100%', maxWidth: 400 }}>

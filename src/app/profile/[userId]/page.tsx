@@ -25,6 +25,7 @@ import {
   MoreVert as MoreIcon,
   Block as BlockIcon,
   PhotoCamera as PhotoCameraIcon,
+  Lock as LockIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -200,6 +201,7 @@ function UserProfileContent() {
   const isFollowing = followStatus?.following || false;
   const isFollowedBy = followStatus?.followedBy || false;
   const profilePicUrl = getProfilePictureUrl(profileUser.profilePicture);
+  const isPrivate = profileUser.isPrivateAccount === true && !isFollowing;
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa', pb: 10 }}>
@@ -222,6 +224,9 @@ function UserProfileContent() {
           <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#374151', flex: 1 }}>
             {profileUser.displayName || profileUser.name}
           </Typography>
+          {profileUser.isPrivateAccount && (
+            <LockIcon sx={{ color: '#6B7280', fontSize: 18 }} />
+          )}
         </Box>
 
         {/* Profile Header */}
@@ -274,7 +279,7 @@ function UserProfileContent() {
                 </Typography>
               )}
 
-              {profileUser.bio && (
+              {!isPrivate && profileUser.bio && (
                 <Typography variant="body2" sx={{ color: '#4B5563', mb: 2, maxWidth: 400, lineHeight: 1.6 }}>
                   {profileUser.bio}
                 </Typography>
@@ -291,15 +296,15 @@ function UserProfileContent() {
               }}>
                 <Box sx={{ textAlign: 'center' }}>
                   <Typography variant="h6" sx={{ fontWeight: 800, color: '#111827' }}>
-                    {userContent?.length || 0}
+                    {isPrivate ? '-' : (userContent?.length || 0)}
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Posts
                   </Typography>
                 </Box>
                 <Box
-                  sx={{ textAlign: 'center', cursor: 'pointer', '&:hover': { opacity: 0.7 } }}
-                  onClick={() => router.push(`/profile/${userId}/followers`)}
+                  sx={{ textAlign: 'center', cursor: isPrivate ? 'default' : 'pointer', '&:hover': { opacity: isPrivate ? 1 : 0.7 } }}
+                  onClick={() => !isPrivate && router.push(`/profile/${userId}/followers`)}
                 >
                   <Typography variant="h6" sx={{ fontWeight: 800, color: '#111827' }}>
                     {profileUser.followerCount || 0}
@@ -309,8 +314,8 @@ function UserProfileContent() {
                   </Typography>
                 </Box>
                 <Box
-                  sx={{ textAlign: 'center', cursor: 'pointer', '&:hover': { opacity: 0.7 } }}
-                  onClick={() => router.push(`/profile/${userId}/following`)}
+                  sx={{ textAlign: 'center', cursor: isPrivate ? 'default' : 'pointer', '&:hover': { opacity: isPrivate ? 1 : 0.7 } }}
+                  onClick={() => !isPrivate && router.push(`/profile/${userId}/following`)}
                 >
                   <Typography variant="h6" sx={{ fontWeight: 800, color: '#111827' }}>
                     {profileUser.followingCount || 0}
@@ -351,28 +356,58 @@ function UserProfileContent() {
                 >
                   {isFollowing ? 'Following' : 'Follow'}
                 </Button>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  onClick={handleMessage}
-                  disabled={messagingLoading}
-                  sx={{
-                    borderColor: '#E5E7EB',
-                    color: '#374151',
-                    textTransform: 'none',
-                    borderRadius: 3,
-                    fontWeight: 600,
-                    py: 1.2,
-                    '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' },
-                  }}
-                >
-                  {messagingLoading ? <CircularProgress size={20} /> : 'Message'}
-                </Button>
+                {!isPrivate && (
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    onClick={handleMessage}
+                    disabled={messagingLoading}
+                    sx={{
+                      borderColor: '#E5E7EB',
+                      color: '#374151',
+                      textTransform: 'none',
+                      borderRadius: 3,
+                      fontWeight: 600,
+                      py: 1.2,
+                      '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' },
+                    }}
+                  >
+                    {messagingLoading ? <CircularProgress size={20} /> : 'Message'}
+                  </Button>
+                )}
               </Box>
             </Box>
           </Container>
         </Box>
 
+        {/* Private Account Notice */}
+        {isPrivate ? (
+          <Container maxWidth="md" sx={{ mt: 2, px: 2 }}>
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <Box sx={{
+                width: 80,
+                height: 80,
+                bgcolor: '#F3F4F6',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mx: 'auto',
+                mb: 2,
+                border: '2px solid #E5E7EB',
+              }}>
+                <LockIcon sx={{ fontSize: 36, color: '#6B7280' }} />
+              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: '#374151', mb: 1 }}>
+                This account is private
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#6B7280', maxWidth: 300, mx: 'auto' }}>
+                Follow this account to see their photos, videos, and posts.
+              </Typography>
+            </Box>
+          </Container>
+        ) : (
+        <>
         {/* Content Grid */}
         <Container maxWidth="md" sx={{ mt: 2, px: 2 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#374151', mb: 2, px: 1 }}>
@@ -457,6 +492,8 @@ function UserProfileContent() {
             </Box>
           )}
         </Container>
+        </>
+        )}
 
         {/* Post Detail Modal */}
         <PostDetailModal
