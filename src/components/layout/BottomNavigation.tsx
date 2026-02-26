@@ -61,7 +61,7 @@ export default function MobileBottomNavigation() {
   };
 
   // Don't show navigation on auth pages, landing, meme cam, or full-screen pages
-  const hideNavigation = ['/auth', '/landing', '/onboarding', '/meme-cam', '/leaderboard', '/battles'].some(path =>
+  const hideNavigation = ['/auth', '/landing', '/onboarding', '/meme-cam'].some(path =>
     pathname.startsWith(path)
   );
 

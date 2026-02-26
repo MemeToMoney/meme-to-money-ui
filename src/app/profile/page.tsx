@@ -51,6 +51,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthAPI } from '@/lib/api/auth';
 import { ContentAPI, Content, PageResponse } from '@/lib/api/content';
+import { MonetizationAPI, WalletResponse, EarningsSummary } from '@/lib/api/monetization';
 import { isApiSuccess } from '@/lib/api/client';
 import { FeedPostCard } from '@/components/FeedPostCard';
 import { PostDetailModal } from '@/components/PostDetailModal';
@@ -97,6 +98,8 @@ function ProfilePageContent() {
   const [postDialogOpen, setPostDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [walletData, setWalletData] = useState<WalletResponse | null>(null);
+  const [earningsSummary, setEarningsSummary] = useState<EarningsSummary | null>(null);
 
   // Edit form state
   const [editForm, setEditForm] = useState({
@@ -122,6 +125,18 @@ function ProfilePageContent() {
       }
     }
   }, [user?.id, tabValue]);
+
+  // Load wallet and earnings data
+  useEffect(() => {
+    if (user?.id) {
+      MonetizationAPI.getWallet().then(res => {
+        if (isApiSuccess(res)) setWalletData(res.data);
+      }).catch(() => {});
+      MonetizationAPI.getEarningsSummary().then(res => {
+        if (isApiSuccess(res)) setEarningsSummary(res.data);
+      }).catch(() => {});
+    }
+  }, [user?.id]);
 
   // Initialize edit form when user data changes
   useEffect(() => {
@@ -529,7 +544,7 @@ function ProfilePageContent() {
                   </Box>
                   <Chip
                     icon={<RupeeIcon sx={{ fontSize: 14, color: '#6B46C1 !important' }} />}
-                    label={`${user.coinBalance || 0} coins`}
+                    label={`${walletData?.coinBalance ?? 0} coins`}
                     size="small"
                     sx={{
                       bgcolor: '#EDE9FE',
@@ -544,13 +559,13 @@ function ProfilePageContent() {
                   <Box sx={{ flex: 1, textAlign: 'center', p: 1, bgcolor: 'white', borderRadius: 2 }}>
                     <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600 }}>Total Earned</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 800, color: '#059669' }}>
-                      {user.totalEarnings || 0}
+                      {walletData?.totalEarned ?? 0}
                     </Typography>
                   </Box>
                   <Box sx={{ flex: 1, textAlign: 'center', p: 1, bgcolor: 'white', borderRadius: 2 }}>
                     <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600 }}>This Week</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 800, color: '#6B46C1' }}>
-                      {user.weeklyEarnings || 0}
+                      {earningsSummary?.thisWeekCoins ?? 0}
                     </Typography>
                   </Box>
                 </Box>

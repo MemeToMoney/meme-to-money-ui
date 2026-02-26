@@ -642,3 +642,86 @@ export class ContentAPI {
     );
   }
 }
+
+// --- Battle Types ---
+export interface Battle {
+  id: string;
+  theme: string;
+  status: 'WAITING' | 'ACTIVE' | 'VOTING' | 'COMPLETED' | 'CANCELLED';
+  creator1Id: string;
+  creator1Handle: string;
+  creator1ContentId?: string;
+  creator2Id?: string;
+  creator2Handle?: string;
+  creator2ContentId?: string;
+  creator1Votes: number;
+  creator2Votes: number;
+  totalVotes: number;
+  winnerId?: string;
+  prizeCoins: number;
+  createdAt: string;
+  activatedAt?: string;
+  votingStartedAt?: string;
+  votingEndsAt?: string;
+  completedAt?: string;
+}
+
+export interface BattleVote {
+  id: string;
+  battleId: string;
+  userId: string;
+  votedFor: string;
+  createdAt: string;
+}
+
+export interface PagedBattles {
+  content: Battle[];
+  totalPages: number;
+  totalElements: number;
+  first: boolean;
+  last: boolean;
+  size: number;
+  number: number;
+}
+
+// --- Battle API ---
+export class BattleAPI {
+
+  static async createBattle(theme: string, prizeCoins: number = 500): Promise<ApiResponse<Battle>> {
+    return handleApiResponse(contentServiceClient.post('/api/battles', { theme, prizeCoins }));
+  }
+
+  static async joinBattle(battleId: string): Promise<ApiResponse<Battle>> {
+    return handleApiResponse(contentServiceClient.post(`/api/battles/${battleId}/join`));
+  }
+
+  static async submitMeme(battleId: string, contentId: string): Promise<ApiResponse<Battle>> {
+    return handleApiResponse(contentServiceClient.post(`/api/battles/${battleId}/submit`, null, {
+      params: { contentId }
+    }));
+  }
+
+  static async vote(battleId: string, votedFor: 'creator1' | 'creator2'): Promise<ApiResponse<Battle>> {
+    return handleApiResponse(contentServiceClient.post(`/api/battles/${battleId}/vote`, { votedFor }));
+  }
+
+  static async getLiveBattles(page = 0, size = 10): Promise<ApiResponse<PagedBattles>> {
+    return handleApiResponse(contentServiceClient.get('/api/battles/live', { params: { page, size } }));
+  }
+
+  static async getCompletedBattles(page = 0, size = 10): Promise<ApiResponse<PagedBattles>> {
+    return handleApiResponse(contentServiceClient.get('/api/battles/completed', { params: { page, size } }));
+  }
+
+  static async getBattle(battleId: string): Promise<ApiResponse<Battle>> {
+    return handleApiResponse(contentServiceClient.get(`/api/battles/${battleId}`));
+  }
+
+  static async getMyBattles(page = 0, size = 10): Promise<ApiResponse<PagedBattles>> {
+    return handleApiResponse(contentServiceClient.get('/api/battles/my', { params: { page, size } }));
+  }
+
+  static async getMyVote(battleId: string): Promise<ApiResponse<BattleVote>> {
+    return handleApiResponse(contentServiceClient.get(`/api/battles/${battleId}/my-vote`));
+  }
+}

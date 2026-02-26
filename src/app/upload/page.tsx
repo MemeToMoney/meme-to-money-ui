@@ -229,11 +229,25 @@ function UploadPageContent() {
   const getVideoDuration = (file: File): Promise<number> => {
     return new Promise((resolve) => {
       const video = document.createElement('video');
+      const objectUrl = URL.createObjectURL(file);
+      const timeout = setTimeout(() => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(0);
+      }, 10000);
+
       video.preload = 'metadata';
       video.onloadedmetadata = () => {
-        resolve(video.duration);
+        clearTimeout(timeout);
+        const duration = video.duration;
+        URL.revokeObjectURL(objectUrl);
+        resolve(isFinite(duration) ? duration : 0);
       };
-      video.src = URL.createObjectURL(file);
+      video.onerror = () => {
+        clearTimeout(timeout);
+        URL.revokeObjectURL(objectUrl);
+        resolve(0);
+      };
+      video.src = objectUrl;
     });
   };
 

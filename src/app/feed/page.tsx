@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Container,
   Box,
@@ -34,7 +34,8 @@ import {
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { ContentAPI, Content, UIFeedResponse, UserEngagementStatus } from '@/lib/api/content';
+import { ContentAPI, Content, UIFeedResponse, UserEngagementStatus, BattleAPI, Battle } from '@/lib/api/content';
+import { MonetizationAPI } from '@/lib/api/monetization';
 import { isApiSuccess, formatTimeAgo as formatTimeAgoUtil, formatCreatorHandle, getHandleInitial } from '@/lib/api/client';
 import { UserAPI } from '@/lib/api/user';
 import CommentDialog from '@/components/content/CommentDialog';
@@ -61,9 +62,13 @@ function FeedPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
   const [commentContentId, setCommentContentId] = useState<string>('');
   const [creatorProfiles, setCreatorProfiles] = useState<{ [id: string]: { name: string; avatar?: string } }>({});
+  const [coinBalance, setCoinBalance] = useState<number>(0);
+  const [activeBattleCount, setActiveBattleCount] = useState<number>(0);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { user } = useAuth();
 
@@ -106,7 +111,17 @@ function FeedPageContent() {
 
   const getCreatorAvatar = (post: Content) => creatorProfiles[post.creatorId]?.avatar;
 
-  useEffect(() => { loadShortsData(); loadHotNow(); }, []);
+  useEffect(() => {
+    loadShortsData(); loadHotNow();
+    // Load coin balance
+    MonetizationAPI.getBalance().then(res => {
+      if (isApiSuccess(res)) setCoinBalance(res.data);
+    }).catch(() => {});
+    // Load active battle count
+    BattleAPI.getLiveBattles(0, 1).then(res => {
+      if (isApiSuccess(res)) setActiveBattleCount(res.data.totalElements || 0);
+    }).catch(() => {});
+  }, []);
   useEffect(() => { loadFeedData(true); }, []);
 
   const loadHotNow = async () => {
@@ -131,7 +146,9 @@ function FeedPageContent() {
 
   const loadFeedData = async (resetFeed = false) => {
     try {
-      setLoading(true); setError(null);
+      if (resetFeed) setLoading(true);
+      else setLoadingMore(true);
+      setError(null);
       const currentPage = resetFeed ? 0 : page;
       const response = await ContentAPI.getHomeFeed(currentPage, 10, user?.id);
       if (isApiSuccess(response)) {
@@ -144,8 +161,24 @@ function FeedPageContent() {
         resolveCreatorProfiles(newContent);
       } else { setError((response as any).message || 'Failed to load feed'); }
     } catch (err: any) { setError(err.message || 'Failed to load feed'); }
-    finally { setLoading(false); }
+    finally { setLoading(false); setLoadingMore(false); }
   };
+
+  // Infinite scroll - auto-load when sentinel comes into view
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          loadFeedData(false);
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadingMore, page]);
 
   const handleLike = async (contentId: string) => {
     if (!user?.id) return;
@@ -198,7 +231,15 @@ function FeedPageContent() {
             <Typography variant="h5" sx={{ fontFamily: 'cursive', fontWeight: 'bold', background: 'linear-gradient(135deg, #6B46C1 0%, #9333EA 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', cursor: 'pointer' }} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
               MemeToMoney
             </Typography>
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+              {/* Coin balance pill */}
+              <Chip
+                icon={<TipIcon sx={{ fontSize: 14, color: '#F59E0B !important' }} />}
+                label={coinBalance}
+                size="small"
+                onClick={() => router.push('/profile')}
+                sx={{ bgcolor: '#FFFBEB', color: '#92400E', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer', '&:hover': { bgcolor: '#FEF3C7' } }}
+              />
               <IconButton onClick={() => router.push('/search')} sx={{ color: '#6B7280' }} size="small"><SearchIcon /></IconButton>
               <IconButton onClick={() => router.push('/messages')} sx={{ color: '#6B7280' }} size="small"><ChatBubbleOutline /></IconButton>
             </Box>
@@ -215,7 +256,7 @@ function FeedPageContent() {
           />
           <Chip
             icon={<FireIcon sx={{ fontSize: 16 }} />}
-            label="Battles"
+            label={activeBattleCount > 0 ? `Battles (${activeBattleCount})` : 'Battles'}
             onClick={() => router.push('/battles')}
             sx={{ bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 700, '&:hover': { bgcolor: '#FDE68A' }, '& .MuiChip-icon': { color: '#92400E' } }}
           />
@@ -351,13 +392,38 @@ function FeedPageContent() {
 
         {/* Feed Posts */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, px: 1 }}>
-          {feedData.map((post) => {
+          {feedData.map((post, index) => {
             const engagement = engagements[post.id];
             const isLiked = engagement?.liked || false;
             const contentUrl = getContentUrl(post);
 
             return (
-              <Card key={post.id} sx={{ borderRadius: 2, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', transition: 'all 0.2s', '&:hover': { boxShadow: '0 8px 25px rgba(0,0,0,0.15)' } }}>
+              <React.Fragment key={post.id}>
+              {/* Daily Challenge Card - appears after 2nd post */}
+              {index === 2 && (
+                <Card sx={{ borderRadius: 3, overflow: 'hidden', background: 'linear-gradient(135deg, #7C3AED 0%, #EC4899 50%, #F59E0B 100%)', color: 'white', cursor: 'pointer' }}
+                  onClick={() => router.push('/battles')}
+                >
+                  <Box sx={{ p: 2.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <FireIcon sx={{ fontSize: 20 }} />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                        Daily Meme Challenge
+                      </Typography>
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+                      Battle for 500 Coins!
+                    </Typography>
+                    <Typography variant="body2" sx={{ opacity: 0.9, mb: 1.5 }}>
+                      Create a meme, challenge a creator, win coins
+                    </Typography>
+                    <Chip label="Join Battle" size="small"
+                      sx={{ bgcolor: 'rgba(255,255,255,0.25)', color: 'white', fontWeight: 700, '&:hover': { bgcolor: 'rgba(255,255,255,0.35)' } }}
+                    />
+                  </Box>
+                </Card>
+              )}
+              <Card sx={{ borderRadius: 2, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', transition: 'all 0.2s', '&:hover': { boxShadow: '0 8px 25px rgba(0,0,0,0.15)' } }}>
                 {/* Post Header */}
                 <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }} onClick={() => router.push(`/profile/${post.creatorId}`)}>
@@ -455,16 +521,15 @@ function FeedPageContent() {
                   )}
                 </Box>
               </Card>
+              </React.Fragment>
             );
           })}
         </Box>
 
-        {/* Load More */}
-        {hasMore && !loading && feedData.length > 0 && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3, px: 2 }}>
-            <Button variant="outlined" onClick={() => loadFeedData(false)} sx={{ borderColor: '#6B46C1', color: '#6B46C1', textTransform: 'none', borderRadius: 2, '&:hover': { borderColor: '#553C9A', bgcolor: 'rgba(107, 70, 193, 0.04)' } }}>
-              Load More
-            </Button>
+        {/* Infinite scroll sentinel */}
+        {hasMore && feedData.length > 0 && (
+          <Box ref={loadMoreRef} sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+            {loadingMore && <CircularProgress size={28} sx={{ color: '#6B46C1' }} />}
           </Box>
         )}
 

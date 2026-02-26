@@ -9,68 +9,60 @@ import {
   Tabs,
   Tab,
   IconButton,
-  Button,
-  Chip,
   CircularProgress,
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
   EmojiEvents as TrophyIcon,
-  TrendingUp as TrendingIcon,
-  Whatshot as FireIcon,
-  Star as StarIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { ContentAPI } from '@/lib/api/content';
+import { MonetizationAPI, LeaderboardEntry as APILeaderboardEntry } from '@/lib/api/monetization';
 import { isApiSuccess } from '@/lib/api/client';
 
-interface LeaderboardEntry {
-  rank: number;
-  userId: string;
-  displayName: string;
-  handle: string;
-  avatar?: string;
-  score: number;
-  postCount: number;
-  badge: string;
-}
-
-// Mock leaderboard data (will be replaced with real API)
-const generateMockLeaderboard = (): LeaderboardEntry[] => [
-  { rank: 1, userId: '1', displayName: 'MemeKing420', handle: '@memeking420', score: 48200, postCount: 156, badge: 'Crown' },
-  { rank: 2, userId: '2', displayName: 'DankQueen', handle: '@dankqueen', score: 41800, postCount: 134, badge: 'Fire' },
-  { rank: 3, userId: '3', displayName: 'ViralVince', handle: '@viralvince', score: 38500, postCount: 98, badge: 'Lightning' },
-  { rank: 4, userId: '4', displayName: 'LolMaster', handle: '@lolmaster', score: 32100, postCount: 112, badge: 'Star' },
-  { rank: 5, userId: '5', displayName: 'SavageSara', handle: '@savagesara', score: 28900, postCount: 87, badge: 'Rocket' },
-  { rank: 6, userId: '6', displayName: 'CringeLord', handle: '@cringelord', score: 24300, postCount: 201, badge: '' },
-  { rank: 7, userId: '7', displayName: 'MoodMemer', handle: '@moodmemer', score: 21700, postCount: 76, badge: '' },
-  { rank: 8, userId: '8', displayName: 'RelatableRaj', handle: '@relatableraj', score: 19500, postCount: 93, badge: '' },
-  { rank: 9, userId: '9', displayName: 'FunnyFiona', handle: '@funnyfiona', score: 17200, postCount: 64, badge: '' },
-  { rank: 10, userId: '10', displayName: 'MemeLord99', handle: '@memelord99', score: 15800, postCount: 142, badge: '' },
-];
-
 const rankEmojis: Record<number, string> = { 1: '\uD83E\uDD47', 2: '\uD83E\uDD48', 3: '\uD83E\uDD49' };
-const rankColors: Record<number, string> = { 1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32' };
+
+const periodMap: Record<number, string> = { 0: 'weekly', 1: 'monthly', 2: 'all-time' };
 
 function LeaderboardContent() {
-  const [period, setPeriod] = useState(0); // 0=weekly, 1=monthly, 2=all-time
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [period, setPeriod] = useState(0);
+  const [leaderboard, setLeaderboard] = useState<APILeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    // TODO: Replace with real API call: ContentAPI.getLeaderboard(period)
-    setLoading(true);
-    setTimeout(() => {
-      setLeaderboard(generateMockLeaderboard());
-      setLoading(false);
-    }, 500);
+    loadLeaderboard();
   }, [period]);
+
+  const loadLeaderboard = async () => {
+    setLoading(true);
+    try {
+      const response = await MonetizationAPI.getLeaderboard(periodMap[period], 20);
+      if (isApiSuccess(response)) {
+        setLeaderboard(response.data);
+      } else {
+        setLeaderboard([]);
+      }
+    } catch (err) {
+      console.error('Failed to load leaderboard:', err);
+      setLeaderboard([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatScore = (score: number) => {
     if (score >= 1000) return `${(score / 1000).toFixed(1)}K`;
     return score.toString();
+  };
+
+  const getDisplayName = (entry: APILeaderboardEntry) => {
+    return entry.displayName || entry.handle || `User ${entry.rank}`;
+  };
+
+  const getInitial = (entry: APILeaderboardEntry) => {
+    const name = entry.displayName || entry.handle || 'U';
+    return name.charAt(0).toUpperCase();
   };
 
   const top3 = leaderboard.slice(0, 3);
@@ -130,6 +122,7 @@ function LeaderboardContent() {
             {/* 2nd place */}
             <Box sx={{ textAlign: 'center', flex: 1 }}>
               <Avatar
+                src={top3[1].profilePicture}
                 sx={{
                   width: 56, height: 56, mx: 'auto', mb: 0.5,
                   border: '3px solid #C0C0C0',
@@ -137,13 +130,13 @@ function LeaderboardContent() {
                   fontSize: '1.2rem',
                 }}
               >
-                {top3[1].displayName.charAt(0)}
+                {getInitial(top3[1])}
               </Avatar>
               <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
-                {top3[1].displayName}
+                {getDisplayName(top3[1])}
               </Typography>
               <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                {formatScore(top3[1].score)} pts
+                {formatScore(top3[1].totalCoins)} coins
               </Typography>
               <Box sx={{ bgcolor: 'rgba(255,255,255,0.2)', borderRadius: '8px 8px 0 0', mt: 1, pt: 2, pb: 1 }}>
                 <Typography variant="h6" sx={{ fontWeight: 800 }}>{rankEmojis[2]}</Typography>
@@ -153,6 +146,7 @@ function LeaderboardContent() {
             {/* 1st place */}
             <Box sx={{ textAlign: 'center', flex: 1 }}>
               <Avatar
+                src={top3[0].profilePicture}
                 sx={{
                   width: 72, height: 72, mx: 'auto', mb: 0.5,
                   border: '3px solid #FFD700',
@@ -160,13 +154,13 @@ function LeaderboardContent() {
                   fontSize: '1.5rem',
                 }}
               >
-                {top3[0].displayName.charAt(0)}
+                {getInitial(top3[0])}
               </Avatar>
               <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                {top3[0].displayName}
+                {getDisplayName(top3[0])}
               </Typography>
               <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                {formatScore(top3[0].score)} pts
+                {formatScore(top3[0].totalCoins)} coins
               </Typography>
               <Box sx={{ bgcolor: 'rgba(255,255,255,0.25)', borderRadius: '8px 8px 0 0', mt: 1, pt: 3, pb: 1 }}>
                 <Typography variant="h5" sx={{ fontWeight: 800 }}>{rankEmojis[1]}</Typography>
@@ -176,6 +170,7 @@ function LeaderboardContent() {
             {/* 3rd place */}
             <Box sx={{ textAlign: 'center', flex: 1 }}>
               <Avatar
+                src={top3[2].profilePicture}
                 sx={{
                   width: 56, height: 56, mx: 'auto', mb: 0.5,
                   border: '3px solid #CD7F32',
@@ -183,18 +178,27 @@ function LeaderboardContent() {
                   fontSize: '1.2rem',
                 }}
               >
-                {top3[2].displayName.charAt(0)}
+                {getInitial(top3[2])}
               </Avatar>
               <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
-                {top3[2].displayName}
+                {getDisplayName(top3[2])}
               </Typography>
               <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                {formatScore(top3[2].score)} pts
+                {formatScore(top3[2].totalCoins)} coins
               </Typography>
               <Box sx={{ bgcolor: 'rgba(255,255,255,0.15)', borderRadius: '8px 8px 0 0', mt: 1, pt: 1, pb: 1 }}>
                 <Typography variant="h6" sx={{ fontWeight: 800 }}>{rankEmojis[3]}</Typography>
               </Box>
             </Box>
+          </Box>
+        )}
+
+        {/* Empty state when < 3 entries */}
+        {!loading && leaderboard.length === 0 && (
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+              No leaderboard data yet. Start earning coins!
+            </Typography>
           </Box>
         )}
       </Box>
@@ -228,23 +232,25 @@ function LeaderboardContent() {
               >
                 {entry.rank}
               </Typography>
-              <Avatar sx={{ bgcolor: '#6B46C1', width: 40, height: 40 }}>
-                {entry.displayName.charAt(0)}
+              <Avatar src={entry.profilePicture} sx={{ bgcolor: '#6B46C1', width: 40, height: 40 }}>
+                {getInitial(entry)}
               </Avatar>
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1a1a1a' }}>
-                  {entry.displayName}
+                  {getDisplayName(entry)}
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#6B7280' }}>
-                  {entry.handle} &middot; {entry.postCount} memes
-                </Typography>
+                {entry.handle && (
+                  <Typography variant="caption" sx={{ color: '#6B7280' }}>
+                    @{entry.handle}
+                  </Typography>
+                )}
               </Box>
               <Box sx={{ textAlign: 'right' }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#6B46C1' }}>
-                  {formatScore(entry.score)}
+                  {formatScore(entry.totalCoins)}
                 </Typography>
                 <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
-                  points
+                  coins
                 </Typography>
               </Box>
             </Card>
