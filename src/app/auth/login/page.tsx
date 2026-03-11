@@ -65,7 +65,7 @@ function AuthPageContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
 
   // Fetch referrer info if referralCode is present
   useEffect(() => {
@@ -160,13 +160,14 @@ function AuthPageContent() {
       // Get Google authentication response
       const googleResponse = await GoogleAuth.signIn();
 
-      // Call your Google auth API
-      const response = await AuthAPI.googleAuth({
-        idToken: googleResponse.idToken
-      });
+      // Use AuthContext's loginWithGoogle to properly set user state
+      const success = await loginWithGoogle(googleResponse.idToken);
 
-      if (isApiSuccess(response)) {
-        router.push('/feed');
+      if (success) {
+        // Small delay to ensure auth context state is propagated
+        setTimeout(() => {
+          router.push('/feed');
+        }, 100);
       } else {
         setError('Google authentication failed. Please try again.');
       }

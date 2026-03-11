@@ -98,9 +98,9 @@ function UploadPageContent() {
       return;
     }
 
-    // Validate file size (50MB max)
-    if (file.size > 50 * 1024 * 1024) {
-      showSnackbar('File size must be less than 50MB', 'error');
+    // Validate file size (100MB max)
+    if (file.size > 100 * 1024 * 1024) {
+      showSnackbar('File size must be less than 100MB', 'error');
       return;
     }
 
@@ -372,7 +372,7 @@ function UploadPageContent() {
             </Box>
 
             <Typography variant="body2" color="text.secondary">
-              Maximum file size: 50MB
+              Maximum file size: 100MB
             </Typography>
 
             <input

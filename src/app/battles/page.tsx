@@ -151,6 +151,22 @@ function BattlesContent() {
     return `${hours}h ${mins}m`;
   };
 
+  // Format handle: show @ handle if it looks like a handle, otherwise show "Creator"
+  const formatHandle = (handle?: string, fallback = 'Creator') => {
+    if (!handle) return fallback;
+    // If it looks like a raw MongoDB ObjectId, show fallback
+    if (/^[a-f0-9]{24}$/.test(handle)) return fallback;
+    return `@${handle.replace(/^@/, '')}`;
+  };
+
+  const getBattleStatusText = (battle: Battle) => {
+    if (battle.status === 'WAITING') return 'Waiting for an opponent to join...';
+    if (battle.status === 'ACTIVE') return 'Both creators submit their best meme!';
+    if (battle.status === 'VOTING') return 'Vote for the best meme!';
+    if (battle.status === 'COMPLETED') return 'Battle ended';
+    return '';
+  };
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa' }}>
       {/* Header */}
@@ -295,7 +311,7 @@ function BattlesContent() {
                       {(battle.creator1Handle || 'U').charAt(0).toUpperCase()}
                     </Avatar>
                     <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
-                      {battle.creator1Handle || 'Challenger'}
+                      {formatHandle(battle.creator1Handle, 'Challenger')}
                     </Typography>
                     {(isVoting || isCompleted) && (
                       <Typography variant="caption" sx={{ color: '#6B46C1', fontWeight: 700 }}>
@@ -343,7 +359,7 @@ function BattlesContent() {
                           {(battle.creator2Handle || 'U').charAt(0).toUpperCase()}
                         </Avatar>
                         <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
-                          {battle.creator2Handle || 'Opponent'}
+                          {formatHandle(battle.creator2Handle, 'Opponent')}
                         </Typography>
                         {(isVoting || isCompleted) && (
                           <Typography variant="caption" sx={{ color: '#EC4899', fontWeight: 700 }}>
@@ -371,6 +387,17 @@ function BattlesContent() {
                     </Box>
                     <Typography variant="caption" sx={{ color: '#9CA3AF', mt: 0.5, display: 'block', textAlign: 'center' }}>
                       {(battle.creator1Votes + battle.creator2Votes).toLocaleString()} total votes
+                    </Typography>
+                  </Box>
+                )}
+
+                {/* Battle status instructions */}
+                {(isWaiting || battle.status === 'ACTIVE') && (
+                  <Box sx={{ px: 2, pb: 1 }}>
+                    <Typography variant="caption" sx={{ color: '#6B7280', fontStyle: 'italic', textAlign: 'center', display: 'block' }}>
+                      {getBattleStatusText(battle)}
+                      {isWaiting && ' (Auto-cancels in 24h)'}
+                      {battle.status === 'ACTIVE' && ' (48h to submit)'}
                     </Typography>
                   </Box>
                 )}

@@ -130,6 +130,17 @@ function ProfilePageContent() {
     }
   }, [user?.id, tabValue]);
 
+  // Refresh user profile data (follower/following counts) on mount
+  useEffect(() => {
+    if (user?.id) {
+      AuthAPI.getCurrentUser().then(res => {
+        if (isApiSuccess(res) && res.data) {
+          updateUser(res.data);
+        }
+      }).catch(() => {});
+    }
+  }, [user?.id]);
+
   // Load wallet and earnings data
   useEffect(() => {
     if (user?.id) {

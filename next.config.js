@@ -13,6 +13,13 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
 
+  // Allow large file uploads (up to 100MB) through Next.js proxy
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '100mb',
+    },
+  },
+
   // Image optimization
   images: {
     domains: [

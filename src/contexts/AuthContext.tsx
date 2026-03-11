@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
+  loginWithGoogle: (idToken: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
   updateUser: (userData: Partial<User>) => void;
@@ -93,6 +94,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const loginWithGoogle = async (idToken: string): Promise<boolean> => {
+    try {
+      console.log('AuthContext: Starting Google login');
+      const response = await AuthAPI.googleAuth({ idToken });
+      console.log('AuthContext: Google auth response:', response);
+
+      if (isApiSuccess(response)) {
+        console.log('AuthContext: Google auth successful, fetching profile');
+        // Token is already set by AuthAPI.googleAuth, fetch full profile
+        const profileResponse = await AuthAPI.getCurrentUser();
+        if (isApiSuccess(profileResponse)) {
+          console.log('AuthContext: Full profile fetched:', profileResponse.data);
+          setUser(profileResponse.data);
+        } else if (response.data?.user) {
+          setUser(response.data.user);
+        }
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('AuthContext: Google login failed:', error);
+      return false;
+    }
+  };
+
   const logout = () => {
     AuthAPI.logout();
     setUser(null);
@@ -122,6 +148,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     loading,
     login,
+    loginWithGoogle,
     logout,
     isAuthenticated: !!user,
     updateUser,

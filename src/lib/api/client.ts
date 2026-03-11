@@ -115,13 +115,15 @@ class TokenManager {
 }
 
 // Base API client factory
-function createApiClient(baseURL: string): AxiosInstance {
+function createApiClient(baseURL: string, timeout = 30000): AxiosInstance {
   const client = axios.create({
     baseURL,
-    timeout: 30000,
+    timeout,
     headers: {
       'Content-Type': 'application/json',
     },
+    maxContentLength: 100 * 1024 * 1024, // 100MB
+    maxBodyLength: 100 * 1024 * 1024, // 100MB
   });
 
   // Request interceptor to add auth tokens
@@ -154,7 +156,7 @@ function createApiClient(baseURL: string): AxiosInstance {
 
 // Service clients
 export const userServiceClient = createApiClient(USER_SERVICE_URL);
-export const contentServiceClient = createApiClient(CONTENT_SERVICE_URL);
+export const contentServiceClient = createApiClient(CONTENT_SERVICE_URL, 120000); // 2min timeout for uploads
 export const monetizationServiceClient = createApiClient(MONETIZATION_SERVICE_URL);
 export const messagingServiceClient = createApiClient(MESSAGING_SERVICE_URL);
 export const notificationServiceClient = createApiClient(NOTIFICATION_SERVICE_URL);

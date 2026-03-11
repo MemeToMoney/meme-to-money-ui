@@ -33,6 +33,7 @@ import { UserAPI } from '@/lib/api/user';
 import { isApiSuccess, formatCreatorHandle, getHandleInitial } from '@/lib/api/client';
 import CommentDialog from '@/components/content/CommentDialog';
 import ShareDialog from '@/components/ShareDialog';
+import ShortsAd from '@/components/ads/ShortsAd';
 
 interface VideoPlayerProps {
   content: Content;
@@ -248,7 +249,7 @@ function ShortsPageContent() {
       const response = await ContentAPI.getTrendingFeed(pageNum, 10, 168, user?.id);
       if (isApiSuccess(response)) {
         const videoContent = (response.data.content?.content || []).filter(
-          (c: Content) => c.type === 'SHORT_VIDEO' && c.status === 'PUBLISHED'
+          (c: Content) => c.type === 'SHORT_VIDEO' && (c.status === 'PUBLISHED' || c.status === 'READY')
         );
         if (pageNum === 0) {
           setShorts(videoContent);
@@ -393,25 +394,33 @@ function ShortsPageContent() {
           scrollbarWidth: 'none',
         }}
       >
-        {shorts.map((content) => (
-          <Box key={content.id} sx={{ height: '100vh', scrollSnapAlign: 'start', scrollSnapStop: 'always' }}>
-            <VideoPlayer
-              content={content}
-              isPlaying={playingVideo === content.id}
-              isMuted={isMuted}
-              isLiked={likedMap[content.id] || false}
-              isSaved={savedMap[content.id] || false}
-              isFollowing={followingMap[content.creatorId] || false}
-              onPlayPause={() => setPlayingVideo(prev => prev === content.id ? null : content.id)}
-              onMuteToggle={() => setIsMuted(prev => !prev)}
-              onLike={() => handleLike(content.id)}
-              onComment={() => handleComment(content.id)}
-              onShare={() => handleShare(content.id)}
-              onSave={() => handleSave(content.id)}
-              onFollow={() => handleFollow(content.creatorId)}
-              onProfileClick={() => router.push(`/profile/${content.creatorId}`)}
-            />
-          </Box>
+        {shorts.map((content, index) => (
+          <React.Fragment key={content.id}>
+            {/* Ad slot every 3 videos (after 3rd, 6th, 9th...) */}
+            {index > 0 && index % 3 === 0 && (
+              <Box sx={{ height: '100vh', scrollSnapAlign: 'start', scrollSnapStop: 'always' }}>
+                <ShortsAd />
+              </Box>
+            )}
+            <Box sx={{ height: '100vh', scrollSnapAlign: 'start', scrollSnapStop: 'always' }}>
+              <VideoPlayer
+                content={content}
+                isPlaying={playingVideo === content.id}
+                isMuted={isMuted}
+                isLiked={likedMap[content.id] || false}
+                isSaved={savedMap[content.id] || false}
+                isFollowing={followingMap[content.creatorId] || false}
+                onPlayPause={() => setPlayingVideo(prev => prev === content.id ? null : content.id)}
+                onMuteToggle={() => setIsMuted(prev => !prev)}
+                onLike={() => handleLike(content.id)}
+                onComment={() => handleComment(content.id)}
+                onShare={() => handleShare(content.id)}
+                onSave={() => handleSave(content.id)}
+                onFollow={() => handleFollow(content.creatorId)}
+                onProfileClick={() => router.push(`/profile/${content.creatorId}`)}
+              />
+            </Box>
+          </React.Fragment>
         ))}
       </Box>
 

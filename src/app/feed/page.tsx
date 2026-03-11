@@ -40,6 +40,7 @@ import { MonetizationAPI } from '@/lib/api/monetization';
 import { isApiSuccess, formatTimeAgo as formatTimeAgoUtil, formatCreatorHandle, getHandleInitial } from '@/lib/api/client';
 import { UserAPI } from '@/lib/api/user';
 import CommentDialog from '@/components/content/CommentDialog';
+import FeedAdCard from '@/components/ads/FeedAdCard';
 
 
 function FeedPageContent() {
@@ -102,33 +103,26 @@ function FeedPageContent() {
   const getCreatorAvatar = (post: Content) => creatorProfiles[post.creatorId]?.avatar;
 
   useEffect(() => {
-    loadShortsData(); loadHotNow();
-    // Load coin balance
+    loadTrendingData(); // Single call for both hot now and shorts
+    // Load coin balance and battle count in parallel
     MonetizationAPI.getBalance().then(res => {
       if (isApiSuccess(res)) setCoinBalance(res.data);
     }).catch(() => {});
-    // Load active battle count
     BattleAPI.getLiveBattles(0, 1).then(res => {
       if (isApiSuccess(res)) setActiveBattleCount(res.data.totalElements || 0);
     }).catch(() => {});
   }, []);
   useEffect(() => { loadFeedData(true); }, []);
 
-  const loadHotNow = async () => {
-    try {
-      const response = await ContentAPI.getTrendingFeed(0, 5, 24, user?.id);
-      if (isApiSuccess(response)) {
-        setHotNowData(response.data.content.content.slice(0, 5));
-      }
-    } catch {}
-  };
-
-  const loadShortsData = async () => {
+  // Combined trending data load - single API call for both hot now and shorts
+  const loadTrendingData = async () => {
     try {
       setShortsLoading(true);
-      const response = await ContentAPI.getTrendingFeed(0, 6, 24, user?.id);
+      const response = await ContentAPI.getTrendingFeed(0, 10, 24, user?.id);
       if (isApiSuccess(response)) {
-        const shorts = response.data.content.content.filter((c: Content) => c.type === 'SHORT_VIDEO').slice(0, 3);
+        const allContent = response.data.content.content || [];
+        setHotNowData(allContent.slice(0, 5));
+        const shorts = allContent.filter((c: Content) => c.type === 'SHORT_VIDEO' && (c.status === 'PUBLISHED' || c.status === 'READY')).slice(0, 3);
         setShortsData(shorts);
       }
     } catch {} finally { setShortsLoading(false); }
@@ -374,6 +368,10 @@ function FeedPageContent() {
 
             return (
               <React.Fragment key={post.id}>
+              {/* Native Ad - appears after every 3rd post (starting after post 3) */}
+              {index > 0 && index % 3 === 0 && (
+                <FeedAdCard />
+              )}
               {/* Daily Challenge Card - appears after 2nd post */}
               {index === 2 && (
                 <Card sx={{ borderRadius: 3, overflow: 'hidden', background: 'linear-gradient(135deg, #7C3AED 0%, #EC4899 50%, #F59E0B 100%)', color: 'white', cursor: 'pointer' }}
