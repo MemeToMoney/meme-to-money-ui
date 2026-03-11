@@ -47,6 +47,29 @@ export interface Earning {
   createdAt: string;
 }
 
+export interface CoinConversionInfo {
+  coinsPerRupee: number;
+  minRedeemCoins: number;
+  minRedeemRupees: number;
+  rewards: {
+    upload: number;
+    per100Views: number;
+    perLike: number;
+    perComment: number;
+    perShare: number;
+    perFollower: number;
+    dailyLogin: number;
+  };
+  dailyCaps: {
+    upload: number;
+    views: number;
+    likes: number;
+    comments: number;
+    shares: number;
+    followers: number;
+  };
+}
+
 export type TransactionType =
   | 'TIP_RECEIVED'
   | 'TIP_SENT'
@@ -92,8 +115,10 @@ export interface LeaderboardEntry {
 
 export interface PayoutRequest {
   coins: number;
-  bankAccountNumber: string;
-  ifscCode: string;
+  payoutMethod: 'BANK' | 'UPI';
+  bankAccountNumber?: string;
+  ifscCode?: string;
+  upiId?: string;
 }
 
 export interface Payout {
@@ -102,11 +127,31 @@ export interface Payout {
   coins: number;
   amountINR: number;
   status: 'PENDING' | 'APPROVED' | 'PROCESSING' | 'COMPLETED' | 'REJECTED';
-  bankAccountNumber: string;
-  ifscCode: string;
+  payoutMethod: string;
+  bankAccountNumber?: string;
+  ifscCode?: string;
+  upiId?: string;
   rejectionReason?: string;
   requestedAt: string;
   processedAt?: string;
+}
+
+export interface PaymentOrderResponse {
+  orderId: string;
+  amount: number;
+  amountINR: number;
+  coins: number;
+  currency: string;
+  keyId: string;
+  paymentId: string;
+}
+
+export interface PaymentInfo {
+  keyId: string;
+  coinsPerRupee: number;
+  minCoins: number;
+  maxCoins: number;
+  currency: string;
 }
 
 // Tips API
@@ -155,6 +200,15 @@ export class MonetizationAPI {
     return handleApiResponse(monetizationServiceClient.get(`/api/monetization/earnings/content/${contentId}`));
   }
 
+  // --- Coins ---
+  static async claimDailyLogin(): Promise<ApiResponse<Earning>> {
+    return handleApiResponse(monetizationServiceClient.post('/api/monetization/coins/daily-login'));
+  }
+
+  static async getConversionInfo(): Promise<ApiResponse<CoinConversionInfo>> {
+    return handleApiResponse(monetizationServiceClient.get('/api/monetization/coins/conversion'));
+  }
+
   // --- Leaderboard ---
   static async getLeaderboard(period: string = 'weekly', limit: number = 10): Promise<ApiResponse<LeaderboardEntry[]>> {
     return handleApiResponse(monetizationServiceClient.get(`/api/monetization/leaderboard?period=${period}&limit=${limit}`));
@@ -171,6 +225,25 @@ export class MonetizationAPI {
         params: { userId, page, size },
       })
     );
+  }
+
+  // --- Payments (Buy Coins) ---
+  static async createPaymentOrder(coins: number): Promise<ApiResponse<PaymentOrderResponse>> {
+    return handleApiResponse(monetizationServiceClient.post('/api/monetization/payments/create-order', { coins }));
+  }
+
+  static async verifyPayment(razorpay_order_id: string, razorpay_payment_id: string, razorpay_signature: string): Promise<ApiResponse<any>> {
+    return handleApiResponse(monetizationServiceClient.post('/api/monetization/payments/verify', {
+      razorpay_order_id, razorpay_payment_id, razorpay_signature,
+    }));
+  }
+
+  static async getPaymentInfo(): Promise<ApiResponse<PaymentInfo>> {
+    return handleApiResponse(monetizationServiceClient.get('/api/monetization/payments/info'));
+  }
+
+  static async getPaymentHistory(): Promise<ApiResponse<any[]>> {
+    return handleApiResponse(monetizationServiceClient.get('/api/monetization/payments/history'));
   }
 
   // --- Payouts ---

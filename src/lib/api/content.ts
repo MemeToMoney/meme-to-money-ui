@@ -265,7 +265,7 @@ export class ContentAPI {
 
   /**
    * Get trending feed
-   * GET /api/content/feed/trending
+   * GET /api/content/trending
    */
   static async getTrendingFeed(
     page = 0,
@@ -278,14 +278,36 @@ export class ContentAPI {
       headers['X-User-Id'] = userId;
     }
 
-    const response = await handleApiResponse<UIFeedResponse>(
-      contentServiceClient.get('/api/content/feed/trending', {
-        params: { page, size, hours },
-        headers
-      })
-    );
+    // Backend returns Page<Content> at /api/content/trending, not UIFeedResponse
+    // Wrap it to match the UIFeedResponse structure expected by callers
+    try {
+      const rawResponse = await handleApiResponse<any>(
+        contentServiceClient.get('/api/content/trending', {
+          params: { page, size },
+          headers
+        })
+      );
 
-    return response;
+      if (rawResponse.status === 200 && rawResponse.data) {
+        // Backend returns Page<Content> directly, wrap it into UIFeedResponse shape
+        const pageData = rawResponse.data;
+        const wrappedResponse: ApiResponse<UIFeedResponse> = {
+          status: rawResponse.status,
+          message: rawResponse.message,
+          data: {
+            content: pageData,
+            userEngagements: {},
+            recentComments: {},
+            metadata: { feedType: 'TRENDING', totalElements: pageData.totalElements || 0 } as any,
+            userAuthenticated: !!userId,
+          }
+        };
+        return wrappedResponse;
+      }
+      return rawResponse as ApiResponse<UIFeedResponse>;
+    } catch {
+      return { status: 500, message: 'Failed to fetch trending', data: { content: { content: [], totalPages: 0, totalElements: 0, first: true, last: true, size: 0, number: 0, numberOfElements: 0, empty: true }, userEngagements: {}, recentComments: {}, metadata: { feedType: 'TRENDING' } as any, userAuthenticated: false } };
+    }
   }
 
   /**

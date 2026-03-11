@@ -245,38 +245,52 @@ function ShortsPageContent() {
   const loadShorts = async (pageNum: number) => {
     try {
       setLoading(true);
-      // Use trending feed filtered for SHORT_VIDEO
-      const response = await ContentAPI.getTrendingFeed(pageNum, 10, 168, user?.id);
-      if (isApiSuccess(response)) {
-        const videoContent = (response.data.content?.content || []).filter(
+      // Try home feed first (most reliable), then trending as fallback
+      let videoContent: Content[] = [];
+
+      // Try home feed - it contains all content types including SHORT_VIDEO
+      const homeResponse = await ContentAPI.getHomeFeed(pageNum, 20, user?.id);
+      if (isApiSuccess(homeResponse)) {
+        videoContent = (homeResponse.data.content?.content || []).filter(
           (c: Content) => c.type === 'SHORT_VIDEO' && (c.status === 'PUBLISHED' || c.status === 'READY')
         );
-        if (pageNum === 0) {
-          setShorts(videoContent);
-          if (videoContent.length > 0) setPlayingVideo(videoContent[0].id);
-        } else {
-          setShorts(prev => [...prev, ...videoContent]);
-        }
-        setPage(pageNum);
+      }
 
-        // Load engagement statuses
-        if (user?.id && videoContent.length > 0) {
-          const ids = videoContent.map((c: Content) => c.id);
-          try {
-            const engRes = await ContentAPI.getBulkEngagementStatus(ids, user.id);
-            if (isApiSuccess(engRes)) {
-              const engData = engRes.data;
-              const newLiked: Record<string, boolean> = {};
-              const newSaved: Record<string, boolean> = {};
-              for (const [cid, status] of Object.entries(engData)) {
-                newLiked[cid] = status.liked;
-                newSaved[cid] = status.bookmarked;
-              }
-              setLikedMap(prev => ({ ...prev, ...newLiked }));
-              setSavedMap(prev => ({ ...prev, ...newSaved }));
-            }
-          } catch {}
+      // If no shorts from home feed, try trending
+      if (videoContent.length === 0) {
+        const trendingResponse = await ContentAPI.getTrendingFeed(pageNum, 20, 168, user?.id);
+        if (isApiSuccess(trendingResponse)) {
+          videoContent = (trendingResponse.data.content?.content || []).filter(
+            (c: Content) => c.type === 'SHORT_VIDEO' && (c.status === 'PUBLISHED' || c.status === 'READY')
+          );
         }
+      }
+
+      if (pageNum === 0) {
+        setShorts(videoContent);
+        if (videoContent.length > 0) setPlayingVideo(videoContent[0].id);
+      } else {
+        setShorts(prev => [...prev, ...videoContent]);
+      }
+      setPage(pageNum);
+
+      // Load engagement statuses
+      if (user?.id && videoContent.length > 0) {
+        const ids = videoContent.map((c: Content) => c.id);
+        try {
+          const engRes = await ContentAPI.getBulkEngagementStatus(ids, user.id);
+          if (isApiSuccess(engRes)) {
+            const engData = engRes.data;
+            const newLiked: Record<string, boolean> = {};
+            const newSaved: Record<string, boolean> = {};
+            for (const [cid, status] of Object.entries(engData)) {
+              newLiked[cid] = status.liked;
+              newSaved[cid] = status.bookmarked;
+            }
+            setLikedMap(prev => ({ ...prev, ...newLiked }));
+            setSavedMap(prev => ({ ...prev, ...newSaved }));
+          }
+        } catch {}
       }
     } catch (err) {
       console.error('Failed to load shorts:', err);

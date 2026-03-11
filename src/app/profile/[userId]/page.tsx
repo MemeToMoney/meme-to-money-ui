@@ -307,7 +307,7 @@ function UserProfileContent() {
                   onClick={() => !isPrivate && router.push(`/profile/${userId}/followers`)}
                 >
                   <Typography variant="h6" sx={{ fontWeight: 800, color: '#111827' }}>
-                    {profileUser.followerCount || 0}
+                    {isPrivate ? '-' : (profileUser.followerCount || 0)}
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Followers
@@ -318,7 +318,7 @@ function UserProfileContent() {
                   onClick={() => !isPrivate && router.push(`/profile/${userId}/following`)}
                 >
                   <Typography variant="h6" sx={{ fontWeight: 800, color: '#111827' }}>
-                    {profileUser.followingCount || 0}
+                    {isPrivate ? '-' : (profileUser.followingCount || 0)}
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Following

@@ -177,7 +177,7 @@ function UploadPageContent() {
       const contentId = crypto.randomUUID();
 
       const contentRequest: ContentCreationRequest = {
-        title: formData.title.trim() || selectedFile.name.replace(/\.[^.]+$/, ''),
+        title: formData.title.trim() || `My ${contentType === 'SHORT_VIDEO' ? 'Short' : 'Meme'} ${new Date().toLocaleDateString()}`,
         description: formData.description || undefined,
         type: contentType,
         hashtags: formData.hashtags

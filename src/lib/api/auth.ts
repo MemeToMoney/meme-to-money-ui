@@ -382,4 +382,36 @@ export class AuthAPI {
       userServiceClient.get(`/api/users/referral/${encodeURIComponent(code)}`)
     );
   }
+
+  // ==================== Password APIs ====================
+
+  /**
+   * Change password (authenticated)
+   * POST /api/auth/change-password
+   */
+  static async changePassword(currentPassword: string, newPassword: string): Promise<ApiResponse<string>> {
+    return handleApiResponse<string>(
+      userServiceClient.post('/api/auth/change-password', { currentPassword, newPassword })
+    );
+  }
+
+  /**
+   * Forgot password - send OTP to email (public)
+   * POST /api/auth/forgot-password
+   */
+  static async forgotPassword(email: string): Promise<ApiResponse<string>> {
+    return handleApiResponse<string>(
+      userServiceClient.post(`/api/auth/forgot-password?email=${encodeURIComponent(email)}`, {})
+    );
+  }
+
+  /**
+   * Reset password with OTP (public)
+   * POST /api/auth/reset-password
+   */
+  static async resetPassword(email: string, code: string, newPassword: string): Promise<ApiResponse<string>> {
+    return handleApiResponse<string>(
+      userServiceClient.post('/api/auth/reset-password', { email, code, newPassword })
+    );
+  }
 }

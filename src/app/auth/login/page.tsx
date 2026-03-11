@@ -429,6 +429,21 @@ function AuthPageContent() {
               >
                 {loading ? 'Signing In...' : 'Login'}
               </Button>
+
+              <Box sx={{ textAlign: 'center', mt: 2 }}>
+                <Button
+                  onClick={() => router.push('/auth/forgot-password')}
+                  sx={{
+                    textTransform: 'none',
+                    color: '#6B46C1',
+                    fontWeight: 500,
+                    fontSize: '0.9rem',
+                    '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
+                  }}
+                >
+                  Forgot Password?
+                </Button>
+              </Box>
             </Box>
           </TabPanel>
 

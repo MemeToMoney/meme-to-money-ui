@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
     Box,
     Typography,
@@ -11,7 +11,15 @@ import {
     ListItemText,
     ListItemButton,
     Divider,
-    IconButton
+    IconButton,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    Button,
+    Alert,
+    CircularProgress,
 } from '@mui/material';
 import {
     ArrowBack as ArrowBackIcon,
@@ -19,18 +27,62 @@ import {
     Person as PersonIcon,
     Notifications as NotificationsIcon,
     Security as SecurityIcon,
-    Help as HelpIcon
+    Help as HelpIcon,
+    Lock as LockIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { AuthAPI } from '@/lib/api/auth';
+import { isApiSuccess } from '@/lib/api/client';
 
 export default function SettingsPage() {
     const router = useRouter();
-    const { logout } = useAuth();
+    const { logout, user } = useAuth();
+    const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+    const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    const [passwordError, setPasswordError] = useState('');
+    const [passwordSuccess, setPasswordSuccess] = useState('');
+    const [passwordLoading, setPasswordLoading] = useState(false);
+
+    const isGoogleUser = user?.authProvider === 'google';
 
     const handleLogout = () => {
         logout();
         router.push('/landing');
+    };
+
+    const handleChangePassword = async () => {
+        setPasswordError('');
+        setPasswordSuccess('');
+
+        if (!passwordData.newPassword || !passwordData.confirmPassword) {
+            setPasswordError('Please fill in all fields');
+            return;
+        }
+        if (passwordData.newPassword.length < 6) {
+            setPasswordError('New password must be at least 6 characters');
+            return;
+        }
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            setPasswordError('New passwords do not match');
+            return;
+        }
+
+        setPasswordLoading(true);
+        try {
+            const response = await AuthAPI.changePassword(passwordData.currentPassword, passwordData.newPassword);
+            if (isApiSuccess(response)) {
+                setPasswordSuccess('Password changed successfully!');
+                setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                setTimeout(() => setChangePasswordOpen(false), 1500);
+            } else {
+                setPasswordError((response as any).message || 'Failed to change password');
+            }
+        } catch (err: any) {
+            setPasswordError(err.message || 'Failed to change password');
+        } finally {
+            setPasswordLoading(false);
+        }
     };
 
     return (
@@ -69,6 +121,26 @@ export default function SettingsPage() {
                                 <PersonIcon sx={{ color: '#6B46C1' }} />
                             </ListItemIcon>
                             <ListItemText primary="Account" secondary="Privacy, security, change number" />
+                        </ListItemButton>
+                    </ListItem>
+                    <Divider />
+                    <ListItem disablePadding>
+                        <ListItemButton
+                            onClick={() => {
+                                if (isGoogleUser) {
+                                    setPasswordError('Your account uses Google login. Password cannot be changed here.');
+                                    setChangePasswordOpen(true);
+                                } else {
+                                    setPasswordError('');
+                                    setPasswordSuccess('');
+                                    setChangePasswordOpen(true);
+                                }
+                            }}
+                        >
+                            <ListItemIcon>
+                                <LockIcon sx={{ color: '#6B46C1' }} />
+                            </ListItemIcon>
+                            <ListItemText primary="Change Password" secondary="Update your account password" />
                         </ListItemButton>
                     </ListItem>
                     <Divider />
@@ -122,6 +194,61 @@ export default function SettingsPage() {
                     </Typography>
                 </Box>
             </Box>
+
+            {/* Change Password Dialog */}
+            <Dialog open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ fontWeight: 700 }}>Change Password</DialogTitle>
+                <DialogContent>
+                    {passwordError && <Alert severity="error" sx={{ mb: 2 }}>{passwordError}</Alert>}
+                    {passwordSuccess && <Alert severity="success" sx={{ mb: 2 }}>{passwordSuccess}</Alert>}
+                    {!isGoogleUser && (
+                        <>
+                            <TextField
+                                fullWidth
+                                label="Current Password"
+                                type="password"
+                                value={passwordData.currentPassword}
+                                onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                                sx={{ mb: 2, mt: 1 }}
+                            />
+                            <TextField
+                                fullWidth
+                                label="New Password"
+                                type="password"
+                                value={passwordData.newPassword}
+                                onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                                sx={{ mb: 2 }}
+                            />
+                            <TextField
+                                fullWidth
+                                label="Confirm New Password"
+                                type="password"
+                                value={passwordData.confirmPassword}
+                                onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                            />
+                        </>
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={() => setChangePasswordOpen(false)} sx={{ textTransform: 'none', color: '#6B7280' }}>
+                        Cancel
+                    </Button>
+                    {!isGoogleUser && (
+                        <Button
+                            onClick={handleChangePassword}
+                            variant="contained"
+                            disabled={passwordLoading}
+                            sx={{
+                                textTransform: 'none',
+                                bgcolor: '#6B46C1',
+                                '&:hover': { bgcolor: '#553C9A' },
+                            }}
+                        >
+                            {passwordLoading ? <CircularProgress size={20} /> : 'Change Password'}
+                        </Button>
+                    )}
+                </DialogActions>
+            </Dialog>
         </Container>
     );
 }

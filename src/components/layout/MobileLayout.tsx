@@ -13,7 +13,7 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
   const pathname = usePathname();
 
   // Pages that shouldn't have the mobile layout (full-screen pages)
-  const isFullScreenPage = ['/auth', '/landing', '/onboarding', '/meme-cam', '/leaderboard', '/battles'].some(path =>
+  const isFullScreenPage = ['/auth', '/landing', '/onboarding', '/meme-cam', '/leaderboard', '/battles', '/shorts'].some(path =>
     pathname.startsWith(path)
   );
 
