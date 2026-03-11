@@ -211,6 +211,7 @@ export class AuthAPI {
           onboardingCompleted: userData.onboardingCompleted ?? false,
           website: userData.website,
           socialLinks: userData.socialLinks,
+          isPrivateAccount: userData.isPrivateAccount || false,
           createdAt: userData.createdAt,
           updatedAt: userData.updatedAt
         };

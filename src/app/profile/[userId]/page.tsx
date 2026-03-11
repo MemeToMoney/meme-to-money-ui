@@ -105,23 +105,39 @@ function UserProfileContent() {
     setFollowLoading(true);
     try {
       const isFollowing = followStatus.following;
-      const response = isFollowing
+      const isPending = followStatus.pending;
+
+      // If already following or pending, unfollow/cancel
+      const response = (isFollowing || isPending)
         ? await UserAPI.unfollowUser(userId)
         : await UserAPI.followUser(userId);
 
       if (isApiSuccess(response)) {
-        setFollowStatus(prev => prev ? { ...prev, following: !isFollowing } : null);
-        // Update follower count locally
-        setProfileUser((prev: any) => prev ? {
-          ...prev,
-          followerCount: isFollowing
-            ? Math.max(0, (prev.followerCount || 0) - 1)
-            : (prev.followerCount || 0) + 1,
-        } : null);
-        setSnackbar({
-          open: true,
-          message: isFollowing ? 'Unfollowed' : 'Following!',
-        });
+        if (isFollowing || isPending) {
+          // Unfollowed or cancelled request
+          setFollowStatus(prev => prev ? { ...prev, following: false, pending: false } : null);
+          if (isFollowing) {
+            setProfileUser((prev: any) => prev ? {
+              ...prev,
+              followerCount: Math.max(0, (prev.followerCount || 0) - 1),
+            } : null);
+          }
+          setSnackbar({ open: true, message: isPending ? 'Follow request cancelled' : 'Unfollowed' });
+        } else {
+          // New follow - check if it's pending (private account) or active
+          const newStatus = response.data?.status;
+          if (newStatus === 'PENDING') {
+            setFollowStatus(prev => prev ? { ...prev, pending: true } : null);
+            setSnackbar({ open: true, message: 'Follow request sent!' });
+          } else {
+            setFollowStatus(prev => prev ? { ...prev, following: true } : null);
+            setProfileUser((prev: any) => prev ? {
+              ...prev,
+              followerCount: (prev.followerCount || 0) + 1,
+            } : null);
+            setSnackbar({ open: true, message: 'Following!' });
+          }
+        }
       }
     } catch (err) {
       console.error('Follow action failed:', err);
@@ -200,6 +216,7 @@ function UserProfileContent() {
 
   const isFollowing = followStatus?.following || false;
   const isFollowedBy = followStatus?.followedBy || false;
+  const isPending = followStatus?.pending || false;
   const profilePicUrl = getProfilePictureUrl(profileUser.profilePicture);
   const isPrivate = profileUser.isPrivateAccount === true && !isFollowing;
 
@@ -329,22 +346,22 @@ function UserProfileContent() {
               {/* Action Buttons */}
               <Box sx={{ display: 'flex', gap: 2, width: '100%', maxWidth: 400 }}>
                 <Button
-                  variant={isFollowing ? 'outlined' : 'contained'}
+                  variant={(isFollowing || isPending) ? 'outlined' : 'contained'}
                   fullWidth
                   disabled={followLoading}
                   onClick={handleFollowToggle}
                   startIcon={
-                    followLoading ? <CircularProgress size={16} /> : isFollowing ? <CheckIcon /> : <PersonAddIcon />
+                    followLoading ? <CircularProgress size={16} /> : isFollowing ? <CheckIcon /> : isPending ? <CheckIcon /> : <PersonAddIcon />
                   }
                   sx={{
                     textTransform: 'none',
                     borderRadius: 3,
                     fontWeight: 600,
                     py: 1.2,
-                    ...(isFollowing
+                    ...((isFollowing || isPending)
                       ? {
-                          borderColor: '#E5E7EB',
-                          color: '#374151',
+                          borderColor: isPending ? '#D1D5DB' : '#E5E7EB',
+                          color: isPending ? '#6B7280' : '#374151',
                           '&:hover': { borderColor: '#EF4444', color: '#EF4444', bgcolor: 'rgba(239,68,68,0.04)' },
                         }
                       : {
@@ -354,7 +371,7 @@ function UserProfileContent() {
                         }),
                   }}
                 >
-                  {isFollowing ? 'Following' : 'Follow'}
+                  {isFollowing ? 'Following' : isPending ? 'Requested' : 'Follow'}
                 </Button>
                 {!isPrivate && (
                   <Button

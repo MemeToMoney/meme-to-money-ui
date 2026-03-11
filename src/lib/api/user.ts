@@ -26,6 +26,7 @@ export interface FollowStatus {
     following: boolean;
     followedBy: boolean;
     blocked: boolean;
+    pending: boolean;
 }
 
 export interface PaginatedUsers {
@@ -144,6 +145,36 @@ export class UserAPI {
     static async unblockUser(userId: string): Promise<ApiResponse<void>> {
         return handleApiResponse<void>(
             userServiceClient.delete(`/api/users/${userId}/block`)
+        );
+    }
+
+    /**
+     * Get pending follow requests for current user
+     * GET /api/users/me/follow-requests
+     */
+    static async getFollowRequests(): Promise<ApiResponse<UserSummary[]>> {
+        return handleApiResponse<UserSummary[]>(
+            userServiceClient.get('/api/users/me/follow-requests')
+        );
+    }
+
+    /**
+     * Accept a follow request
+     * POST /api/users/{userId}/accept-follow
+     */
+    static async acceptFollowRequest(userId: string): Promise<ApiResponse<any>> {
+        return handleApiResponse<any>(
+            userServiceClient.post(`/api/users/${userId}/accept-follow`, {})
+        );
+    }
+
+    /**
+     * Reject a follow request
+     * POST /api/users/{userId}/reject-follow
+     */
+    static async rejectFollowRequest(userId: string): Promise<ApiResponse<any>> {
+        return handleApiResponse<any>(
+            userServiceClient.post(`/api/users/${userId}/reject-follow`, {})
         );
     }
 
