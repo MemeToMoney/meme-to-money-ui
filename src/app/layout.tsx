@@ -20,14 +20,20 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <Script
+        <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6159594843084013"
           crossOrigin="anonymous"
-          strategy="afterInteractive"
         />
       </head>
       <body className={inter.className}>
+        <Script
+          id="adsense-init"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: '(window.adsbygoogle = window.adsbygoogle || []);',
+          }}
+        />
         <AuthProvider>
           <MainLayout>
             {children}
