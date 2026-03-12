@@ -255,3 +255,10 @@ export class MonetizationAPI {
     return handleApiResponse(monetizationServiceClient.get('/api/monetization/payouts'));
   }
 }
+
+export const getCreatorAnalytics = async (creatorId: string, period: string = '30d') => {
+  const response = await monetizationServiceClient.get(`/monetization/analytics/creator`, {
+    params: { creatorId, period }
+  });
+  return response.data;
+};

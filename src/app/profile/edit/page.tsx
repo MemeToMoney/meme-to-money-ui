@@ -16,6 +16,7 @@ import {
   Switch,
   FormControlLabel,
   InputAdornment,
+  LinearProgress,
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
@@ -24,6 +25,7 @@ import {
   Link as LinkIcon,
   CheckCircle as CheckIcon,
   Cancel as CancelIcon,
+  Payment as PaymentIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,6 +38,9 @@ const NAME_MAX = 50;
 const HANDLE_MAX = 30;
 const HANDLE_MIN = 3;
 const HANDLE_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
+const USERNAME_MAX = 30;
+const USERNAME_MIN = 3;
+const USERNAME_REGEX = /^[a-zA-Z0-9._]{3,30}$/;
 const DEBOUNCE_MS = 500;
 
 function EditProfileContent() {
@@ -52,6 +57,11 @@ function EditProfileContent() {
   const [handleError, setHandleError] = useState('');
   const handleCheckTimeout = useRef<NodeJS.Timeout | null>(null);
 
+  // Username availability state
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
+  const [usernameError, setUsernameError] = useState('');
+  const usernameCheckTimeout = useRef<NodeJS.Timeout | null>(null);
+
   const [form, setForm] = useState({
     displayName: '',
     username: '',
@@ -61,6 +71,7 @@ function EditProfileContent() {
     website: '',
     isContentCreator: false,
     isPrivateAccount: false,
+    upiId: '',
     socialLinks: { instagram: '', twitter: '', youtube: '' } as { [key: string]: string },
   });
 
@@ -75,6 +86,7 @@ function EditProfileContent() {
         website: user.website || '',
         isContentCreator: user.isContentCreator || false,
         isPrivateAccount: user.isPrivateAccount || false,
+        upiId: user.upiId || '',
         socialLinks: {
           instagram: user.socialLinks?.instagram || '',
           twitter: user.socialLinks?.twitter || '',
@@ -154,11 +166,80 @@ function EditProfileContent() {
     }, DEBOUNCE_MS);
   }, [user?.creatorHandle]);
 
+  // Debounced username availability check
+  const checkUsernameAvailability = useCallback((username: string) => {
+    if (usernameCheckTimeout.current) {
+      clearTimeout(usernameCheckTimeout.current);
+    }
+
+    // If username is the same as the current user's username, it's fine
+    if (username === user?.username) {
+      setUsernameStatus('idle');
+      setUsernameError('');
+      return;
+    }
+
+    if (!username.trim()) {
+      setUsernameStatus('idle');
+      setUsernameError('');
+      return;
+    }
+
+    if (username.length < USERNAME_MIN) {
+      setUsernameStatus('invalid');
+      setUsernameError('Username must be at least 3 characters');
+      return;
+    }
+
+    if (username.length > USERNAME_MAX) {
+      setUsernameStatus('invalid');
+      setUsernameError('Username must be at most 30 characters');
+      return;
+    }
+
+    if (!USERNAME_REGEX.test(username)) {
+      setUsernameStatus('invalid');
+      setUsernameError('Only letters, numbers, dots and underscores allowed');
+      return;
+    }
+
+    setUsernameStatus('checking');
+    setUsernameError('');
+
+    usernameCheckTimeout.current = setTimeout(async () => {
+      try {
+        const response = await UserAPI.checkUsernameAvailability(username);
+        if (isApiSuccess(response)) {
+          const { available, valid, reason } = response.data;
+          if (!valid) {
+            setUsernameStatus('invalid');
+            setUsernameError(reason || 'Invalid username format');
+          } else if (available) {
+            setUsernameStatus('available');
+            setUsernameError('');
+          } else {
+            setUsernameStatus('taken');
+            setUsernameError(reason || 'This username is already taken');
+          }
+        } else {
+          setUsernameStatus('idle');
+          setUsernameError('');
+        }
+      } catch {
+        setUsernameStatus('idle');
+        setUsernameError('');
+      }
+    }, DEBOUNCE_MS);
+  }, [user?.username]);
+
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (handleCheckTimeout.current) {
         clearTimeout(handleCheckTimeout.current);
+      }
+      if (usernameCheckTimeout.current) {
+        clearTimeout(usernameCheckTimeout.current);
       }
     };
   }, []);
@@ -168,6 +249,51 @@ function EditProfileContent() {
     const sanitized = value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, HANDLE_MAX);
     setForm({ ...form, creatorHandle: sanitized });
     checkHandleAvailability(sanitized);
+  };
+
+  const handleUsernameChange = (value: string) => {
+    const sanitized = value.replace(/[^a-zA-Z0-9._]/g, '').slice(0, USERNAME_MAX);
+    setForm({ ...form, username: sanitized });
+    checkUsernameAvailability(sanitized);
+  };
+
+  const getUsernameHelperText = () => {
+    if (usernameStatus === 'checking') return 'Checking availability...';
+    if (usernameStatus === 'available') return 'This username is available!';
+    if (usernameStatus === 'taken') return usernameError;
+    if (usernameStatus === 'invalid') return usernameError;
+    return `Letters, numbers, dots and underscores only (${form.username.length}/${USERNAME_MAX})`;
+  };
+
+  const getUsernameColor = (): 'success' | 'error' | undefined => {
+    if (usernameStatus === 'available') return 'success';
+    if (usernameStatus === 'taken' || usernameStatus === 'invalid') return 'error';
+    return undefined;
+  };
+
+  const getUsernameEndAdornment = () => {
+    if (usernameStatus === 'checking') {
+      return (
+        <InputAdornment position="end">
+          <CircularProgress size={18} sx={{ color: '#6B7280' }} />
+        </InputAdornment>
+      );
+    }
+    if (usernameStatus === 'available') {
+      return (
+        <InputAdornment position="end">
+          <CheckIcon sx={{ color: '#16A34A', fontSize: 20 }} />
+        </InputAdornment>
+      );
+    }
+    if (usernameStatus === 'taken' || usernameStatus === 'invalid') {
+      return (
+        <InputAdornment position="end">
+          <CancelIcon sx={{ color: '#DC2626', fontSize: 20 }} />
+        </InputAdornment>
+      );
+    }
+    return null;
   };
 
   const getHandleHelperText = () => {
@@ -188,7 +314,7 @@ function EditProfileContent() {
     if (handleStatus === 'checking') {
       return (
         <InputAdornment position="end">
-          <CircularProgress size={18} sx={{ color: '#9CA3AF' }} />
+          <CircularProgress size={18} sx={{ color: '#6B7280' }} />
         </InputAdornment>
       );
     }
@@ -218,6 +344,12 @@ function EditProfileContent() {
       return;
     }
 
+    // Prevent save if username is taken or invalid
+    if (usernameStatus === 'taken' || usernameStatus === 'invalid') {
+      setSnackbar({ open: true, message: 'Please fix the username before saving', severity: 'error' });
+      return;
+    }
+
     setLoading(true);
     try {
       // Filter out empty social links
@@ -235,6 +367,7 @@ function EditProfileContent() {
         website: form.website.trim(),
         isContentCreator: form.isContentCreator,
         isPrivateAccount: form.isPrivateAccount,
+        upiId: form.upiId.trim() || undefined,
         socialLinks: Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
       });
 
@@ -293,11 +426,24 @@ function EditProfileContent() {
 
   if (!user) {
     return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#f8f9fa' }}>
         <CircularProgress sx={{ color: '#6B46C1' }} />
       </Box>
     );
   }
+
+  const inputSx = {
+    '& .MuiOutlinedInput-root': {
+      bgcolor: '#E5E7EB',
+      color: '#374151',
+      '& fieldset': { borderColor: '#E5E7EB' },
+      '&:hover fieldset': { borderColor: '#6B46C1' },
+      '&.Mui-focused fieldset': { borderColor: '#6B46C1' },
+    },
+    '& .MuiInputLabel-root': { color: '#6B7280' },
+    '& .MuiInputLabel-root.Mui-focused': { color: '#6B46C1' },
+    '& .MuiFormHelperText-root': { color: '#6B7280' },
+  };
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa', pb: 10 }}>
@@ -309,13 +455,13 @@ function EditProfileContent() {
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <IconButton onClick={() => router.back()}>
-            <BackIcon />
+            <BackIcon sx={{ color: '#374151' }} />
           </IconButton>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>Edit Profile</Typography>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: '#374151' }}>Edit Profile</Typography>
         </Box>
         <Button
           onClick={handleSave}
-          disabled={loading || handleStatus === 'taken' || handleStatus === 'invalid' || handleStatus === 'checking'}
+          disabled={loading || handleStatus === 'taken' || handleStatus === 'invalid' || handleStatus === 'checking' || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking'}
           variant="contained"
           sx={{
             bgcolor: '#6B46C1', textTransform: 'none', borderRadius: 2,
@@ -335,7 +481,7 @@ function EditProfileContent() {
               src={getProfilePictureUrl(user.profilePicture)}
               sx={{
                 width: 100, height: 100, bgcolor: '#6B46C1', fontSize: '2.5rem',
-                border: '3px solid white', boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
+                border: '3px solid white', boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
               }}
             >
               {user.name?.charAt(0)?.toUpperCase() || 'U'}
@@ -360,8 +506,49 @@ function EditProfileContent() {
           </Button>
         </Box>
 
+        {/* Profile Completion */}
+        {(() => {
+          const fields = [
+            !!form.displayName.trim(),
+            !!form.username.trim(),
+            !!form.bio.trim(),
+            !!form.creatorHandle.trim(),
+            !!user?.profilePicture,
+            !!form.website.trim() || !!form.socialLinks.instagram || !!form.socialLinks.twitter || !!form.socialLinks.youtube,
+            !!form.mobileNumber.trim(),
+            !!form.upiId.trim(),
+          ];
+          const completed = fields.filter(Boolean).length;
+          const total = fields.length;
+          const percent = Math.round((completed / total) * 100);
+          return (
+            <Box sx={{ bgcolor: 'white', borderRadius: 3, p: 3, mb: 3, border: '1px solid #E5E7EB' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#374151' }}>Profile Completion</Typography>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: percent === 100 ? '#16A34A' : '#6B46C1' }}>{percent}%</Typography>
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={percent}
+                sx={{
+                  height: 8,
+                  borderRadius: 4,
+                  bgcolor: '#E5E7EB',
+                  '& .MuiLinearProgress-bar': {
+                    borderRadius: 4,
+                    bgcolor: percent === 100 ? '#16A34A' : '#6B46C1',
+                  },
+                }}
+              />
+              <Typography variant="caption" sx={{ color: '#6B7280', mt: 1, display: 'block' }}>
+                {completed}/{total} fields completed
+              </Typography>
+            </Box>
+          );
+        })()}
+
         {/* Basic Info */}
-        <Box sx={{ bgcolor: 'white', borderRadius: 3, p: 3, mb: 3, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <Box sx={{ bgcolor: 'white', borderRadius: 3, p: 3, mb: 3, border: '1px solid #E5E7EB' }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, color: '#374151' }}>Basic Info</Typography>
 
           <TextField
@@ -371,18 +558,41 @@ function EditProfileContent() {
             onChange={(e) => setForm({ ...form, displayName: e.target.value.slice(0, NAME_MAX) })}
             margin="dense"
             helperText={`${form.displayName.length}/${NAME_MAX}`}
-            sx={{ mb: 1 }}
+            sx={{ mb: 1, ...inputSx }}
           />
 
           <TextField
             fullWidth
             label="Username"
             value={form.username}
-            onChange={(e) => setForm({ ...form, username: e.target.value.replace(/[^a-zA-Z0-9._]/g, '').slice(0, HANDLE_MAX) })}
+            onChange={(e) => handleUsernameChange(e.target.value)}
             margin="dense"
-            helperText="Letters, numbers, dots and underscores only"
-            InputProps={{ startAdornment: <Typography sx={{ color: '#9CA3AF', mr: 0.5 }}>@</Typography> }}
-            sx={{ mb: 1 }}
+            color={getUsernameColor()}
+            focused={usernameStatus === 'available' || usernameStatus === 'taken' || usernameStatus === 'invalid'}
+            error={usernameStatus === 'taken' || usernameStatus === 'invalid'}
+            helperText={getUsernameHelperText()}
+            FormHelperTextProps={{
+              sx: {
+                color: usernameStatus === 'available' ? '#16A34A' :
+                       usernameStatus === 'taken' || usernameStatus === 'invalid' ? '#DC2626' :
+                       '#6B7280',
+              }
+            }}
+            InputProps={{
+              startAdornment: <Typography sx={{ color: '#6B7280', mr: 0.5 }}>@</Typography>,
+              endAdornment: getUsernameEndAdornment(),
+            }}
+            sx={{ mb: 1, ...inputSx }}
+          />
+
+          <TextField
+            fullWidth
+            label="Email"
+            value={user?.email || ''}
+            margin="dense"
+            disabled
+            helperText="Email cannot be changed"
+            sx={{ mb: 1, ...inputSx, '& .MuiOutlinedInput-root.Mui-disabled': { bgcolor: '#f0f0f0', color: '#6B7280' } }}
           />
 
           <TextField
@@ -394,7 +604,7 @@ function EditProfileContent() {
             multiline
             rows={3}
             helperText={`${form.bio.length}/${BIO_MAX}`}
-            sx={{ mb: 1 }}
+            sx={{ mb: 1, ...inputSx }}
           />
 
           <TextField
@@ -406,11 +616,12 @@ function EditProfileContent() {
             type="tel"
             placeholder="Enter your mobile number"
             helperText="Your mobile number (optional)"
+            sx={{ ...inputSx }}
           />
         </Box>
 
         {/* Privacy Settings */}
-        <Box sx={{ bgcolor: 'white', borderRadius: 3, p: 3, mb: 3, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <Box sx={{ bgcolor: 'white', borderRadius: 3, p: 3, mb: 3, border: '1px solid #E5E7EB' }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, color: '#374151' }}>Privacy</Typography>
 
           <FormControlLabel
@@ -423,7 +634,7 @@ function EditProfileContent() {
             }
             label={
               <Box>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>Private Account</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#374151' }}>Private Account</Typography>
                 <Typography variant="caption" sx={{ color: '#6B7280' }}>Only approved followers can see your posts</Typography>
               </Box>
             }
@@ -431,7 +642,7 @@ function EditProfileContent() {
         </Box>
 
         {/* Handle */}
-        <Box sx={{ bgcolor: 'white', borderRadius: 3, p: 3, mb: 3, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <Box sx={{ bgcolor: 'white', borderRadius: 3, p: 3, mb: 3, border: '1px solid #E5E7EB' }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#374151' }}>Handle</Typography>
           <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 2 }}>
             Your unique handle is auto-generated on signup. You can customize it below.
@@ -451,18 +662,19 @@ function EditProfileContent() {
               sx: {
                 color: handleStatus === 'available' ? '#16A34A' :
                        handleStatus === 'taken' || handleStatus === 'invalid' ? '#DC2626' :
-                       undefined,
+                       '#6B7280',
               }
             }}
             InputProps={{
-              startAdornment: <Typography sx={{ color: '#9CA3AF', mr: 0.5 }}>@</Typography>,
+              startAdornment: <Typography sx={{ color: '#6B7280', mr: 0.5 }}>@</Typography>,
               endAdornment: getHandleEndAdornment(),
             }}
+            sx={{ ...inputSx }}
           />
         </Box>
 
         {/* Links */}
-        <Box sx={{ bgcolor: 'white', borderRadius: 3, p: 3, mb: 3, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <Box sx={{ bgcolor: 'white', borderRadius: 3, p: 3, mb: 3, border: '1px solid #E5E7EB' }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, color: '#374151' }}>Links</Typography>
 
           <TextField
@@ -472,8 +684,8 @@ function EditProfileContent() {
             onChange={(e) => setForm({ ...form, website: e.target.value })}
             margin="dense"
             placeholder="https://yourwebsite.com"
-            InputProps={{ startAdornment: <WebIcon sx={{ color: '#9CA3AF', mr: 1 }} /> }}
-            sx={{ mb: 1 }}
+            InputProps={{ startAdornment: <WebIcon sx={{ color: '#6B7280', mr: 1 }} /> }}
+            sx={{ mb: 1, ...inputSx }}
           />
 
           <TextField
@@ -484,7 +696,7 @@ function EditProfileContent() {
             margin="dense"
             placeholder="https://instagram.com/yourhandle"
             InputProps={{ startAdornment: <LinkIcon sx={{ color: '#E4405F', mr: 1 }} /> }}
-            sx={{ mb: 1 }}
+            sx={{ mb: 1, ...inputSx }}
           />
 
           <TextField
@@ -495,7 +707,7 @@ function EditProfileContent() {
             margin="dense"
             placeholder="https://twitter.com/yourhandle"
             InputProps={{ startAdornment: <LinkIcon sx={{ color: '#1DA1F2', mr: 1 }} /> }}
-            sx={{ mb: 1 }}
+            sx={{ mb: 1, ...inputSx }}
           />
 
           <TextField
@@ -506,11 +718,29 @@ function EditProfileContent() {
             margin="dense"
             placeholder="https://youtube.com/@yourchannel"
             InputProps={{ startAdornment: <LinkIcon sx={{ color: '#FF0000', mr: 1 }} /> }}
+            sx={{ ...inputSx }}
+          />
+        </Box>
+
+        {/* Payment Info */}
+        <Box sx={{ bgcolor: 'white', borderRadius: 3, p: 3, mb: 3, border: '1px solid #E5E7EB' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, color: '#374151' }}>Payment Info</Typography>
+
+          <TextField
+            fullWidth
+            label="UPI ID"
+            value={form.upiId}
+            onChange={(e) => setForm({ ...form, upiId: e.target.value })}
+            margin="dense"
+            placeholder="yourname@upi"
+            helperText="Used for withdrawal payouts"
+            InputProps={{ startAdornment: <PaymentIcon sx={{ color: '#6B46C1', mr: 1 }} /> }}
+            sx={{ ...inputSx }}
           />
         </Box>
 
         {/* Creator Settings */}
-        <Box sx={{ bgcolor: 'white', borderRadius: 3, p: 3, mb: 3, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <Box sx={{ bgcolor: 'white', borderRadius: 3, p: 3, mb: 3, border: '1px solid #E5E7EB' }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, color: '#374151' }}>Creator Settings</Typography>
 
           <FormControlLabel
@@ -521,7 +751,7 @@ function EditProfileContent() {
                 sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: '#6B46C1' }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#6B46C1' } }}
               />
             }
-            label={<Typography variant="body2" sx={{ fontWeight: 600 }}>I am a content creator</Typography>}
+            label={<Typography variant="body2" sx={{ fontWeight: 600, color: '#374151' }}>I am a content creator</Typography>}
           />
         </Box>
       </Container>

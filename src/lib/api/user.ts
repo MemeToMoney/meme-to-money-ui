@@ -189,6 +189,16 @@ export class UserAPI {
     }
 
     /**
+     * Check if a username is available
+     * GET /api/users/check-username/{username}
+     */
+    static async checkUsernameAvailability(username: string): Promise<ApiResponse<{ available: boolean; valid: boolean; username: string; reason?: string }>> {
+        return handleApiResponse<{ available: boolean; valid: boolean; username: string; reason?: string }>(
+            userServiceClient.get(`/api/users/check-username/${encodeURIComponent(username)}`)
+        );
+    }
+
+    /**
      * Update a user's handle
      * PATCH /api/users/{userId}/handle
      */

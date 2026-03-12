@@ -23,6 +23,8 @@ import {
     Settings as SettingsIcon,
     Logout as LogoutIcon,
     Search as SearchIcon,
+    Schedule as ScheduleIcon,
+    Article as ArticleIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -41,6 +43,16 @@ const navigationItems = [
         label: 'Shorts',
         value: '/shorts',
         icon: <ShortsIcon />
+    },
+    {
+        label: 'Blog',
+        value: '/blog',
+        icon: <ArticleIcon />
+    },
+    {
+        label: 'Scheduled',
+        value: '/scheduled',
+        icon: <ScheduleIcon />
     },
     {
         label: 'Notifications',

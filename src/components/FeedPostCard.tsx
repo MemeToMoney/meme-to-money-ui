@@ -6,6 +6,17 @@ import {
     Avatar,
     IconButton,
     CardMedia,
+    Menu,
+    MenuItem,
+    ListItemIcon,
+    ListItemText,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogContentText,
+    DialogActions,
+    Button,
+    CircularProgress,
 } from '@mui/material';
 import {
     Favorite,
@@ -15,6 +26,7 @@ import {
     BookmarkBorder,
     Bookmark,
     MoreVert,
+    Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { Content, ContentAPI, UserEngagementStatus } from '@/lib/api/content';
 import { isApiSuccess, formatTimeAgo, formatCreatorHandle, getHandleInitial } from '@/lib/api/client';
@@ -28,6 +40,7 @@ interface FeedPostCardProps {
     onComment?: (contentId: string) => void;
     onShare?: (contentId: string) => void;
     onSave?: (contentId: string) => void;
+    onDelete?: (contentId: string) => void;
 }
 
 export const FeedPostCard: React.FC<FeedPostCardProps> = ({
@@ -37,6 +50,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
     onComment,
     onShare,
     onSave,
+    onDelete,
 }) => {
     const { user } = useAuth();
     const [isLiked, setIsLiked] = useState(initialEngagement?.liked || false);
@@ -44,6 +58,46 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
     const [shareCount, setShareCount] = useState(post.shareCount);
     const [isSaved, setIsSaved] = useState(initialEngagement?.bookmarked || false);
     const [shareDialogOpen, setShareDialogOpen] = useState(false);
+    const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+
+    const isOwnPost = user?.id === post.creatorId;
+
+    const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+        setMenuAnchorEl(event.currentTarget);
+    };
+
+    const handleMenuClose = () => {
+        setMenuAnchorEl(null);
+    };
+
+    const handleDeleteClick = () => {
+        handleMenuClose();
+        setDeleteDialogOpen(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!user?.id) return;
+        setDeleting(true);
+        try {
+            const response = await ContentAPI.deleteContent(post.id);
+            if (isApiSuccess(response)) {
+                setDeleteDialogOpen(false);
+                if (onDelete) onDelete(post.id);
+            } else {
+                console.error('Failed to delete post:', (response as any).message);
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+        } finally {
+            setDeleting(false);
+        }
+    };
+
+    const handleDeleteCancel = () => {
+        setDeleteDialogOpen(false);
+    };
 
     const getContentUrl = (content: Content) => {
         return content.processedFile?.cdnUrl || content.originalFile?.cdnUrl || content.thumbnailUrl;
@@ -130,13 +184,59 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                         </Typography>
                     </Box>
                 </Box>
-                <IconButton>
+                <IconButton onClick={handleMenuOpen}>
                     <MoreVert />
                 </IconButton>
+                <Menu
+                    anchorEl={menuAnchorEl}
+                    open={Boolean(menuAnchorEl)}
+                    onClose={handleMenuClose}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                    PaperProps={{
+                        sx: {
+                            borderRadius: 2,
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                            minWidth: 160,
+                        }
+                    }}
+                >
+                    {isOwnPost && (
+                        <MenuItem onClick={handleDeleteClick} sx={{ color: '#DC2626' }}>
+                            <ListItemIcon>
+                                <DeleteIcon sx={{ color: '#DC2626', fontSize: 20 }} />
+                            </ListItemIcon>
+                            <ListItemText>Delete</ListItemText>
+                        </MenuItem>
+                    )}
+                    {!isOwnPost && (
+                        <MenuItem onClick={handleMenuClose}>
+                            <ListItemText>Report</ListItemText>
+                        </MenuItem>
+                    )}
+                </Menu>
             </Box>
 
             {/* Post Content */}
-            {contentUrl && (
+            {post.type === 'TEXT_POST' ? (
+                <Box sx={{ px: 2, pb: 1 }}>
+                    {post.title && (
+                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, color: '#1a1a1a', lineHeight: 1.3 }}>
+                            {post.title}
+                        </Typography>
+                    )}
+                    <Box sx={{ bgcolor: '#F3F4F6', borderRadius: 2, p: 2.5, borderLeft: '4px solid #6B46C1' }}>
+                        <Typography variant="body1" sx={{ color: '#374151', fontSize: '1.05rem', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                            {post.description}
+                        </Typography>
+                    </Box>
+                    {post.hashtags && post.hashtags.length > 0 && (
+                        <Typography variant="body2" sx={{ color: '#6B46C1', mt: 1.5 }}>
+                            {post.hashtags.map(tag => `#${tag}`).join(' ')}
+                        </Typography>
+                    )}
+                </Box>
+            ) : contentUrl ? (
                 <Box sx={{ position: 'relative' }}>
                     {post.type === 'SHORT_VIDEO' ? (
                         <Box
@@ -175,7 +275,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                         />
                     )}
                 </Box>
-            )}
+            ) : null}
 
             {/* Post Actions */}
             <Box sx={{ p: 2 }}>
@@ -253,6 +353,48 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                 contentId={post.id}
                 title={post.title || post.description}
             />
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog
+                open={deleteDialogOpen}
+                onClose={handleDeleteCancel}
+                PaperProps={{
+                    sx: {
+                        borderRadius: 3,
+                        p: 1,
+                    }
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 700, color: '#374151' }}>Delete Post</DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ color: '#6B7280' }}>
+                        Are you sure you want to delete this post? This action cannot be undone.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button
+                        onClick={handleDeleteCancel}
+                        disabled={deleting}
+                        sx={{ textTransform: 'none', color: '#6B7280', fontWeight: 600 }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleDeleteConfirm}
+                        disabled={deleting}
+                        variant="contained"
+                        sx={{
+                            textTransform: 'none',
+                            bgcolor: '#DC2626',
+                            fontWeight: 600,
+                            borderRadius: 2,
+                            '&:hover': { bgcolor: '#B91C1C' },
+                        }}
+                    >
+                        {deleting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Delete'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Card>
     );
 };

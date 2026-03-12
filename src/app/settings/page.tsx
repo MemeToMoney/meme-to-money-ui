@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box,
     Typography,
@@ -32,11 +32,14 @@ import {
     Gavel as GavelIcon,
     Policy as PolicyIcon,
     Email as EmailIcon,
+    AccountBalanceWallet as WalletIcon,
+    Payment as PaymentIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthAPI } from '@/lib/api/auth';
 import { isApiSuccess } from '@/lib/api/client';
+import { MonetizationAPI } from '@/lib/api/monetization';
 
 export default function SettingsPage() {
     const router = useRouter();
@@ -48,8 +51,50 @@ export default function SettingsPage() {
     const [passwordLoading, setPasswordLoading] = useState(false);
     const [privacyOpen, setPrivacyOpen] = useState(false);
     const [termsOpen, setTermsOpen] = useState(false);
+    const [upiId, setUpiId] = useState(user?.upiId || '');
+    const [upiSaving, setUpiSaving] = useState(false);
+    const [upiSuccess, setUpiSuccess] = useState('');
+    const [upiError, setUpiError] = useState('');
+    const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
     const isGoogleUser = user?.authProvider === 'google';
+
+    useEffect(() => {
+        if (user?.upiId) setUpiId(user.upiId);
+        MonetizationAPI.getWallet()
+            .then((res) => {
+                if (isApiSuccess(res)) {
+                    setWalletBalance(res.data.coinBalance);
+                }
+            })
+            .catch(() => {});
+    }, [user]);
+
+    const handleSaveUpi = async () => {
+        setUpiError('');
+        setUpiSuccess('');
+        if (!upiId.trim()) {
+            setUpiError('Please enter a UPI ID');
+            return;
+        }
+        if (!/^[\w.-]+@[\w]+$/.test(upiId.trim())) {
+            setUpiError('Invalid UPI ID format (e.g. name@upi)');
+            return;
+        }
+        setUpiSaving(true);
+        try {
+            const response = await AuthAPI.updateProfile({ upiId: upiId.trim() });
+            if (isApiSuccess(response)) {
+                setUpiSuccess('UPI ID saved successfully!');
+            } else {
+                setUpiError((response as any).message || 'Failed to save UPI ID');
+            }
+        } catch {
+            setUpiError('Failed to save UPI ID');
+        } finally {
+            setUpiSaving(false);
+        }
+    };
 
     const handleLogout = () => {
         logout();
@@ -160,6 +205,68 @@ export default function SettingsPage() {
                             </ListItemIcon>
                             <ListItemText primary="Notifications" secondary="Push notifications, email alerts" />
                         </ListItemButton>
+                    </ListItem>
+                </List>
+
+                {/* Payments & Withdrawals */}
+                <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, px: 1, mb: 0.5, display: 'block' }}>
+                    PAYMENTS & WITHDRAWALS
+                </Typography>
+                <List sx={{ bgcolor: 'white', borderRadius: 2, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', mb: 2 }}>
+                    <ListItem>
+                        <ListItemIcon>
+                            <WalletIcon sx={{ color: '#6B46C1' }} />
+                        </ListItemIcon>
+                        <ListItemText
+                            primary="Wallet Balance"
+                            secondary={walletBalance !== null ? `${walletBalance.toLocaleString()} coins` : 'Loading...'}
+                        />
+                        <Button
+                            size="small"
+                            onClick={() => router.push('/wallet')}
+                            sx={{ textTransform: 'none', color: '#6B46C1', fontWeight: 600 }}
+                        >
+                            View Wallet
+                        </Button>
+                    </ListItem>
+                    <Divider />
+                    <ListItem sx={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                            <ListItemIcon sx={{ minWidth: 40 }}>
+                                <PaymentIcon sx={{ color: '#6B46C1' }} />
+                            </ListItemIcon>
+                            <Typography variant="body1" sx={{ fontWeight: 500 }}>UPI ID for Withdrawals</Typography>
+                        </Box>
+                        {upiError && <Alert severity="error" sx={{ mb: 1 }}>{upiError}</Alert>}
+                        {upiSuccess && <Alert severity="success" sx={{ mb: 1 }}>{upiSuccess}</Alert>}
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                            <TextField
+                                fullWidth
+                                size="small"
+                                placeholder="yourname@upi"
+                                value={upiId}
+                                onChange={(e) => setUpiId(e.target.value)}
+                                sx={{ flex: 1 }}
+                            />
+                            <Button
+                                variant="contained"
+                                size="small"
+                                onClick={handleSaveUpi}
+                                disabled={upiSaving}
+                                sx={{
+                                    textTransform: 'none',
+                                    bgcolor: '#6B46C1',
+                                    fontWeight: 600,
+                                    px: 2,
+                                    '&:hover': { bgcolor: '#553C9A' },
+                                }}
+                            >
+                                {upiSaving ? <CircularProgress size={18} sx={{ color: 'white' }} /> : 'Save'}
+                            </Button>
+                        </Box>
+                        <Typography variant="caption" sx={{ color: '#9CA3AF', mt: 0.5 }}>
+                            Minimum withdrawal: 10,000 coins (Rs.100)
+                        </Typography>
                     </ListItem>
                 </List>
 

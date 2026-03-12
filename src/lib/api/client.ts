@@ -57,6 +57,7 @@ export interface User {
   country?: string;
   address?: string;
   isGod?: boolean;
+  upiId?: string;
   isPrivateAccount?: boolean;
   authProvider?: string;
   onboardingCompleted?: boolean;

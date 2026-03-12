@@ -36,11 +36,19 @@ export interface ContentCreationRequest {
   durationSeconds?: number;
 }
 
+export interface TextPostRequest {
+  title?: string;
+  description: string;
+  tags?: string[];
+  hashtags?: string[];
+  category?: string;
+}
+
 export interface Content {
   id: string;
   title: string;
   description?: string;
-  type: 'MEME' | 'SHORT_VIDEO';
+  type: 'MEME' | 'SHORT_VIDEO' | 'TEXT_POST';
   status: 'UPLOADING' | 'PROCESSING' | 'READY' | 'PUBLISHED' | 'FAILED' | 'DELETED';
   creatorId: string;
   creatorHandle: string;
@@ -221,6 +229,27 @@ export class ContentAPI {
       contentServiceClient.post('/api/content', contentData, {
         params: { contentId },
         headers
+      })
+    );
+
+    return response;
+  }
+
+  /**
+   * Create a text-only post
+   * POST /api/content/text
+   */
+  static async createTextPost(
+    data: TextPostRequest,
+    userId: string,
+    userHandle: string
+  ): Promise<ApiResponse<Content>> {
+    const response = await handleApiResponse<Content>(
+      contentServiceClient.post('/api/content/text', data, {
+        headers: {
+          'X-User-Id': userId,
+          'X-User-Handle': userHandle
+        }
       })
     );
 
@@ -539,6 +568,18 @@ export class ContentAPI {
   }
 
   /**
+   * Delete content by ID
+   * DELETE /api/content/{contentId}
+   */
+  static async deleteContent(contentId: string): Promise<ApiResponse<any>> {
+    const response = await handleApiResponse<any>(
+      contentServiceClient.delete(`/api/content/${contentId}`)
+    );
+
+    return response;
+  }
+
+  /**
    * Search content
    * GET /api/content/search
    */
@@ -787,3 +828,14 @@ export class BattleAPI {
     return handleApiResponse(contentServiceClient.get(`/api/battles/${battleId}/my-vote`));
   }
 }
+
+// --- Scheduled Content API ---
+export const getScheduledContent = async (page = 0, size = 20) => {
+  const response = await contentServiceClient.get('/content/scheduled', { params: { page, size } });
+  return response.data;
+};
+
+export const cancelScheduledContent = async (contentId: string) => {
+  const response = await contentServiceClient.delete(`/content/${contentId}/schedule`);
+  return response.data;
+};

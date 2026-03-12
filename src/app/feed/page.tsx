@@ -14,6 +14,7 @@ import {
   CircularProgress,
   Alert,
   Chip,
+  TextField,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -31,11 +32,12 @@ import {
   CameraAlt as MemeCamIcon,
   CurrencyRupee as TipIcon,
   NotificationsOutlined as NotificationsIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { ContentAPI, Content, UIFeedResponse, UserEngagementStatus, BattleAPI, Battle } from '@/lib/api/content';
+import { ContentAPI, Content, UIFeedResponse, UserEngagementStatus, BattleAPI, Battle, TextPostRequest } from '@/lib/api/content';
 import { MonetizationAPI } from '@/lib/api/monetization';
 import { isApiSuccess, formatTimeAgo as formatTimeAgoUtil, formatCreatorHandle, getHandleInitial } from '@/lib/api/client';
 import { UserAPI } from '@/lib/api/user';
@@ -59,9 +61,70 @@ function FeedPageContent() {
   const [creatorProfiles, setCreatorProfiles] = useState<{ [id: string]: { name: string; avatar?: string } }>({});
   const [coinBalance, setCoinBalance] = useState<number>(0);
   const [activeBattleCount, setActiveBattleCount] = useState<number>(0);
+  const [composeExpanded, setComposeExpanded] = useState(false);
+  const [composeTitle, setComposeTitle] = useState('');
+  const [composeBody, setComposeBody] = useState('');
+  const [composeHashtags, setComposeHashtags] = useState<string[]>([]);
+  const [hashtagInput, setHashtagInput] = useState('');
+  const [composePosting, setComposePosting] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const composeBodyRef = useRef<HTMLTextAreaElement>(null);
+  const composeBoxRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { user } = useAuth();
+
+  const COMPOSE_MAX_CHARS = 1000;
+
+  // Collapse compose box when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (composeBoxRef.current && !composeBoxRef.current.contains(e.target as Node) && !composeBody && !composeTitle) {
+        setComposeExpanded(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [composeBody, composeTitle]);
+
+  const handleComposeSubmit = async () => {
+    if (!user?.id || !user?.username || !composeBody.trim()) return;
+    setComposePosting(true);
+    try {
+      const data: TextPostRequest = {
+        description: composeBody.trim(),
+        hashtags: composeHashtags.length > 0 ? composeHashtags : undefined,
+      };
+      if (composeTitle.trim()) data.title = composeTitle.trim();
+      const response = await ContentAPI.createTextPost(data, user.id, user.username);
+      if (isApiSuccess(response) && response.data) {
+        setFeedData(prev => [response.data, ...prev]);
+        setComposeBody('');
+        setComposeTitle('');
+        setComposeHashtags([]);
+        setHashtagInput('');
+        setComposeExpanded(false);
+      }
+    } catch (err) {
+      console.error('Failed to create text post:', err);
+    } finally {
+      setComposePosting(false);
+    }
+  };
+
+  const handleHashtagKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.key === 'Enter' || e.key === ',') && hashtagInput.trim()) {
+      e.preventDefault();
+      const tag = hashtagInput.trim().replace(/^#/, '');
+      if (tag && !composeHashtags.includes(tag)) {
+        setComposeHashtags(prev => [...prev, tag]);
+      }
+      setHashtagInput('');
+    }
+  };
+
+  const removeHashtag = (tag: string) => {
+    setComposeHashtags(prev => prev.filter(t => t !== tag));
+  };
 
   const resolveCreatorProfiles = async (posts: Content[]) => {
     const unknownCreatorIds = posts
@@ -342,6 +405,121 @@ function FeedPageContent() {
           </Typography>
         </Box>
 
+        {/* Compose Text Post */}
+        <Box ref={composeBoxRef} sx={{ mx: 1, mb: 2 }}>
+          <Card sx={{ borderRadius: 2, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+            <Box sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+                <Avatar
+                  sx={{ bgcolor: '#6B46C1', width: 36, height: 36, fontSize: '0.9rem', mt: 0.5, flexShrink: 0 }}
+                >
+                  {user?.username ? getHandleInitial(user.username) : 'U'}
+                </Avatar>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  {!composeExpanded ? (
+                    <Box
+                      onClick={() => { setComposeExpanded(true); setTimeout(() => composeBodyRef.current?.focus(), 100); }}
+                      sx={{
+                        py: 1.2, px: 2, bgcolor: '#F3F4F6', borderRadius: 3, cursor: 'pointer',
+                        color: '#9CA3AF', fontSize: '0.9rem', '&:hover': { bgcolor: '#E5E7EB' },
+                        transition: 'background 0.2s',
+                      }}
+                    >
+                      What&apos;s on your mind?
+                    </Box>
+                  ) : (
+                    <>
+                      <TextField
+                        placeholder="Title (optional)"
+                        value={composeTitle}
+                        onChange={(e) => setComposeTitle(e.target.value)}
+                        fullWidth
+                        size="small"
+                        variant="standard"
+                        InputProps={{ disableUnderline: true, sx: { fontWeight: 700, fontSize: '1rem', color: '#1a1a1a' } }}
+                        sx={{ mb: 1 }}
+                      />
+                      <TextField
+                        inputRef={composeBodyRef}
+                        placeholder="What's on your mind?"
+                        value={composeBody}
+                        onChange={(e) => {
+                          if (e.target.value.length <= COMPOSE_MAX_CHARS) setComposeBody(e.target.value);
+                        }}
+                        fullWidth
+                        multiline
+                        minRows={3}
+                        maxRows={8}
+                        variant="standard"
+                        InputProps={{ disableUnderline: true, sx: { fontSize: '0.95rem', color: '#374151', lineHeight: 1.6 } }}
+                        sx={{ mb: 1 }}
+                      />
+                      {/* Character counter */}
+                      <Typography variant="caption" sx={{ color: composeBody.length > COMPOSE_MAX_CHARS * 0.9 ? '#EF4444' : '#9CA3AF', display: 'block', textAlign: 'right', mb: 1 }}>
+                        {composeBody.length}/{COMPOSE_MAX_CHARS}
+                      </Typography>
+
+                      {/* Hashtag chips */}
+                      {composeHashtags.length > 0 && (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
+                          {composeHashtags.map(tag => (
+                            <Chip
+                              key={tag}
+                              label={`#${tag}`}
+                              size="small"
+                              onDelete={() => removeHashtag(tag)}
+                              deleteIcon={<CloseIcon sx={{ fontSize: 14 }} />}
+                              sx={{ bgcolor: '#EDE9FE', color: '#6B46C1', fontWeight: 600, fontSize: '0.75rem' }}
+                            />
+                          ))}
+                        </Box>
+                      )}
+
+                      {/* Hashtag input */}
+                      <TextField
+                        placeholder="Add hashtags (press Enter)"
+                        value={hashtagInput}
+                        onChange={(e) => setHashtagInput(e.target.value)}
+                        onKeyDown={handleHashtagKeyDown}
+                        fullWidth
+                        size="small"
+                        variant="standard"
+                        InputProps={{ disableUnderline: true, sx: { fontSize: '0.8rem', color: '#6B46C1' } }}
+                        sx={{ mb: 1.5 }}
+                      />
+
+                      {/* Actions row */}
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                        <Button
+                          size="small"
+                          onClick={() => { setComposeExpanded(false); setComposeBody(''); setComposeTitle(''); setComposeHashtags([]); setHashtagInput(''); }}
+                          sx={{ textTransform: 'none', color: '#6B7280', fontSize: '0.85rem' }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          disabled={!composeBody.trim() || composePosting}
+                          onClick={handleComposeSubmit}
+                          sx={{
+                            textTransform: 'none', bgcolor: '#6B46C1', borderRadius: 2, px: 3,
+                            fontWeight: 700, fontSize: '0.85rem',
+                            '&:hover': { bgcolor: '#553C9A' },
+                            '&.Mui-disabled': { bgcolor: '#D1D5DB', color: '#9CA3AF' },
+                          }}
+                        >
+                          {composePosting ? <CircularProgress size={18} sx={{ color: 'white' }} /> : 'Post'}
+                        </Button>
+                      </Box>
+                    </>
+                  )}
+                </Box>
+              </Box>
+            </Box>
+          </Card>
+        </Box>
+
         {/* Loading */}
         {loading && feedData.length === 0 && (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -410,7 +588,20 @@ function FeedPageContent() {
                 </Box>
 
                 {/* Post Content */}
-                {contentUrl && (
+                {post.type === 'TEXT_POST' ? (
+                  <Box sx={{ px: 2, pb: 1 }}>
+                    {post.title && (
+                      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, color: '#1a1a1a', lineHeight: 1.3, fontSize: '1.05rem' }}>
+                        {post.title}
+                      </Typography>
+                    )}
+                    <Box sx={{ bgcolor: '#F3F4F6', borderRadius: 2, p: 2.5, borderLeft: '4px solid #6B46C1' }}>
+                      <Typography variant="body1" sx={{ color: '#374151', fontSize: '1rem', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                        {post.description}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ) : contentUrl ? (
                   <Box sx={{ position: 'relative' }}>
                     {post.type === 'SHORT_VIDEO' ? (
                       <Box component="video" src={contentUrl} poster={post.thumbnailUrl} controls sx={{ width: '100%', maxHeight: { xs: 500, md: 600 }, objectFit: 'contain', backgroundColor: '#000' }}
@@ -422,7 +613,7 @@ function FeedPageContent() {
                       />
                     )}
                   </Box>
-                )}
+                ) : null}
 
                 {/* Post Actions */}
                 <Box sx={{ p: 2 }}>

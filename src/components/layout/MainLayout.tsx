@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Box, useMediaQuery, useTheme } from '@mui/material';
 import MobileLayout from './MobileLayout';
 import SidebarNavigation from './SidebarNavigation';
+import RightPanel from './RightPanel';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -14,6 +15,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const pathname = usePathname();
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+  const isLargeDesktop = useMediaQuery(theme.breakpoints.up('lg'));
 
   // Pages that shouldn't have the sidebar/mobile layout (full-screen pages)
   const isFullScreenPage = ['/auth', '/landing', '/onboarding'].some(path =>
@@ -42,6 +44,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         sx={{
           flexGrow: 1,
           ml: '280px', // Width of sidebar
+          mr: isLargeDesktop ? '300px' : 0, // Width of right panel on lg+
           minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
@@ -50,6 +53,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       >
         {children}
       </Box>
+      {isLargeDesktop && <RightPanel />}
     </Box>
   );
 }

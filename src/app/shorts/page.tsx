@@ -113,17 +113,17 @@ function VideoPlayer({
       )}
 
       {/* Mute Toggle */}
-      <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 3 }}>
-        <IconButton onClick={onMuteToggle} sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)' }}>
+      <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 3, pointerEvents: 'auto' }}>
+        <IconButton onClick={(e: React.MouseEvent) => { e.stopPropagation(); onMuteToggle(); }} sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)' }}>
           {isMuted ? <MuteIcon /> : <VolumeIcon />}
         </IconButton>
       </Box>
 
       {/* Creator Info */}
-      <Box sx={{ position: 'absolute', bottom: 16, left: 16, right: 80, color: 'white', zIndex: 3 }}>
+      <Box sx={{ position: 'absolute', bottom: 16, left: 16, right: 80, color: 'white', zIndex: 3, pointerEvents: 'auto' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
           <Avatar
-            onClick={onProfileClick}
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); onProfileClick(); }}
             sx={{ width: 40, height: 40, border: '2px solid white', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
           >
             {getHandleInitial(content.creatorHandle)}
@@ -131,7 +131,7 @@ function VideoPlayer({
           <Box sx={{ flex: 1 }}>
             <Typography
               variant="subtitle1"
-              onClick={onProfileClick}
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); onProfileClick(); }}
               sx={{ fontWeight: 'bold', textShadow: '0 2px 6px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.9)', cursor: 'pointer' }}
             >
               {formatCreatorHandle(content.creatorHandle)}
@@ -141,7 +141,7 @@ function VideoPlayer({
             startIcon={isFollowing ? <CheckIcon /> : <FollowIcon />}
             variant="contained"
             size="small"
-            onClick={onFollow}
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); onFollow(); }}
             sx={{
               bgcolor: isFollowing ? 'rgba(255,255,255,0.2)' : '#6B46C1',
               color: 'white',
@@ -175,9 +175,9 @@ function VideoPlayer({
       </Box>
 
       {/* Right Side Actions */}
-      <Box sx={{ position: 'absolute', bottom: 100, right: 12, display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', zIndex: 3 }}>
+      <Box sx={{ position: 'absolute', bottom: 100, right: 12, display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', zIndex: 3, pointerEvents: 'auto' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <IconButton onClick={onLike} sx={{ color: isLiked ? '#ff4444' : 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', width: 48, height: 48, transition: 'all 0.2s ease', '&:hover': { transform: 'scale(1.1)', bgcolor: 'rgba(0,0,0,0.65)' } }}>
+          <IconButton onClick={(e: React.MouseEvent) => { e.stopPropagation(); onLike(); }} sx={{ color: isLiked ? '#ff4444' : 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', width: 48, height: 48, transition: 'all 0.2s ease', '&:hover': { transform: 'scale(1.1)', bgcolor: 'rgba(0,0,0,0.65)' } }}>
             {isLiked ? <LikeIcon sx={{ fontSize: 28 }} /> : <UnlikeIcon sx={{ fontSize: 28 }} />}
           </IconButton>
           <Typography variant="caption" sx={{ color: 'white', fontSize: '0.75rem', fontWeight: 'bold', mt: 0.5, textShadow: '0 2px 6px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.9)' }}>
@@ -186,7 +186,7 @@ function VideoPlayer({
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <IconButton onClick={onComment} sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', width: 48, height: 48, transition: 'all 0.2s ease', '&:hover': { transform: 'scale(1.1)', bgcolor: 'rgba(0,0,0,0.65)' } }}>
+          <IconButton onClick={(e: React.MouseEvent) => { e.stopPropagation(); onComment(); }} sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', width: 48, height: 48, transition: 'all 0.2s ease', '&:hover': { transform: 'scale(1.1)', bgcolor: 'rgba(0,0,0,0.65)' } }}>
             <CommentIcon sx={{ fontSize: 28 }} />
           </IconButton>
           <Typography variant="caption" sx={{ color: 'white', fontSize: '0.75rem', fontWeight: 'bold', mt: 0.5, textShadow: '0 2px 6px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.9)' }}>
@@ -195,7 +195,7 @@ function VideoPlayer({
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <IconButton onClick={onShare} sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', width: 48, height: 48, transition: 'all 0.2s ease', '&:hover': { transform: 'scale(1.1)', bgcolor: 'rgba(0,0,0,0.65)' } }}>
+          <IconButton onClick={(e: React.MouseEvent) => { e.stopPropagation(); onShare(); }} sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', width: 48, height: 48, transition: 'all 0.2s ease', '&:hover': { transform: 'scale(1.1)', bgcolor: 'rgba(0,0,0,0.65)' } }}>
             <ShareIcon sx={{ fontSize: 28 }} />
           </IconButton>
           <Typography variant="caption" sx={{ color: 'white', fontSize: '0.75rem', fontWeight: 'bold', mt: 0.5, textShadow: '0 2px 6px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.9)' }}>
@@ -203,7 +203,7 @@ function VideoPlayer({
           </Typography>
         </Box>
 
-        <IconButton onClick={onSave} sx={{ color: isSaved ? '#FFD700' : 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', width: 48, height: 48, transition: 'all 0.2s ease', '&:hover': { transform: 'scale(1.1)', bgcolor: 'rgba(0,0,0,0.65)' } }}>
+        <IconButton onClick={(e: React.MouseEvent) => { e.stopPropagation(); onSave(); }} sx={{ color: isSaved ? '#FFD700' : 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', width: 48, height: 48, transition: 'all 0.2s ease', '&:hover': { transform: 'scale(1.1)', bgcolor: 'rgba(0,0,0,0.65)' } }}>
           {isSaved ? <Bookmark sx={{ fontSize: 28 }} /> : <BookmarkBorder sx={{ fontSize: 28 }} />}
         </IconButton>
       </Box>
