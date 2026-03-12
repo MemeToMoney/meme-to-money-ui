@@ -53,7 +53,15 @@ function WalletPageContent() {
 
       if (isApiSuccess(walletRes)) setWallet(walletRes.data);
       if (isApiSuccess(summaryRes)) setSummary(summaryRes.data);
-      if (isApiSuccess(earningsRes)) setRecentEarnings(earningsRes.data.slice(0, 10));
+      if (isApiSuccess(earningsRes)) {
+        setRecentEarnings(earningsRes.data.slice(0, 10));
+        // Check if daily login bonus was already claimed today
+        const today = new Date().toISOString().split('T')[0];
+        const claimedToday = earningsRes.data.some(
+          (e: Earning) => e.type === 'DAILY_LOGIN' && e.createdAt?.startsWith(today)
+        );
+        if (claimedToday) setDailyBonusClaimed(true);
+      }
     } catch (err) {
       console.error('Failed to load wallet data:', err);
     } finally {

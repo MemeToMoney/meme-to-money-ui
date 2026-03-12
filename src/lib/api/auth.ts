@@ -295,9 +295,16 @@ export class AuthAPI {
         throw new Error('Failed to upload image to storage');
       }
 
-      const imageUrl = uploadResponse.data; // The API returns the URL string directly
+      // The upload API returns { status, message, data: "/api/images/view?fileName=..." }
+      const responseData = uploadResponse.data;
+      const imageUrl = typeof responseData === 'string' ? responseData :
+        (responseData?.data || responseData);
 
-      // 2. Update User Profile with the new URL
+      if (typeof imageUrl !== 'string') {
+        throw new Error('Invalid image URL from upload response');
+      }
+
+      // 2. Update User Profile with the URL string
       const updateResponse = await handleApiResponse<{ [key: string]: any }>(
         userServiceClient.patch('/api/users/me', { profilePicture: imageUrl })
       );
