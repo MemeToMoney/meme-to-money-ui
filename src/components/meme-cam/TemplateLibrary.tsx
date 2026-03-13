@@ -22,8 +22,8 @@ interface TemplateLibraryProps {
 
 const categories = [
   { key: 'all', label: 'All' },
+  { key: 'format', label: 'Popular' },
   { key: 'classic', label: 'Classic' },
-  { key: 'format', label: 'Formats' },
   { key: 'reaction', label: 'Reaction' },
   { key: 'blank', label: 'Blank' },
 ];

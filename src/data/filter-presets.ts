@@ -103,6 +103,42 @@ const filterPresets: FilterPreset[] = [
     saturation: 0.4,
     hue: 0,
   },
+  {
+    name: 'deepfry',
+    label: 'Deep Fry',
+    css: 'contrast(2.0) saturate(2.5) brightness(1.2)',
+    brightness: 0.2,
+    contrast: 100,
+    saturation: 1.5,
+    hue: 0,
+  },
+  {
+    name: 'vaporwave',
+    label: 'Vapor',
+    css: 'contrast(1.1) saturate(1.6) brightness(1.05) hue-rotate(260deg)',
+    brightness: 0.05,
+    contrast: 10,
+    saturation: 0.6,
+    hue: 260,
+  },
+  {
+    name: 'gloom',
+    label: 'Gloom',
+    css: 'contrast(1.3) brightness(0.7) saturate(0.5)',
+    brightness: -0.3,
+    contrast: 30,
+    saturation: -0.5,
+    hue: 0,
+  },
+  {
+    name: 'invert',
+    label: 'Invert',
+    css: 'invert(1) hue-rotate(180deg)',
+    brightness: 0,
+    contrast: 0,
+    saturation: 0,
+    hue: 180,
+  },
 ];
 
 export default filterPresets;

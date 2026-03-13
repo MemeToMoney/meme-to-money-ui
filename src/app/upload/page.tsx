@@ -37,6 +37,7 @@ import {
   CurrencyRupee as MonetizationIcon,
   Add as AddIcon,
   Tag as TagIcon,
+  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -66,6 +67,9 @@ function UploadPageContent() {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info'>('info');
+
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState('');
 
   const [formData, setFormData] = useState({
     title: '',
@@ -147,6 +151,19 @@ function UploadPageContent() {
       return;
     }
 
+    // Validate schedule time if scheduling
+    if (isScheduled) {
+      if (!scheduledAt) {
+        showSnackbar('Please select a date and time for scheduling', 'error');
+        return;
+      }
+      const scheduleDate = new Date(scheduledAt);
+      if (scheduleDate <= new Date()) {
+        showSnackbar('Scheduled time must be in the future', 'error');
+        return;
+      }
+    }
+
     try {
       setIsUploading(true);
       setUploadProgress(10);
@@ -176,7 +193,7 @@ function UploadPageContent() {
       // Let's generate a UUID for contentId
       const contentId = crypto.randomUUID();
 
-      const contentRequest: ContentCreationRequest = {
+      const contentRequest: ContentCreationRequest & { scheduledAt?: string } = {
         title: formData.title.trim() || `My ${contentType === 'SHORT_VIDEO' ? 'Short' : 'Meme'} ${new Date().toLocaleDateString()}`,
         description: formData.description || undefined,
         type: contentType,
@@ -188,7 +205,8 @@ function UploadPageContent() {
         originalFileName: selectedFile.name,
         contentType: selectedFile.type,
         fileSize: selectedFile.size,
-        durationSeconds: contentType === 'SHORT_VIDEO' ? await getVideoDuration(selectedFile) : undefined
+        durationSeconds: contentType === 'SHORT_VIDEO' ? await getVideoDuration(selectedFile) : undefined,
+        ...(isScheduled && scheduledAt ? { scheduledAt: new Date(scheduledAt).toISOString() } : {}),
       };
 
       const contentResponse = await ContentAPI.createContent(
@@ -203,14 +221,14 @@ function UploadPageContent() {
       }
 
       setUploadProgress(100);
-      showSnackbar('Content uploaded successfully! 🎉', 'success');
+      showSnackbar(isScheduled ? 'Post scheduled successfully!' : 'Content uploaded successfully!', 'success');
 
       // Advance to final step
       setCurrentStep(2);
 
-      // Navigate back to feed after delay
+      // Navigate after delay
       setTimeout(() => {
-        router.push('/feed');
+        router.push(isScheduled ? '/scheduled' : '/feed');
       }, 2000);
 
     } catch (error: any) {
@@ -252,6 +270,8 @@ function UploadPageContent() {
     setContentType(null);
     setCurrentStep(0);
     setUploadProgress(0);
+    setIsScheduled(false);
+    setScheduledAt('');
     setFormData({
       title: '',
       description: '',
@@ -477,16 +497,70 @@ function UploadPageContent() {
                   sx={{ cursor: 'pointer' }}
                 />
               </Box>
+
+              {/* Schedule Toggle */}
+              <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                p: 2,
+                bgcolor: 'white',
+                borderRadius: 3,
+                border: '1px solid #E5E7EB'
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <ScheduleIcon sx={{ color: '#6B46C1' }} />
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                      Schedule Post
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Publish at a later date & time
+                    </Typography>
+                  </Box>
+                </Box>
+                <Chip
+                  label={isScheduled ? 'ON' : 'OFF'}
+                  color={isScheduled ? 'success' : 'default'}
+                  onClick={() => {
+                    setIsScheduled(!isScheduled);
+                    if (isScheduled) setScheduledAt('');
+                  }}
+                  sx={{ cursor: 'pointer' }}
+                />
+              </Box>
+
+              {/* Date/Time Picker (shown when schedule is ON) */}
+              {isScheduled && (
+                <TextField
+                  fullWidth
+                  label="Schedule Date & Time"
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  inputProps={{
+                    min: new Date(Date.now() + 60000).toISOString().slice(0, 16),
+                  }}
+                  variant="outlined"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 3
+                    }
+                  }}
+                  helperText="Select a future date and time for your post to go live"
+                />
+              )}
             </Box>
 
-            {/* Upload Button */}
+            {/* Upload / Schedule Button */}
             <Button
               fullWidth
               variant="contained"
               size="large"
               onClick={handleUpload}
-              disabled={!selectedFile || isUploading}
-              startIcon={isUploading ? null : <UploadIcon />}
+              disabled={!selectedFile || isUploading || (isScheduled && !scheduledAt)}
+              startIcon={isUploading ? null : (isScheduled ? <ScheduleIcon /> : <UploadIcon />)}
               sx={{
                 mt: 3,
                 py: 2,
@@ -502,7 +576,7 @@ function UploadPageContent() {
                 }
               }}
             >
-              {isUploading ? 'Uploading...' : 'Share Post'}
+              {isUploading ? (isScheduled ? 'Scheduling...' : 'Uploading...') : (isScheduled ? 'Schedule Post' : 'Share Post')}
             </Button>
           </Box>
         )}
@@ -510,12 +584,16 @@ function UploadPageContent() {
         {/* Step 3: Success */}
         {currentStep === 2 && (
           <Box sx={{ p: 3, textAlign: 'center', mt: 8 }}>
-            <CheckIcon sx={{ fontSize: 80, color: '#10B981', mb: 2 }} />
+            {isScheduled ? (
+              <ScheduleIcon sx={{ fontSize: 80, color: '#10B981', mb: 2 }} />
+            ) : (
+              <CheckIcon sx={{ fontSize: 80, color: '#10B981', mb: 2 }} />
+            )}
             <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
-              Posted Successfully!
+              {isScheduled ? 'Scheduled Successfully!' : 'Posted Successfully!'}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-              Your content is now live and ready to earn!
+              {isScheduled ? 'Your post will go live at the scheduled time.' : 'Your content is now live and ready to earn!'}
             </Typography>
 
             <Button

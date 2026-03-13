@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Container,
   Box,
@@ -34,6 +34,7 @@ import { isApiSuccess, formatCreatorHandle, getHandleInitial } from '@/lib/api/c
 import CommentDialog from '@/components/content/CommentDialog';
 import ShareDialog from '@/components/ShareDialog';
 import ShortsAd from '@/components/ads/ShortsAd';
+import MobileBottomNavigation from '@/components/layout/BottomNavigation';
 
 interface VideoPlayerProps {
   content: Content;
@@ -120,7 +121,7 @@ function VideoPlayer({
       </Box>
 
       {/* Creator Info */}
-      <Box sx={{ position: 'absolute', bottom: 16, left: 16, right: 80, color: 'white', zIndex: 3, pointerEvents: 'auto' }}>
+      <Box sx={{ position: 'absolute', bottom: { xs: 80, sm: 16 }, left: 16, right: 80, color: 'white', zIndex: 3, pointerEvents: 'auto' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
           <Avatar
             onClick={(e: React.MouseEvent) => { e.stopPropagation(); onProfileClick(); }}
@@ -175,7 +176,7 @@ function VideoPlayer({
       </Box>
 
       {/* Right Side Actions */}
-      <Box sx={{ position: 'absolute', bottom: 100, right: 12, display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', zIndex: 3, pointerEvents: 'auto' }}>
+      <Box sx={{ position: 'absolute', bottom: { xs: 164, sm: 100 }, right: 12, display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', zIndex: 3, pointerEvents: 'auto' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <IconButton onClick={(e: React.MouseEvent) => { e.stopPropagation(); onLike(); }} sx={{ color: isLiked ? '#ff4444' : 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', width: 48, height: 48, transition: 'all 0.2s ease', '&:hover': { transform: 'scale(1.1)', bgcolor: 'rgba(0,0,0,0.65)' } }}>
             {isLiked ? <LikeIcon sx={{ fontSize: 28 }} /> : <UnlikeIcon sx={{ fontSize: 28 }} />}
@@ -235,14 +236,21 @@ function ShortsPageContent() {
   const [shareContentId, setShareContentId] = useState('');
   const [page, setPage] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const loadingRef = useRef(false);
+  const initialLoadDone = useRef(false);
   const { user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    loadShorts(0);
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
+      loadShorts(0);
+    }
   }, []);
 
   const loadShorts = async (pageNum: number) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     try {
       setLoading(true);
       // Try home feed first (most reliable), then trending as fallback
@@ -296,6 +304,7 @@ function ShortsPageContent() {
       console.error('Failed to load shorts:', err);
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
   };
 
@@ -342,12 +351,33 @@ function ShortsPageContent() {
     setCommentDialogOpen(true);
   };
 
-  const handleShare = (contentId: string) => {
-    setShareContentId(contentId);
-    setShareDialogOpen(true);
+  const handleShare = async (contentId: string) => {
+    // Record engagement
     if (user?.id) {
       ContentAPI.recordEngagement(contentId, { action: 'SHARE' }, user.id, user.username).catch(() => {});
     }
+
+    const currentContent = shorts.find(s => s.id === contentId);
+    const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/post/${contentId}` : '';
+    const shareText = currentContent?.title || currentContent?.description || 'Check out this meme on MemeToMoney!';
+
+    // Try native share first (works best on mobile)
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: shareText, url: shareUrl });
+        // Update share count optimistically on success
+        setShorts(prev => prev.map(s => s.id === contentId
+          ? { ...s, shareCount: (s.shareCount || 0) + 1 } : s
+        ));
+        return; // Native share succeeded, no need for dialog
+      } catch {
+        // User cancelled or native share failed — fall back to dialog
+      }
+    }
+
+    // Fallback: open share dialog with Copy Link, WhatsApp, Twitter, etc.
+    setShareContentId(contentId);
+    setShareDialogOpen(true);
   };
 
   useEffect(() => {
@@ -360,7 +390,7 @@ function ShortsPageContent() {
     }
   }, [currentVideoIndex]);
 
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     if (scrollContainerRef.current) {
       const scrollTop = scrollContainerRef.current.scrollTop;
       const viewportHeight = window.innerHeight;
@@ -368,12 +398,12 @@ function ShortsPageContent() {
       if (newIndex !== currentVideoIndex && newIndex >= 0 && newIndex < shorts.length) {
         setCurrentVideoIndex(newIndex);
       }
-      // Load more when near end
-      if (newIndex >= shorts.length - 2) {
+      // Load more when near end (guard prevents duplicate calls)
+      if (newIndex >= shorts.length - 2 && !loadingRef.current) {
         loadShorts(page + 1);
       }
     }
-  };
+  }, [currentVideoIndex, shorts.length, page]);
 
   if (loading && shorts.length === 0) {
     return (
@@ -431,7 +461,11 @@ function ShortsPageContent() {
                 onShare={() => handleShare(content.id)}
                 onSave={() => handleSave(content.id)}
                 onFollow={() => handleFollow(content.creatorId)}
-                onProfileClick={() => router.push(`/profile/${content.creatorId}`)}
+                onProfileClick={() => {
+                  if (content.creatorId) {
+                    router.push(`/profile/${content.creatorId}`);
+                  }
+                }}
               />
             </Box>
           </React.Fragment>
@@ -473,7 +507,11 @@ function ShortsPageContent() {
         open={shareDialogOpen}
         onClose={() => setShareDialogOpen(false)}
         contentId={shareContentId}
+        title={shorts.find(s => s.id === shareContentId)?.title || shorts.find(s => s.id === shareContentId)?.description || undefined}
       />
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNavigation />
     </Container>
   );
 }

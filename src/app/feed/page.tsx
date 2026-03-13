@@ -15,6 +15,16 @@ import {
   Alert,
   Chip,
   TextField,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Snackbar,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -33,6 +43,9 @@ import {
   CurrencyRupee as TipIcon,
   NotificationsOutlined as NotificationsIcon,
   Close as CloseIcon,
+  Delete as DeleteIcon,
+  ContentCopy as CopyIcon,
+  Flag as FlagIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -43,6 +56,7 @@ import { isApiSuccess, formatTimeAgo as formatTimeAgoUtil, formatCreatorHandle, 
 import { UserAPI } from '@/lib/api/user';
 import CommentDialog from '@/components/content/CommentDialog';
 import FeedAdCard from '@/components/ads/FeedAdCard';
+import ShareDialog from '@/components/ShareDialog';
 
 
 function FeedPageContent() {
@@ -67,6 +81,15 @@ function FeedPageContent() {
   const [composeHashtags, setComposeHashtags] = useState<string[]>([]);
   const [hashtagInput, setHashtagInput] = useState('');
   const [composePosting, setComposePosting] = useState(false);
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [menuPostId, setMenuPostId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletePostId, setDeletePostId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [sharePostId, setSharePostId] = useState<string>('');
+  const [sharePostTitle, setSharePostTitle] = useState<string>('');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '' });
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const composeBodyRef = useRef<HTMLTextAreaElement>(null);
   const composeBoxRef = useRef<HTMLDivElement>(null);
@@ -95,7 +118,7 @@ function FeedPageContent() {
         hashtags: composeHashtags.length > 0 ? composeHashtags : undefined,
       };
       if (composeTitle.trim()) data.title = composeTitle.trim();
-      const response = await ContentAPI.createTextPost(data, user.id, user.username);
+      const response = await ContentAPI.createTextPost(data, user.id, user.creatorHandle || user.displayName || user.name || user.username);
       if (isApiSuccess(response) && response.data) {
         setFeedData(prev => [response.data, ...prev]);
         setComposeBody('');
@@ -268,6 +291,58 @@ function FeedPageContent() {
   const handleComment = (contentId: string) => { setCommentContentId(contentId); setCommentDialogOpen(true); };
   const formatTimeAgo = formatTimeAgoUtil;
   const getContentUrl = (content: Content) => content.processedFile?.cdnUrl || content.originalFile?.cdnUrl || content.thumbnailUrl;
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, postId: string) => {
+    setMenuAnchorEl(event.currentTarget);
+    setMenuPostId(postId);
+  };
+  const handleMenuClose = () => { setMenuAnchorEl(null); setMenuPostId(null); };
+
+  const handleDeleteClick = (postId: string) => {
+    handleMenuClose();
+    setDeletePostId(postId);
+    setDeleteDialogOpen(true);
+  };
+  const handleDeleteConfirm = async () => {
+    if (!deletePostId || !user?.id) return;
+    setDeleting(true);
+    try {
+      const response = await ContentAPI.deleteContent(deletePostId);
+      if (isApiSuccess(response)) {
+        setFeedData(prev => prev.filter(p => p.id !== deletePostId));
+        setDeleteDialogOpen(false);
+        setDeletePostId(null);
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+    } finally {
+      setDeleting(false);
+    }
+  };
+  const handleDeleteCancel = () => { setDeleteDialogOpen(false); setDeletePostId(null); };
+
+  const handleShareDialogOpen = (postId: string, title?: string) => {
+    handleMenuClose();
+    setSharePostId(postId);
+    setSharePostTitle(title || '');
+    setShareDialogOpen(true);
+  };
+
+  const handleCopyLink = async (postId: string) => {
+    handleMenuClose();
+    const shareUrl = `${window.location.origin}/post/${postId}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setSnackbar({ open: true, message: 'Link copied!' });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to copy link' });
+    }
+  };
+
+  const handleMenuBookmark = (postId: string) => {
+    handleMenuClose();
+    handleSave(postId);
+  };
 
   return (
     <Box sx={{ bgcolor: '#f8f9fa', minHeight: '100vh', pb: 10 }}>
@@ -584,7 +659,44 @@ function FeedPageContent() {
                       <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.7rem' }}>{formatTimeAgo(post.publishedAt || post.createdAt)}</Typography>
                     </Box>
                   </Box>
-                  <IconButton size="small"><MoreVert sx={{ fontSize: 18 }} /></IconButton>
+                  <IconButton size="small" onClick={(e) => handleMenuOpen(e, post.id)}><MoreVert sx={{ fontSize: 18 }} /></IconButton>
+                  <Menu
+                    anchorEl={menuPostId === post.id ? menuAnchorEl : null}
+                    open={menuPostId === post.id && Boolean(menuAnchorEl)}
+                    onClose={handleMenuClose}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                    PaperProps={{ sx: { borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', minWidth: 180 } }}
+                  >
+                    <MenuItem onClick={() => handleShareDialogOpen(post.id, post.title || post.description)}>
+                      <ListItemIcon><Share sx={{ fontSize: 20 }} /></ListItemIcon>
+                      <ListItemText>Share</ListItemText>
+                    </MenuItem>
+                    <MenuItem onClick={() => handleMenuBookmark(post.id)}>
+                      <ListItemIcon>
+                        {engagement?.bookmarked
+                          ? <Bookmark sx={{ fontSize: 20, color: '#6B46C1' }} />
+                          : <BookmarkBorder sx={{ fontSize: 20 }} />}
+                      </ListItemIcon>
+                      <ListItemText>{engagement?.bookmarked ? 'Unsave' : 'Save'}</ListItemText>
+                    </MenuItem>
+                    <MenuItem onClick={() => handleCopyLink(post.id)}>
+                      <ListItemIcon><CopyIcon sx={{ fontSize: 20 }} /></ListItemIcon>
+                      <ListItemText>Copy Link</ListItemText>
+                    </MenuItem>
+                    {user?.id === post.creatorId && (
+                      <MenuItem onClick={() => handleDeleteClick(post.id)} sx={{ color: '#DC2626' }}>
+                        <ListItemIcon><DeleteIcon sx={{ color: '#DC2626', fontSize: 20 }} /></ListItemIcon>
+                        <ListItemText>Delete</ListItemText>
+                      </MenuItem>
+                    )}
+                    {user?.id !== post.creatorId && (
+                      <MenuItem onClick={handleMenuClose}>
+                        <ListItemIcon><FlagIcon sx={{ fontSize: 20 }} /></ListItemIcon>
+                        <ListItemText>Report</ListItemText>
+                      </MenuItem>
+                    )}
+                  </Menu>
                 </Box>
 
                 {/* Post Content */}
@@ -623,7 +735,7 @@ function FeedPageContent() {
                         {isLiked ? <Favorite sx={{ color: '#E91E63', fontSize: 22 }} /> : <FavoriteBorder sx={{ fontSize: 22 }} />}
                       </IconButton>
                       <IconButton onClick={() => handleComment(post.id)} sx={{ p: 0 }} size="small"><ChatBubbleOutline sx={{ fontSize: 22 }} /></IconButton>
-                      <IconButton onClick={() => handleShare(post.id)} sx={{ p: 0 }} size="small"><Share sx={{ fontSize: 22 }} /></IconButton>
+                      <IconButton onClick={() => handleShareDialogOpen(post.id, post.title || post.description)} sx={{ p: 0 }} size="small"><Share sx={{ fontSize: 22 }} /></IconButton>
                     </Box>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       {/* Tip button */}
@@ -711,6 +823,58 @@ function FeedPageContent() {
       </Container>
 
       <CommentDialog open={commentDialogOpen} onClose={() => setCommentDialogOpen(false)} contentId={commentContentId} />
+
+      {/* Share Dialog */}
+      <ShareDialog
+        open={shareDialogOpen}
+        onClose={() => {
+          setShareDialogOpen(false);
+          // Record share engagement
+          if (sharePostId && user?.id) {
+            ContentAPI.recordEngagement(sharePostId, { action: 'SHARE' }, user.id, user.username).catch(() => {});
+            setFeedData(prev => prev.map(p => p.id === sharePostId ? { ...p, shareCount: p.shareCount + 1 } : p));
+          }
+        }}
+        contentId={sharePostId}
+        title={sharePostTitle}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: '#374151' }}>Delete Post</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: '#6B7280' }}>
+            Are you sure you want to delete this post? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleDeleteCancel} disabled={deleting} sx={{ textTransform: 'none', color: '#6B7280', fontWeight: 600 }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            disabled={deleting}
+            variant="contained"
+            sx={{ textTransform: 'none', bgcolor: '#DC2626', fontWeight: 600, borderRadius: 2, '&:hover': { bgcolor: '#B91C1C' } }}
+          >
+            {deleting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for copy link feedback */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={2000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="success" sx={{ width: '100%' }}>{snackbar.message}</Alert>
+      </Snackbar>
     </Box>
   );
 }

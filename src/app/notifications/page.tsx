@@ -336,7 +336,7 @@ function ActivityTab({ userId }: { userId: string }) {
                           color: earning ? '#059669' : '#EF4444',
                           fontSize: '0.95rem',
                         }}>
-                          {earning ? '+' : '-'}{activity.coins}
+                          {earning ? '+' : '-'}{Math.abs(activity.coins)}
                         </Typography>
                         <Typography variant="caption" sx={{ color: '#9CA3AF', fontSize: '0.65rem' }}>
                           coins

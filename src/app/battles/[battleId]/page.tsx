@@ -13,6 +13,11 @@ import {
   CardMedia,
   Snackbar,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  LinearProgress,
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
@@ -21,11 +26,13 @@ import {
   Timer as TimerIcon,
   Whatshot as FireIcon,
   HowToVote as VoteIcon,
-  ContentCopy as CopyIcon,
   Login as LoginIcon,
+  Upload as UploadIcon,
+  CheckCircle as CheckIcon,
+  Image as ImageIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
-import { BattleAPI, Battle, ContentAPI } from '@/lib/api/content';
+import { BattleAPI, Battle, ContentAPI, Content } from '@/lib/api/content';
 import { isApiSuccess } from '@/lib/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -47,6 +54,14 @@ export default function BattleDetailPage() {
     message: '',
     severity: 'info',
   });
+
+  // Meme submission state
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
+  const [myMemes, setMyMemes] = useState<Content[]>([]);
+  const [loadingMemes, setLoadingMemes] = useState(false);
+  const [selectedMemeId, setSelectedMemeId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [memeUrls, setMemeUrls] = useState<Record<string, string>>({});
 
   const loadBattle = useCallback(async () => {
     setLoading(true);
@@ -90,6 +105,65 @@ export default function BattleDetailPage() {
       // User hasn't voted yet, that's fine
     }
   }, [isAuthenticated, battleId, battle]);
+
+  // Load user's memes for submission picker
+  const loadMyMemes = useCallback(async () => {
+    if (!user?.id) return;
+    setLoadingMemes(true);
+    try {
+      const response = await ContentAPI.getUserContent(user.id, 0, 50, user.id);
+      if (isApiSuccess(response)) {
+        const memes = (response.data.content || []).filter(
+          (c: Content) => c.type === 'MEME' && (c.status === 'PUBLISHED' || c.status === 'READY')
+        );
+        setMyMemes(memes);
+        // Load thumbnail URLs
+        for (const meme of memes) {
+          const url = meme.processedFile?.cdnUrl || meme.originalFile?.cdnUrl || meme.thumbnailUrl;
+          if (url) {
+            setMemeUrls(prev => ({ ...prev, [meme.id]: url }));
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load memes:', err);
+    } finally {
+      setLoadingMemes(false);
+    }
+  }, [user?.id]);
+
+  // Handle meme submission
+  const handleSubmitMeme = async () => {
+    if (!selectedMemeId || submitting) return;
+    setSubmitting(true);
+    try {
+      const response = await BattleAPI.submitMeme(battleId, selectedMemeId);
+      if (isApiSuccess(response)) {
+        setBattle(response.data);
+        setSubmitDialogOpen(false);
+        setSelectedMemeId(null);
+        setSnackbar({ open: true, message: 'Meme submitted! Good luck!', severity: 'success' });
+        // Reload content thumbnails for the updated battle
+        const contentIds = [response.data.creator1ContentId, response.data.creator2ContentId].filter(Boolean) as string[];
+        loadContentThumbnails(contentIds);
+      } else {
+        setSnackbar({ open: true, message: 'Failed to submit meme. Please try again.', severity: 'error' });
+      }
+    } catch (err: any) {
+      console.error('Submit meme failed:', err);
+      const msg = err?.response?.data?.message || 'Failed to submit meme. Please try again.';
+      setSnackbar({ open: true, message: msg, severity: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Open submission dialog
+  const openSubmitDialog = () => {
+    setSubmitDialogOpen(true);
+    setSelectedMemeId(null);
+    loadMyMemes();
+  };
 
   useEffect(() => {
     loadBattle();
@@ -253,7 +327,26 @@ export default function BattleDetailPage() {
   const totalVotes = battle.creator1Votes + battle.creator2Votes;
   const isVoting = battle.status === 'VOTING';
   const isCompleted = battle.status === 'COMPLETED';
-  const canVote = isVoting && isAuthenticated && !votedFor;
+  const isActive = battle.status === 'ACTIVE';
+  const isWaiting = battle.status === 'WAITING';
+
+  // Participant checks
+  const isCreator1 = isAuthenticated && user?.id === battle.creator1Id;
+  const isCreator2 = isAuthenticated && user?.id === battle.creator2Id;
+  const isParticipant = isCreator1 || isCreator2;
+  const hasSubmitted = isCreator1
+    ? !!battle.creator1ContentId
+    : isCreator2
+      ? !!battle.creator2ContentId
+      : false;
+  const canSubmit = isActive && isParticipant && !hasSubmitted;
+  const bothSubmitted = !!battle.creator1ContentId && !!battle.creator2ContentId;
+
+  // Voters cannot be participants
+  const canVote = isVoting && isAuthenticated && !votedFor && !isParticipant;
+
+  // Can join (waiting battles, not the creator)
+  const canJoin = isWaiting && isAuthenticated && !isCreator1;
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa', pb: 10 }}>
@@ -560,8 +653,97 @@ export default function BattleDetailPage() {
 
         {/* Action area */}
         <Box sx={{ mt: 3 }}>
-          {/* Vote CTA for logged-in users */}
-          {isVoting && isAuthenticated && !votedFor && (
+          {/* Join button for waiting battles */}
+          {canJoin && (
+            <Card sx={{ borderRadius: 3, p: 2.5, textAlign: 'center', bgcolor: '#FAF5FF', border: '1px solid #EDE9FE', mb: 2 }}>
+              <FireIcon sx={{ fontSize: 32, color: '#EF4444', mb: 1 }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1F2937', mb: 0.5 }}>
+                This battle needs an opponent!
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#6B7280', mb: 2 }}>
+                Join and compete with your best meme
+              </Typography>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={async () => {
+                  try {
+                    const response = await BattleAPI.joinBattle(battleId);
+                    if (isApiSuccess(response)) {
+                      setBattle(response.data);
+                      setSnackbar({ open: true, message: 'You joined the battle! Now submit your meme.', severity: 'success' });
+                    }
+                  } catch (err: any) {
+                    setSnackbar({ open: true, message: err?.response?.data?.message || 'Failed to join battle.', severity: 'error' });
+                  }
+                }}
+                sx={{ bgcolor: '#6B46C1', textTransform: 'none', borderRadius: 2, fontWeight: 700, py: 1.2, '&:hover': { bgcolor: '#553C9A' } }}
+              >
+                Join This Battle
+              </Button>
+            </Card>
+          )}
+
+          {/* Submit Meme CTA for participants in ACTIVE battles */}
+          {canSubmit && (
+            <Card sx={{ borderRadius: 3, p: 2.5, textAlign: 'center', bgcolor: '#FAF5FF', border: '1px solid #EDE9FE', mb: 2 }}>
+              <UploadIcon sx={{ fontSize: 32, color: '#6B46C1', mb: 1 }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1F2937', mb: 0.5 }}>
+                Submit Your Meme!
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#6B7280', mb: 2 }}>
+                Pick your best meme to compete in this battle. You have 48h to submit.
+              </Typography>
+              <Button
+                fullWidth
+                variant="contained"
+                startIcon={<ImageIcon />}
+                onClick={openSubmitDialog}
+                sx={{
+                  bgcolor: '#6B46C1',
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  fontWeight: 700,
+                  py: 1.2,
+                  fontSize: '0.95rem',
+                  '&:hover': { bgcolor: '#553C9A' },
+                }}
+              >
+                Choose a Meme to Submit
+              </Button>
+            </Card>
+          )}
+
+          {/* Submission confirmed for participant who already submitted */}
+          {isActive && isParticipant && hasSubmitted && (
+            <Card sx={{ borderRadius: 3, p: 2.5, textAlign: 'center', bgcolor: '#ECFDF5', border: '1px solid #D1FAE5', mb: 2 }}>
+              <CheckIcon sx={{ fontSize: 32, color: '#10B981', mb: 1 }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#065F46', mb: 0.5 }}>
+                Meme Submitted!
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#047857' }}>
+                {bothSubmitted
+                  ? 'Both memes are in! Voting will start soon.'
+                  : 'Waiting for your opponent to submit their meme...'}
+              </Typography>
+            </Card>
+          )}
+
+          {/* Participant notice during voting */}
+          {isVoting && isParticipant && (
+            <Card sx={{ borderRadius: 3, p: 2.5, textAlign: 'center', bgcolor: '#FAF5FF', border: '1px solid #EDE9FE', mb: 2 }}>
+              <VoteIcon sx={{ fontSize: 32, color: '#6B46C1', mb: 1 }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1F2937', mb: 0.5 }}>
+                Voting is Live!
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#6B7280' }}>
+                Share this battle to get more votes. As a participant, you cannot vote.
+              </Typography>
+            </Card>
+          )}
+
+          {/* Vote CTA for logged-in non-participant users */}
+          {isVoting && isAuthenticated && !votedFor && !isParticipant && (
             <Card sx={{ borderRadius: 3, p: 2.5, textAlign: 'center', bgcolor: '#FAF5FF', border: '1px solid #EDE9FE' }}>
               <VoteIcon sx={{ fontSize: 32, color: '#6B46C1', mb: 1 }} />
               <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1F2937', mb: 0.5 }}>
@@ -652,6 +834,18 @@ export default function BattleDetailPage() {
               )}
             </Card>
           )}
+
+          {/* Completed with no winner (tie or cancelled) */}
+          {isCompleted && !battle.winnerId && (
+            <Card sx={{ borderRadius: 3, p: 2.5, textAlign: 'center', bgcolor: '#F3F4F6', border: '1px solid #E5E7EB', mt: 2 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#6B7280' }}>
+                Battle Ended
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 0.5 }}>
+                {totalVotes === 0 ? 'No votes were cast in this battle.' : 'This battle ended in a tie!'}
+              </Typography>
+            </Card>
+          )}
         </Box>
 
         {/* Share button */}
@@ -728,6 +922,142 @@ export default function BattleDetailPage() {
           </Button>
         </Box>
       </Box>
+
+      {/* Meme Submission Dialog */}
+      <Dialog
+        open={submitDialogOpen}
+        onClose={() => !submitting && setSubmitDialogOpen(false)}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ImageIcon sx={{ color: '#6B46C1' }} />
+          Select Your Meme
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: '#6B7280', mb: 2 }}>
+            Choose one of your published memes to submit for this battle. Pick your best one!
+          </Typography>
+
+          {loadingMemes ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress sx={{ color: '#6B46C1' }} />
+            </Box>
+          ) : myMemes.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <ImageIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 1 }} />
+              <Typography variant="body1" sx={{ fontWeight: 600, color: '#6B7280', mb: 1 }}>
+                No memes found
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#9CA3AF', mb: 2 }}>
+                Upload a meme first, then come back to submit it for the battle.
+              </Typography>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setSubmitDialogOpen(false);
+                  router.push('/upload');
+                }}
+                sx={{ borderColor: '#6B46C1', color: '#6B46C1', textTransform: 'none', fontWeight: 600, borderRadius: 2, '&:hover': { borderColor: '#553C9A', bgcolor: '#FAF5FF' } }}
+              >
+                Upload a Meme
+              </Button>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5 }}>
+              {myMemes.map((meme) => {
+                const url = memeUrls[meme.id];
+                const isSelected = selectedMemeId === meme.id;
+                return (
+                  <Box
+                    key={meme.id}
+                    onClick={() => setSelectedMemeId(meme.id)}
+                    sx={{
+                      position: 'relative',
+                      cursor: 'pointer',
+                      borderRadius: 2,
+                      overflow: 'hidden',
+                      border: isSelected ? '3px solid #6B46C1' : '3px solid transparent',
+                      transition: 'all 0.2s ease',
+                      '&:hover': { border: '3px solid #D8B4FE' },
+                    }}
+                  >
+                    {url ? (
+                      <CardMedia
+                        component="img"
+                        image={url}
+                        sx={{ width: '100%', aspectRatio: '1', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <Box sx={{
+                        width: '100%', aspectRatio: '1', bgcolor: '#F3F4F6',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <ImageIcon sx={{ color: '#D1D5DB', fontSize: 32 }} />
+                      </Box>
+                    )}
+                    {/* Selected overlay */}
+                    {isSelected && (
+                      <Box sx={{
+                        position: 'absolute', inset: 0,
+                        bgcolor: 'rgba(107,70,193,0.3)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <CheckIcon sx={{ color: 'white', fontSize: 32, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
+                      </Box>
+                    )}
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        display: 'block', textAlign: 'center', py: 0.5, px: 0.5,
+                        fontWeight: 600, color: '#374151', fontSize: '0.65rem',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {meme.title}
+                    </Typography>
+                  </Box>
+                );
+              })}
+            </Box>
+          )}
+
+          {submitting && (
+            <Box sx={{ mt: 2 }}>
+              <LinearProgress sx={{ borderRadius: 1, '& .MuiLinearProgress-bar': { bgcolor: '#6B46C1' } }} />
+              <Typography variant="caption" sx={{ color: '#6B7280', mt: 0.5, display: 'block', textAlign: 'center' }}>
+                Submitting your meme...
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 0 }}>
+          <Button
+            onClick={() => setSubmitDialogOpen(false)}
+            disabled={submitting}
+            sx={{ textTransform: 'none', color: '#6B7280' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSubmitMeme}
+            disabled={!selectedMemeId || submitting}
+            sx={{
+              bgcolor: '#6B46C1',
+              textTransform: 'none',
+              fontWeight: 700,
+              borderRadius: 2,
+              px: 3,
+              '&:hover': { bgcolor: '#553C9A' },
+              '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' },
+            }}
+          >
+            {submitting ? 'Submitting...' : 'Submit Meme'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar */}
       <Snackbar

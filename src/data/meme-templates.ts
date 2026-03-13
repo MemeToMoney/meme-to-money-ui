@@ -130,6 +130,98 @@ const memeTemplates: MemeTemplate[] = [
     ],
   },
 
+  // Popular meme formats
+  {
+    id: 'drake-format',
+    name: 'Drake Format',
+    category: 'format',
+    bgGradient: 'linear-gradient(180deg, #FFD89B 0%, #FFD89B 50%, #19547B 50%, #19547B 100%)',
+    bgColor: '#FFD89B',
+    textAreas: [
+      { id: 'top', label: 'Nah', defaultText: 'Nah...', position: 'top', yPercent: 15 },
+      { id: 'bottom', label: 'Yeah', defaultText: 'Yeah!', position: 'bottom', yPercent: 65 },
+    ],
+    splitLayout: true,
+  },
+  {
+    id: 'distracted-bf',
+    name: 'Distracted BF',
+    category: 'format',
+    bgGradient: 'linear-gradient(135deg, #e74c3c 0%, #f39c12 50%, #3498db 100%)',
+    bgColor: '#e74c3c',
+    textAreas: [
+      { id: 'top', label: 'The temptation', defaultText: 'New shiny thing', position: 'top', yPercent: 5 },
+      { id: 'bottom', label: 'What you should be doing', defaultText: 'My responsibilities', position: 'bottom', yPercent: 85 },
+    ],
+  },
+  {
+    id: 'galaxy-brain',
+    name: 'Galaxy Brain',
+    category: 'format',
+    bgGradient: 'linear-gradient(180deg, #141E30 0%, #243B55 30%, #6B46C1 60%, #E040FB 100%)',
+    bgColor: '#141E30',
+    textAreas: [
+      { id: 'top', label: 'Normal idea', defaultText: 'Normal idea', position: 'top', yPercent: 5 },
+      { id: 'bottom', label: 'Galaxy brain idea', defaultText: 'GALAXY BRAIN', position: 'bottom', yPercent: 75 },
+    ],
+  },
+  {
+    id: 'this-is-fine',
+    name: 'This Is Fine',
+    category: 'reaction',
+    bgGradient: 'linear-gradient(180deg, #FF8A00 0%, #FF4500 50%, #CC0000 100%)',
+    bgColor: '#FF8A00',
+    textAreas: [
+      { id: 'top', label: 'Situation', defaultText: 'Everything is falling apart', position: 'top', yPercent: 5 },
+      { id: 'bottom', label: 'Response', defaultText: 'This is fine.', position: 'bottom', yPercent: 80 },
+    ],
+  },
+  {
+    id: 'change-my-mind',
+    name: 'Change My Mind',
+    category: 'format',
+    bgGradient: 'linear-gradient(180deg, #87CEEB 0%, #87CEEB 60%, #228B22 60%, #228B22 100%)',
+    bgColor: '#87CEEB',
+    textAreas: [
+      { id: 'top', label: 'Hot take', defaultText: 'Hot take goes here', position: 'top', yPercent: 30 },
+      { id: 'bottom', label: 'Challenge', defaultText: 'Change my mind', position: 'bottom', yPercent: 80 },
+    ],
+  },
+  {
+    id: 'two-buttons',
+    name: 'Two Buttons',
+    category: 'format',
+    bgGradient: 'linear-gradient(180deg, #FF6B6B 0%, #FF6B6B 50%, #4ECDC4 50%, #4ECDC4 100%)',
+    bgColor: '#FF6B6B',
+    textAreas: [
+      { id: 'top', label: 'Option A', defaultText: 'Option A', position: 'top', yPercent: 15 },
+      { id: 'bottom', label: 'Option B', defaultText: 'Option B', position: 'bottom', yPercent: 65 },
+    ],
+    splitLayout: true,
+  },
+  {
+    id: 'is-this',
+    name: 'Is This a...?',
+    category: 'reaction',
+    bgGradient: 'linear-gradient(135deg, #c2e59c 0%, #64b3f4 100%)',
+    bgColor: '#c2e59c',
+    textAreas: [
+      { id: 'top', label: 'Object', defaultText: '*gestures at thing*', position: 'top', yPercent: 5 },
+      { id: 'bottom', label: 'Question', defaultText: 'Is this a pigeon?', position: 'bottom', yPercent: 85 },
+    ],
+  },
+  {
+    id: 'uno-reverse',
+    name: 'Uno Reverse',
+    category: 'reaction',
+    bgGradient: 'linear-gradient(135deg, #FF0000 0%, #FFD700 50%, #FF0000 100%)',
+    bgColor: '#FF0000',
+    textAreas: [
+      { id: 'top', label: 'Attack', defaultText: 'When they try to...', position: 'top', yPercent: 5 },
+      { id: 'bottom', label: 'Reverse', defaultText: 'UNO REVERSE', position: 'bottom', yPercent: 80 },
+    ],
+  },
+
   // Blank templates
   {
     id: 'blank-dark',

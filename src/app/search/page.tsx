@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import {
   Box,
@@ -16,9 +16,6 @@ import {
   Tab,
   Chip,
   Skeleton,
-  Card,
-  CardMedia,
-  CardContent,
   Grid,
 } from '@mui/material';
 import {
@@ -37,9 +34,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserAPI, UserSummary } from '@/lib/api/user';
 import { ContentAPI, Content } from '@/lib/api/content';
-import { isApiSuccess, formatCreatorHandle, getHandleInitial } from '@/lib/api/client';
+import { isApiSuccess } from '@/lib/api/client';
 
-const TRENDING_HASHTAGS = [
+const DEFAULT_TRENDING_HASHTAGS = [
   '#memecam', '#funny', '#viral', '#trending',
   '#comedy', '#memes', '#reaction', '#relatable',
 ];
@@ -61,17 +58,19 @@ function SearchPageContent() {
   const [contentHasMore, setContentHasMore] = useState(false);
   const [totalResults, setTotalResults] = useState(0);
   const [contentTotalResults, setContentTotalResults] = useState(0);
+  const [trendingHashtags, setTrendingHashtags] = useState<string[]>(DEFAULT_TRENDING_HASHTAGS);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const { user } = useAuth();
   const router = useRouter();
 
-  // Load suggestions on mount
+  // Load suggestions and trending hashtags on mount
   useEffect(() => {
     loadSuggestions();
+    loadTrendingHashtags();
   }, []);
 
-  // Debounced search
+  // Debounced search - searches both tabs simultaneously
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -89,17 +88,15 @@ function SearchPageContent() {
 
     debounceRef.current = setTimeout(() => {
       const query = searchQuery.trim();
-      if (tabValue === 0) {
-        searchUsers(query, 0);
-      } else {
-        searchContent(query, 0);
-      }
-    }, 300);
+      // Search both people and content simultaneously
+      searchUsers(query, 0);
+      searchContent(query, 0);
+    }, 500);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [searchQuery, tabValue]);
+  }, [searchQuery]);
 
   const loadSuggestions = async () => {
     try {
@@ -112,6 +109,28 @@ function SearchPageContent() {
       console.error('Failed to load suggestions:', err);
     } finally {
       setSuggestionsLoading(false);
+    }
+  };
+
+  const loadTrendingHashtags = async () => {
+    try {
+      const response = await ContentAPI.getTrendingHashtags(10);
+      if (isApiSuccess(response)) {
+        const tags = response.data;
+        // tags may be an array of strings or objects with a 'tag' field
+        if (Array.isArray(tags) && tags.length > 0) {
+          const formatted = tags.map((t: any) => {
+            const tagStr = typeof t === 'string' ? t : (t.tag || t.hashtag || t.name || '');
+            return tagStr.startsWith('#') ? tagStr : `#${tagStr}`;
+          }).filter((t: string) => t.length > 1);
+          if (formatted.length > 0) {
+            setTrendingHashtags(formatted);
+          }
+        }
+      }
+    } catch (err) {
+      // Keep defaults if trending API fails
+      console.error('Failed to load trending hashtags:', err);
     }
   };
 
@@ -146,10 +165,24 @@ function SearchPageContent() {
       const response = await ContentAPI.searchContent(query, undefined, undefined, undefined, pageNum, 20, user?.id);
       if (isApiSuccess(response)) {
         const data = response.data;
-        // The response may be Page<Content> or ContentFeedResponse
-        const items = data?.content?.content || data?.content || [];
-        const total = data?.content?.totalElements ?? data?.totalElements ?? 0;
-        const hasNext = data?.content?.last === false || data?.last === false;
+        // Backend returns Response<Page<Content>>
+        // So data is Page<Content> with: content (array), totalElements, last, etc.
+        // Handle both nested and flat response shapes for robustness
+        let items: Content[] = [];
+        let total = 0;
+        let hasNext = false;
+
+        if (Array.isArray(data?.content)) {
+          // data is Page<Content> directly
+          items = data.content;
+          total = data.totalElements ?? 0;
+          hasNext = data.last === false;
+        } else if (data?.content?.content && Array.isArray(data.content.content)) {
+          // data is wrapped: { content: Page<Content> }
+          items = data.content.content;
+          total = data.content.totalElements ?? 0;
+          hasNext = data.content.last === false;
+        }
 
         if (pageNum === 0) {
           setContentResults(items);
@@ -221,14 +254,6 @@ function SearchPageContent() {
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
-    // Trigger search on tab switch if there's a query
-    if (searchQuery.trim()) {
-      if (newValue === 0 && users.length === 0) {
-        searchUsers(searchQuery.trim(), 0);
-      } else if (newValue === 1 && contentResults.length === 0) {
-        searchContent(searchQuery.trim(), 0);
-      }
-    }
   };
 
   const handleHashtagClick = (hashtag: string) => {
@@ -405,79 +430,148 @@ function SearchPageContent() {
         >
           {contentTotalResults} result{contentTotalResults !== 1 ? 's' : ''} for &quot;{searchQuery}&quot;
         </Typography>
-        <Box sx={{ p: 0.5, bgcolor: 'white' }}>
-          <Grid container spacing={0.5}>
+        <Box sx={{ p: 1, bgcolor: 'white' }}>
+          <Grid container spacing={1}>
             {contentResults.map((content) => (
-              <Grid item xs={4} key={content.id}>
+              <Grid item xs={6} sm={4} key={content.id}>
                 <Box
                   sx={{
-                    position: 'relative',
-                    paddingTop: '100%',
                     cursor: 'pointer',
+                    borderRadius: 2,
                     overflow: 'hidden',
-                    borderRadius: 0.5,
+                    border: '1px solid #E5E7EB',
+                    transition: 'all 0.2s',
                     '&:hover': {
-                      opacity: 0.85,
-                      transition: 'opacity 0.2s',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                     },
                   }}
                   onClick={() => router.push(`/profile/${content.creatorId}`)}
                 >
-                  <Box
-                    component="img"
-                    src={getContentUrl(content)}
-                    alt={content.title || 'Content'}
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                    }}
-                    onError={(e: any) => {
-                      e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNFNUU3RUIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOUNBM0FGIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
-                    }}
-                  />
-                  {/* Video play icon */}
-                  {content.type === 'SHORT_VIDEO' && (
-                    <PlayIcon
+                  {/* Thumbnail */}
+                  {content.type === 'TEXT_POST' ? (
+                    <Box
                       sx={{
-                        position: 'absolute',
-                        top: 8,
-                        right: 8,
-                        fontSize: 22,
-                        color: 'white',
-                        filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))',
+                        position: 'relative',
+                        paddingTop: '100%',
+                        bgcolor: '#F3F4F6',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
-                    />
+                    >
+                      <Typography
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          p: 1.5,
+                          fontSize: '0.75rem',
+                          color: '#374151',
+                          textAlign: 'center',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {content.description || content.title || 'Text Post'}
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Box
+                      sx={{
+                        position: 'relative',
+                        paddingTop: '100%',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <Box
+                        component="img"
+                        src={getContentUrl(content)}
+                        alt={content.title || 'Content'}
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                        }}
+                        onError={(e: any) => {
+                          e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNFNUU3RUIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOUNBM0FGIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+                        }}
+                      />
+                      {/* Video play icon */}
+                      {content.type === 'SHORT_VIDEO' && (
+                        <PlayIcon
+                          sx={{
+                            position: 'absolute',
+                            top: 8,
+                            right: 8,
+                            fontSize: 22,
+                            color: 'white',
+                            filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))',
+                          }}
+                        />
+                      )}
+                      {/* Overlay stats */}
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)',
+                          p: 0.75,
+                          display: 'flex',
+                          gap: 1.5,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                          <LikeIcon sx={{ fontSize: 12, color: 'white' }} />
+                          <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.65rem' }}>
+                            {formatCount(content.likeCount)}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                          <ViewIcon sx={{ fontSize: 12, color: 'white' }} />
+                          <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.65rem' }}>
+                            {formatCount(content.viewCount)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
                   )}
-                  {/* Overlay stats */}
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)',
-                      p: 0.75,
-                      display: 'flex',
-                      gap: 1.5,
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
-                      <LikeIcon sx={{ fontSize: 12, color: 'white' }} />
-                      <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.65rem' }}>
-                        {formatCount(content.likeCount)}
+                  {/* Title and creator info */}
+                  <Box sx={{ p: 1 }}>
+                    {content.title && (
+                      <Typography
+                        variant="body2"
+                        sx={{ fontWeight: 600, color: '#111827', fontSize: '0.8rem', lineHeight: 1.3 }}
+                        noWrap
+                      >
+                        {content.title}
                       </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
-                      <ViewIcon sx={{ fontSize: 12, color: 'white' }} />
-                      <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.65rem' }}>
-                        {formatCount(content.viewCount)}
+                    )}
+                    <Typography
+                      variant="caption"
+                      sx={{ color: '#6B46C1', fontWeight: 500, fontSize: '0.7rem' }}
+                      noWrap
+                    >
+                      @{content.creatorHandle || 'user'}
+                    </Typography>
+                    {content.hashtags && content.hashtags.length > 0 && (
+                      <Typography
+                        variant="caption"
+                        sx={{ color: '#9CA3AF', display: 'block', fontSize: '0.65rem' }}
+                        noWrap
+                      >
+                        {content.hashtags.slice(0, 3).map(h => h.startsWith('#') ? h : `#${h}`).join(' ')}
                       </Typography>
-                    </Box>
+                    )}
                   </Box>
                 </Box>
               </Grid>
@@ -556,7 +650,7 @@ function SearchPageContent() {
             }}
           />
 
-          {/* Tabs */}
+          {/* Tabs with result counts */}
           <Tabs
             value={tabValue}
             onChange={handleTabChange}
@@ -579,8 +673,8 @@ function SearchPageContent() {
               },
             }}
           >
-            <Tab label="People" />
-            <Tab label="Content" />
+            <Tab label={searchQuery.trim() && totalResults > 0 ? `People (${formatCount(totalResults)})` : 'People'} />
+            <Tab label={searchQuery.trim() && contentTotalResults > 0 ? `Content (${formatCount(contentTotalResults)})` : 'Content'} />
           </Tabs>
         </Box>
 
@@ -669,7 +763,7 @@ function SearchPageContent() {
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {TRENDING_HASHTAGS.map((hashtag) => (
+                  {trendingHashtags.map((hashtag) => (
                     <Chip
                       key={hashtag}
                       label={hashtag}
@@ -684,6 +778,45 @@ function SearchPageContent() {
                         '&:hover': {
                           bgcolor: 'rgba(107, 70, 193, 0.15)',
                           borderColor: '#6B46C1',
+                        },
+                      }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+
+              {/* Popular Searches */}
+              <Box
+                sx={{
+                  px: 3,
+                  py: 2,
+                  bgcolor: 'white',
+                  borderBottom: '1px solid #E5E7EB',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                  <SearchIcon sx={{ color: '#6B46C1', fontSize: 20 }} />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#111827' }}>
+                    Popular Searches
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {['funny memes', 'reaction videos', 'trending today', 'comedy', 'relatable'].map((term) => (
+                    <Chip
+                      key={term}
+                      label={term}
+                      onClick={() => handleHashtagSearch(term)}
+                      variant="outlined"
+                      sx={{
+                        color: '#374151',
+                        fontWeight: 500,
+                        fontSize: '0.8rem',
+                        borderColor: '#E5E7EB',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          bgcolor: '#F9FAFB',
+                          borderColor: '#6B46C1',
+                          color: '#6B46C1',
                         },
                       }}
                     />

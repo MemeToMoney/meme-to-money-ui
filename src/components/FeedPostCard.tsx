@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box,
     Typography,
@@ -17,6 +17,8 @@ import {
     DialogActions,
     Button,
     CircularProgress,
+    Snackbar,
+    Alert,
 } from '@mui/material';
 import {
     Favorite,
@@ -27,6 +29,8 @@ import {
     Bookmark,
     MoreVert,
     Delete as DeleteIcon,
+    ContentCopy as CopyIcon,
+    Flag as FlagIcon,
 } from '@mui/icons-material';
 import { Content, ContentAPI, UserEngagementStatus } from '@/lib/api/content';
 import { isApiSuccess, formatTimeAgo, formatCreatorHandle, getHandleInitial } from '@/lib/api/client';
@@ -61,8 +65,32 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
     const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [snackbar, setSnackbar] = useState({ open: false, message: '' });
 
     const isOwnPost = user?.id === post.creatorId;
+
+    // Sync engagement state when initialEngagement changes (e.g. after API fetch)
+    useEffect(() => {
+        if (initialEngagement) {
+            setIsLiked(initialEngagement.liked || false);
+            setIsSaved(initialEngagement.bookmarked || false);
+        }
+    }, [initialEngagement]);
+
+    // Fetch engagement status on mount if not provided
+    useEffect(() => {
+        if (!initialEngagement && user?.id) {
+            ContentAPI.getBulkEngagementStatus([post.id], user.id)
+                .then(res => {
+                    if (isApiSuccess(res) && res.data && res.data[post.id]) {
+                        const eng = res.data[post.id];
+                        setIsLiked(eng.liked || false);
+                        setIsSaved(eng.bookmarked || false);
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [post.id, user?.id]);
 
     const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
         setMenuAnchorEl(event.currentTarget);
@@ -97,6 +125,27 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
 
     const handleDeleteCancel = () => {
         setDeleteDialogOpen(false);
+    };
+
+    const handleCopyLink = async () => {
+        handleMenuClose();
+        const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/post/${post.id}` : '';
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            setSnackbar({ open: true, message: 'Link copied!' });
+        } catch {
+            setSnackbar({ open: true, message: 'Failed to copy link' });
+        }
+    };
+
+    const handleMenuShareClick = () => {
+        handleMenuClose();
+        setShareDialogOpen(true);
+    };
+
+    const handleMenuSaveClick = () => {
+        handleMenuClose();
+        handleSaveClick();
     };
 
     const getContentUrl = (content: Content) => {
@@ -201,6 +250,20 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                         }
                     }}
                 >
+                    <MenuItem onClick={handleMenuShareClick}>
+                        <ListItemIcon><Share sx={{ fontSize: 20 }} /></ListItemIcon>
+                        <ListItemText>Share</ListItemText>
+                    </MenuItem>
+                    <MenuItem onClick={handleMenuSaveClick}>
+                        <ListItemIcon>
+                            {isSaved ? <Bookmark sx={{ fontSize: 20, color: '#111827' }} /> : <BookmarkBorder sx={{ fontSize: 20 }} />}
+                        </ListItemIcon>
+                        <ListItemText>{isSaved ? 'Unsave' : 'Save'}</ListItemText>
+                    </MenuItem>
+                    <MenuItem onClick={handleCopyLink}>
+                        <ListItemIcon><CopyIcon sx={{ fontSize: 20 }} /></ListItemIcon>
+                        <ListItemText>Copy Link</ListItemText>
+                    </MenuItem>
                     {isOwnPost && (
                         <MenuItem onClick={handleDeleteClick} sx={{ color: '#DC2626' }}>
                             <ListItemIcon>
@@ -211,6 +274,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                     )}
                     {!isOwnPost && (
                         <MenuItem onClick={handleMenuClose}>
+                            <ListItemIcon><FlagIcon sx={{ fontSize: 20 }} /></ListItemIcon>
                             <ListItemText>Report</ListItemText>
                         </MenuItem>
                     )}
@@ -395,6 +459,16 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {/* Copy Link Snackbar */}
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={2000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert severity="success" sx={{ width: '100%' }}>{snackbar.message}</Alert>
+            </Snackbar>
         </Card>
     );
 };

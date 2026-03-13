@@ -34,7 +34,7 @@ export default function RightPanel() {
   const [trendingTags, setTrendingTags] = useState<TrendingTag[]>([]);
   const [tagsLoading, setTagsLoading] = useState(true);
 
-  const [topEarners, setTopEarners] = useState<LeaderboardEntry[]>([]);
+  const [topEarners, setTopEarners] = useState<(LeaderboardEntry & { resolvedName?: string; resolvedPicture?: string })[]>([]);
   const [earnersLoading, setEarnersLoading] = useState(true);
 
   const [suggestedUsers, setSuggestedUsers] = useState<UserSummary[]>([]);
@@ -54,11 +54,43 @@ export default function RightPanel() {
       .catch(() => {})
       .finally(() => setTagsLoading(false));
 
-    // Fetch leaderboard
+    // Fetch leaderboard and resolve user names
     MonetizationAPI.getLeaderboard('weekly', 5)
-      .then((res) => {
+      .then(async (res) => {
         if (isApiSuccess(res)) {
-          setTopEarners(Array.isArray(res.data) ? res.data.slice(0, 5) : []);
+          const entries = Array.isArray(res.data) ? res.data.slice(0, 5) : [];
+          setTopEarners(entries);
+          // Resolve profiles for entries missing handle/displayName
+          const needsResolve = entries.filter(
+            (e) => !e.handle && !e.displayName
+          );
+          if (needsResolve.length > 0) {
+            const resolved = await Promise.all(
+              needsResolve.map(async (entry) => {
+                try {
+                  const profileRes = await UserAPI.getUserProfile(entry.userId);
+                  if (isApiSuccess(profileRes)) {
+                    const u = profileRes.data;
+                    return {
+                      userId: entry.userId,
+                      name: u.creatorHandle || u.displayName || u.name || u.username || 'User',
+                      picture: u.profilePicture,
+                    };
+                  }
+                } catch {}
+                return null;
+              })
+            );
+            setTopEarners((prev) =>
+              prev.map((entry) => {
+                const match = resolved.find((r) => r && r.userId === entry.userId);
+                if (match) {
+                  return { ...entry, resolvedName: match.name, resolvedPicture: match.picture };
+                }
+                return entry;
+              })
+            );
+          }
         }
       })
       .catch(() => {})
@@ -247,10 +279,10 @@ export default function RightPanel() {
                     {entry.rank || idx + 1}
                   </Typography>
                   <Avatar
-                    src={entry.profilePicture}
+                    src={entry.profilePicture || (entry as any).resolvedPicture}
                     sx={{ width: 32, height: 32, bgcolor: '#6B46C1', fontSize: '0.8rem' }}
                   >
-                    {getHandleInitial(entry.handle || entry.displayName)}
+                    {getHandleInitial(entry.handle || entry.displayName || (entry as any).resolvedName || 'User')}
                   </Avatar>
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography
@@ -264,7 +296,7 @@ export default function RightPanel() {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {formatCreatorHandle(entry.handle || entry.displayName)}
+                      {formatCreatorHandle(entry.handle || entry.displayName || (entry as any).resolvedName || 'User')}
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>

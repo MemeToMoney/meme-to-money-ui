@@ -9,6 +9,7 @@ import {
   IconButton,
   Avatar,
   Chip,
+  Badge,
   Tabs,
   Tab,
   CircularProgress,
@@ -18,6 +19,8 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
@@ -26,6 +29,7 @@ import {
   Add as CreateIcon,
   Timer as TimerIcon,
   Whatshot as FireIcon,
+  GroupAdd as OpenBattleIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -47,6 +51,8 @@ function BattlesContent() {
   const [selectedTheme, setSelectedTheme] = useState('');
   const [creating, setCreating] = useState(false);
   const [contentUrls, setContentUrls] = useState<Record<string, string>>({});
+  const [openBattleCount, setOpenBattleCount] = useState(0);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const router = useRouter();
   const { user } = useAuth();
 
@@ -57,14 +63,27 @@ function BattlesContent() {
   const loadBattles = async () => {
     setLoading(true);
     try {
-      const response = activeTab === 0
-        ? await BattleAPI.getLiveBattles(0, 20)
-        : await BattleAPI.getCompletedBattles(0, 20);
+      let response;
+      if (activeTab === 0) {
+        response = await BattleAPI.getLiveBattles(0, 20);
+      } else if (activeTab === 1) {
+        // Open Battles tab: fetch live battles then filter to WAITING only
+        response = await BattleAPI.getLiveBattles(0, 50);
+      } else {
+        response = await BattleAPI.getCompletedBattles(0, 20);
+      }
 
       if (isApiSuccess(response)) {
-        setBattles(response.data.content || []);
+        let battleList = response.data.content || [];
+
+        // For Open Battles tab, filter to WAITING status only
+        if (activeTab === 1) {
+          battleList = battleList.filter((b: Battle) => b.status === 'WAITING');
+        }
+
+        setBattles(battleList);
         // Load content thumbnails for battles with submitted memes
-        const contentIds = (response.data.content || []).flatMap((b: Battle) =>
+        const contentIds = battleList.flatMap((b: Battle) =>
           [b.creator1ContentId, b.creator2ContentId].filter(Boolean) as string[]
         );
         loadContentThumbnails(contentIds);
@@ -78,6 +97,22 @@ function BattlesContent() {
       setLoading(false);
     }
   };
+
+  // Load open battle count for badge (runs once on mount and after tab changes)
+  useEffect(() => {
+    const loadOpenBattleCount = async () => {
+      try {
+        const response = await BattleAPI.getLiveBattles(0, 50);
+        if (isApiSuccess(response)) {
+          const waitingBattles = (response.data.content || []).filter(
+            (b: Battle) => b.status === 'WAITING'
+          );
+          setOpenBattleCount(waitingBattles.length);
+        }
+      } catch {}
+    };
+    loadOpenBattleCount();
+  }, [battles]); // re-count when battles change
 
   const loadContentThumbnails = async (contentIds: string[]) => {
     for (const cid of contentIds) {
@@ -127,9 +162,14 @@ function BattlesContent() {
       const response = await BattleAPI.joinBattle(battleId);
       if (isApiSuccess(response)) {
         setBattles(prev => prev.map(b => b.id === battleId ? response.data : b));
+        setSnackbar({ open: true, message: 'You joined the battle! Get ready to submit your best meme.', severity: 'success' });
+      } else {
+        setSnackbar({ open: true, message: 'Failed to join battle. Please try again.', severity: 'error' });
       }
     } catch (err: any) {
       console.error('Join failed:', err);
+      const errorMsg = err?.response?.data?.message || 'Failed to join battle. Please try again.';
+      setSnackbar({ open: true, message: errorMsg, severity: 'error' });
     }
   };
 
@@ -192,19 +232,45 @@ function BattlesContent() {
           variant="fullWidth"
           sx={{
             '& .MuiTab-root': {
-              textTransform: 'none', fontWeight: 700, color: '#6B7280',
+              textTransform: 'none', fontWeight: 700, color: '#6B7280', minWidth: 0, px: 1,
               '&.Mui-selected': { color: '#6B46C1' },
             },
             '& .MuiTabs-indicator': { bgcolor: '#6B46C1' },
           }}
         >
           <Tab label="Live Battles" icon={<VoteIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+          <Tab
+            label={
+              <Badge badgeContent={openBattleCount} color="error" max={99}
+                sx={{ '& .MuiBadge-badge': { fontSize: '0.65rem', minWidth: 18, height: 18 } }}
+              >
+                <span style={{ paddingRight: openBattleCount > 0 ? 8 : 0 }}>Open Battles</span>
+              </Badge>
+            }
+            icon={<OpenBattleIcon sx={{ fontSize: 18 }} />}
+            iconPosition="start"
+          />
           <Tab label="Results" icon={<TrophyIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
         </Tabs>
       </Box>
 
+      {/* Open Battles count indicator */}
+      {activeTab === 1 && openBattleCount > 0 && (
+        <Box sx={{ px: 2, pt: 2 }}>
+          <Box sx={{
+            display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 2,
+            bgcolor: '#FAF5FF', border: '1px solid #EDE9FE',
+          }}>
+            <OpenBattleIcon sx={{ color: '#6B46C1', fontSize: 20 }} />
+            <Typography variant="body2" sx={{ fontWeight: 700, color: '#6B46C1' }}>
+              {openBattleCount} Open Battle{openBattleCount !== 1 ? 's' : ''} available to join
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
       {/* Create Battle CTA */}
-      {activeTab === 0 && (
+      {(activeTab === 0 || activeTab === 1) && (
         <Box sx={{ p: 2 }}>
           <Card
             sx={{
@@ -246,7 +312,7 @@ function BattlesContent() {
         ) : battles.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 6 }}>
             <Typography variant="body1" color="text.secondary">
-              {activeTab === 0 ? 'No active battles right now. Start one!' : 'No completed battles yet'}
+              {activeTab === 0 ? 'No active battles right now. Start one!' : activeTab === 1 ? 'No open battles right now. Create one and wait for a challenger!' : 'No completed battles yet'}
             </Typography>
           </Box>
         ) : (
@@ -261,7 +327,11 @@ function BattlesContent() {
             const timeLeft = getTimeLeft(battle.votingEndsAt);
 
             return (
-              <Card key={battle.id} sx={{ mb: 2, borderRadius: 3, overflow: 'hidden' }}>
+              <Card key={battle.id} sx={{ mb: 2, borderRadius: 3, overflow: 'hidden', cursor: 'pointer' }} onClick={(e) => {
+                  // Don't navigate if clicking a button
+                  if ((e.target as HTMLElement).closest('button')) return;
+                  router.push(`/battles/${battle.id}`);
+                }}>
                 {/* Battle header */}
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1.5, bgcolor: '#FAF5FF', borderBottom: '1px solid #EDE9FE' }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#6B46C1' }}>
@@ -405,11 +475,42 @@ function BattlesContent() {
                 {/* Join button for waiting battles */}
                 {canJoin && (
                   <Box sx={{ px: 2, pb: 2 }}>
-                    <Button fullWidth variant="contained" onClick={() => handleJoinBattle(battle.id)}
-                      sx={{ bgcolor: '#6B46C1', textTransform: 'none', borderRadius: 2, fontWeight: 700, '&:hover': { bgcolor: '#553C9A' } }}
+                    <Button fullWidth variant="contained"
+                      startIcon={<OpenBattleIcon />}
+                      onClick={() => handleJoinBattle(battle.id)}
+                      sx={{
+                        background: 'linear-gradient(135deg, #6B46C1 0%, #EC4899 100%)',
+                        textTransform: 'none', borderRadius: 2, fontWeight: 700, py: 1.2, fontSize: '0.95rem',
+                        '&:hover': { background: 'linear-gradient(135deg, #553C9A 0%, #DB2777 100%)' },
+                      }}
                     >
                       Join This Battle
                     </Button>
+                  </Box>
+                )}
+
+                {/* Submit meme button for participants in ACTIVE battles */}
+                {battle.status === 'ACTIVE' && user?.id && (
+                  (user.id === battle.creator1Id && !battle.creator1ContentId) ||
+                  (user.id === battle.creator2Id && !battle.creator2ContentId)
+                ) && (
+                  <Box sx={{ px: 2, pb: 2 }}>
+                    <Button fullWidth variant="contained"
+                      onClick={() => router.push(`/battles/${battle.id}`)}
+                      sx={{ bgcolor: '#6B46C1', textTransform: 'none', borderRadius: 2, fontWeight: 700, '&:hover': { bgcolor: '#553C9A' } }}
+                    >
+                      Submit Your Meme
+                    </Button>
+                  </Box>
+                )}
+
+                {/* Submitted indicator for participants who already submitted */}
+                {battle.status === 'ACTIVE' && user?.id && (
+                  (user.id === battle.creator1Id && !!battle.creator1ContentId) ||
+                  (user.id === battle.creator2Id && !!battle.creator2ContentId)
+                ) && (
+                  <Box sx={{ px: 2, pb: 2, textAlign: 'center' }}>
+                    <Chip label="Meme Submitted" size="small" sx={{ bgcolor: '#ECFDF5', color: '#059669', fontWeight: 700 }} />
                   </Box>
                 )}
 
@@ -432,6 +533,22 @@ function BattlesContent() {
           })
         )}
       </Box>
+
+      {/* Join Success/Error Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       {/* Create Battle Dialog */}
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} fullWidth maxWidth="sm">

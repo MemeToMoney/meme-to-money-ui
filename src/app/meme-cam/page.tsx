@@ -352,11 +352,23 @@ function MemeCamContent() {
             {/* PREVIEW */}
             {step === 'PREVIEW' && (
               <Box sx={{ bgcolor: 'white', p: 2, minHeight: '80vh' }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, textAlign: 'center', mb: 2, color: '#1a1a1a' }}>
-                  Your meme is ready!
-                </Typography>
-                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+                <Box sx={{ textAlign: 'center', mb: 2 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#1a1a1a' }}>
+                    Your meme is ready!
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
+                    Preview your creation before posting
+                  </Typography>
+                </Box>
+                {/* Read-only canvas preview */}
+                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
                   <MemeEditor imageSrc={imageSrc} filterCss={selectedFilter.css} topText={topText} bottomText={bottomText} onTopTextChange={setTopText} onBottomTextChange={setBottomText} stageRef={stageRef} />
+                </Box>
+                {/* Back to editor link */}
+                <Box sx={{ textAlign: 'center', mb: 2 }}>
+                  <Button size="small" onClick={() => setStep('EDITOR')} sx={{ textTransform: 'none', color: '#6B46C1', fontSize: '0.8rem' }}>
+                    Back to editor
+                  </Button>
                 </Box>
                 {isPosting ? (
                   <Box sx={{ textAlign: 'center', py: 2 }}>
