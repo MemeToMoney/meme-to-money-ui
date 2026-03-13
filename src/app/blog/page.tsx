@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Container,
   Box,
@@ -14,6 +14,17 @@ import {
   IconButton,
   Grid,
   Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  Alert,
+  Snackbar,
+  CircularProgress,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -21,9 +32,13 @@ import {
   AccessTime,
   CalendarToday,
   Edit as EditIcon,
+  Close as CloseIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { blogPosts, blogCategories, BlogPost } from '@/lib/data/blogPosts';
+import { useAuth } from '@/contexts/AuthContext';
+import { ContentAPI, Content } from '@/lib/api/content';
 
 const categoryColors: Record<string, { bg: string; color: string }> = {
   'Meme Culture': { bg: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B' },
@@ -31,6 +46,25 @@ const categoryColors: Record<string, { bg: string; color: string }> = {
   'Platform Updates': { bg: 'rgba(59, 130, 246, 0.15)', color: '#3B82F6' },
   Monetization: { bg: 'rgba(16, 185, 129, 0.15)', color: '#10B981' },
 };
+
+// Convert API content to BlogPost format for display
+function contentToBlogPost(content: Content): BlogPost {
+  const wordCount = (content.description || '').split(/\s+/).length;
+  const readMinutes = Math.max(1, Math.ceil(wordCount / 200));
+  return {
+    slug: `user-post-${content.id}`,
+    title: content.title || 'Untitled',
+    excerpt: (content.description || '').substring(0, 200) + ((content.description || '').length > 200 ? '...' : ''),
+    content: content.description || '',
+    category: (content.category as BlogPost['category']) || 'Meme Culture',
+    author: content.creatorHandle || 'Anonymous',
+    date: content.createdAt || new Date().toISOString(),
+    readTime: `${readMinutes} min read`,
+    coverImage: '',
+    tags: content.tags || [],
+    featured: false,
+  };
+}
 
 function BlogPostCard({ post, featured = false }: { post: BlogPost; featured?: boolean }) {
   const router = useRouter();
@@ -201,15 +235,83 @@ function BlogPostCard({ post, featured = false }: { post: BlogPost; featured?: b
   );
 }
 
+const writableCategories = ['Meme Culture', 'Creator Tips', 'Platform Updates', 'Monetization'] as const;
+
 export default function BlogPage() {
   const router = useRouter();
+  const { user, isAuthenticated } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Create dialog state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createTitle, setCreateTitle] = useState('');
+  const [createContent, setCreateContent] = useState('');
+  const [createCategory, setCreateCategory] = useState<string>('Meme Culture');
+  const [createTags, setCreateTags] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
+
+  // User-created blog posts from API
+  const [userPosts, setUserPosts] = useState<BlogPost[]>([]);
+  const [loadingUserPosts, setLoadingUserPosts] = useState(false);
+
   const featuredPost = blogPosts.find((p) => p.featured);
 
+  // Load user-created text posts from the content service
+  const loadUserPosts = useCallback(async () => {
+    setLoadingUserPosts(true);
+    try {
+      const response = await ContentAPI.searchContent(
+        undefined,
+        undefined,
+        'TEXT_POST',
+        undefined,
+        0,
+        50,
+        user?.id
+      );
+      if (response.status === 200 && response.data) {
+        const pageData = response.data;
+        // Handle both Page<Content> and raw array responses
+        const contentItems: Content[] = Array.isArray(pageData)
+          ? pageData
+          : pageData.content
+            ? Array.isArray(pageData.content)
+              ? pageData.content
+              : []
+            : [];
+        const converted = contentItems
+          .filter((c: Content) => c.type === 'TEXT_POST')
+          .map(contentToBlogPost);
+        setUserPosts(converted);
+      }
+    } catch {
+      // Silently fail - hardcoded posts will still show
+    } finally {
+      setLoadingUserPosts(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadUserPosts();
+  }, [loadUserPosts]);
+
+  // Combine hardcoded + user posts
+  const allPosts = useMemo(() => {
+    const hardcoded = blogPosts.filter((p) => !p.featured);
+    return [...hardcoded, ...userPosts];
+  }, [userPosts]);
+
   const filteredPosts = useMemo(() => {
-    let posts = blogPosts.filter((p) => !p.featured);
+    let posts = allPosts;
     if (selectedCategory !== 'All') {
       posts = posts.filter((p) => p.category === selectedCategory);
     }
@@ -223,7 +325,72 @@ export default function BlogPage() {
       );
     }
     return posts;
-  }, [selectedCategory, searchQuery]);
+  }, [allPosts, selectedCategory, searchQuery]);
+
+  const handleCreateOpen = () => {
+    setCreateTitle('');
+    setCreateContent('');
+    setCreateCategory('Meme Culture');
+    setCreateTags('');
+    setCreateError('');
+    setCreateOpen(true);
+  };
+
+  const handleCreateClose = () => {
+    if (!creating) {
+      setCreateOpen(false);
+    }
+  };
+
+  const handleCreateSubmit = async () => {
+    // Validation
+    if (!createTitle.trim()) {
+      setCreateError('Title is required');
+      return;
+    }
+    if (!createContent.trim()) {
+      setCreateError('Content is required');
+      return;
+    }
+    if (!user) {
+      setCreateError('You must be logged in');
+      return;
+    }
+
+    setCreating(true);
+    setCreateError('');
+
+    try {
+      const tags = createTags
+        .split(',')
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+
+      const response = await ContentAPI.createTextPost(
+        {
+          title: createTitle.trim(),
+          description: createContent.trim(),
+          tags,
+          category: createCategory,
+        },
+        user.id,
+        user.creatorHandle || user.username || user.name
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        setSnackbar({ open: true, message: 'Blog post created successfully!', severity: 'success' });
+        setCreateOpen(false);
+        // Reload user posts
+        loadUserPosts();
+      } else {
+        setCreateError(response.message || 'Failed to create blog post');
+      }
+    } catch {
+      setCreateError('Something went wrong. Please try again.');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   return (
     <Box sx={{ bgcolor: '#f8f9fa', minHeight: '100vh', pb: 10 }}>
@@ -249,10 +416,30 @@ export default function BlogPage() {
                 background: 'linear-gradient(135deg, #6B46C1 0%, #9333EA 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
+                flexGrow: 1,
               }}
             >
               Blog
             </Typography>
+            {isAuthenticated && (
+              <Button
+                variant="contained"
+                startIcon={<EditIcon />}
+                onClick={handleCreateOpen}
+                sx={{
+                  bgcolor: '#6B46C1',
+                  color: 'white',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  px: 2,
+                  '&:hover': { bgcolor: '#553C9A' },
+                }}
+              >
+                Write Blog
+              </Button>
+            )}
           </Box>
         </Container>
       </Box>
@@ -321,6 +508,23 @@ export default function BlogPage() {
           <BlogPostCard post={featuredPost} featured />
         )}
 
+        {/* Community Posts Section Header */}
+        {userPosts.length > 0 && selectedCategory === 'All' && !searchQuery && (
+          <Typography
+            variant="subtitle1"
+            sx={{ fontWeight: 700, color: '#1a1a1a', mt: 2, mb: 1.5 }}
+          >
+            All Articles
+          </Typography>
+        )}
+
+        {/* Loading indicator for user posts */}
+        {loadingUserPosts && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <CircularProgress size={24} sx={{ color: '#6B46C1' }} />
+          </Box>
+        )}
+
         {/* Post Grid */}
         {filteredPosts.length > 0 ? (
           <Grid container spacing={2}>
@@ -341,6 +545,183 @@ export default function BlogPage() {
           </Box>
         )}
       </Container>
+
+      {/* Create Blog Post Dialog */}
+      <Dialog
+        open={createOpen}
+        onClose={handleCreateClose}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            bgcolor: 'white',
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontWeight: 800,
+            color: '#1a1a1a',
+            borderBottom: '1px solid #E5E7EB',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <EditIcon sx={{ color: '#6B46C1' }} />
+            Write a Blog Post
+          </Box>
+          <IconButton onClick={handleCreateClose} size="small" disabled={creating} sx={{ color: '#6B7280' }}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3, pb: 1 }}>
+          {createError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setCreateError('')}>
+              {createError}
+            </Alert>
+          )}
+
+          <TextField
+            label="Title"
+            fullWidth
+            value={createTitle}
+            onChange={(e) => setCreateTitle(e.target.value)}
+            disabled={creating}
+            sx={{
+              mb: 2.5,
+              mt: 1,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                '& fieldset': { borderColor: '#E5E7EB' },
+                '&:hover fieldset': { borderColor: '#6B46C1' },
+                '&.Mui-focused fieldset': { borderColor: '#6B46C1' },
+              },
+              '& .MuiInputLabel-root.Mui-focused': { color: '#6B46C1' },
+            }}
+            placeholder="Give your blog post a title"
+          />
+
+          <TextField
+            label="Content"
+            fullWidth
+            multiline
+            rows={10}
+            value={createContent}
+            onChange={(e) => setCreateContent(e.target.value)}
+            disabled={creating}
+            sx={{
+              mb: 2.5,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                '& fieldset': { borderColor: '#E5E7EB' },
+                '&:hover fieldset': { borderColor: '#6B46C1' },
+                '&.Mui-focused fieldset': { borderColor: '#6B46C1' },
+              },
+              '& .MuiInputLabel-root.Mui-focused': { color: '#6B46C1' },
+            }}
+            placeholder="Write your blog post content here. You can use markdown formatting."
+          />
+
+          <FormControl
+            fullWidth
+            sx={{
+              mb: 2.5,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                '& fieldset': { borderColor: '#E5E7EB' },
+                '&:hover fieldset': { borderColor: '#6B46C1' },
+                '&.Mui-focused fieldset': { borderColor: '#6B46C1' },
+              },
+              '& .MuiInputLabel-root.Mui-focused': { color: '#6B46C1' },
+            }}
+          >
+            <InputLabel>Category</InputLabel>
+            <Select
+              value={createCategory}
+              onChange={(e) => setCreateCategory(e.target.value)}
+              label="Category"
+              disabled={creating}
+            >
+              {writableCategories.map((cat) => (
+                <MenuItem key={cat} value={cat}>
+                  {cat}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <TextField
+            label="Tags"
+            fullWidth
+            value={createTags}
+            onChange={(e) => setCreateTags(e.target.value)}
+            disabled={creating}
+            sx={{
+              mb: 1,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                '& fieldset': { borderColor: '#E5E7EB' },
+                '&:hover fieldset': { borderColor: '#6B46C1' },
+                '&.Mui-focused fieldset': { borderColor: '#6B46C1' },
+              },
+              '& .MuiInputLabel-root.Mui-focused': { color: '#6B46C1' },
+            }}
+            placeholder="Enter tags separated by commas (e.g. memes, tips, guide)"
+            helperText="Separate multiple tags with commas"
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, borderTop: '1px solid #E5E7EB', pt: 2 }}>
+          <Button
+            onClick={handleCreateClose}
+            disabled={creating}
+            sx={{
+              color: '#6B7280',
+              fontWeight: 600,
+              textTransform: 'none',
+              '&:hover': { bgcolor: '#f3f4f6' },
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateSubmit}
+            disabled={creating || !createTitle.trim() || !createContent.trim()}
+            startIcon={creating ? <CircularProgress size={18} sx={{ color: 'white' }} /> : <AddIcon />}
+            sx={{
+              bgcolor: '#6B46C1',
+              color: 'white',
+              fontWeight: 700,
+              textTransform: 'none',
+              borderRadius: 2,
+              px: 3,
+              '&:hover': { bgcolor: '#553C9A' },
+              '&.Mui-disabled': { bgcolor: '#D1D5DB', color: 'white' },
+            }}
+          >
+            {creating ? 'Publishing...' : 'Publish'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Success/Error Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+          severity={snackbar.severity}
+          sx={{ width: '100%', borderRadius: 2 }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

@@ -49,7 +49,7 @@ export interface Content {
   title: string;
   description?: string;
   type: 'MEME' | 'SHORT_VIDEO' | 'TEXT_POST';
-  status: 'UPLOADING' | 'PROCESSING' | 'READY' | 'PUBLISHED' | 'FAILED' | 'DELETED';
+  status: 'UPLOADING' | 'PROCESSING' | 'READY' | 'PUBLISHED' | 'SCHEDULED' | 'FAILED' | 'DELETED';
   creatorId: string;
   creatorHandle: string;
   originalFile: MediaFile;
@@ -65,6 +65,7 @@ export interface Content {
   createdAt: string;
   updatedAt: string;
   publishedAt?: string;
+  scheduledAt?: string;
   moderationStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
   monetizationEnabled: boolean;
 }
@@ -580,6 +581,38 @@ export class ContentAPI {
   }
 
   /**
+   * Get scheduled content for the current user
+   * GET /api/content/scheduled
+   */
+  static async getScheduledContent(
+    userId: string,
+    page = 0,
+    size = 20
+  ): Promise<ApiResponse<PageResponse<Content>>> {
+    return handleApiResponse<PageResponse<Content>>(
+      contentServiceClient.get('/api/content/scheduled', {
+        params: { page, size },
+        headers: { 'X-User-Id': userId }
+      })
+    );
+  }
+
+  /**
+   * Cancel a scheduled post
+   * DELETE /api/content/{contentId}/schedule
+   */
+  static async cancelScheduledContent(
+    contentId: string,
+    userId: string
+  ): Promise<ApiResponse<any>> {
+    return handleApiResponse<any>(
+      contentServiceClient.delete(`/api/content/${contentId}/schedule`, {
+        headers: { 'X-User-Id': userId }
+      })
+    );
+  }
+
+  /**
    * Search content
    * GET /api/content/search
    */
@@ -831,11 +864,11 @@ export class BattleAPI {
 
 // --- Scheduled Content API ---
 export const getScheduledContent = async (page = 0, size = 20) => {
-  const response = await contentServiceClient.get('/content/scheduled', { params: { page, size } });
+  const response = await contentServiceClient.get('/api/content/scheduled', { params: { page, size } });
   return response.data;
 };
 
 export const cancelScheduledContent = async (contentId: string) => {
-  const response = await contentServiceClient.delete(`/content/${contentId}/schedule`);
+  const response = await contentServiceClient.delete(`/api/content/${contentId}/schedule`);
   return response.data;
 };

@@ -238,6 +238,9 @@ function ShortsPageContent() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
   const initialLoadDone = useRef(false);
+  const pageRef = useRef(0);
+  const loadedPagesRef = useRef<Set<number>>(new Set());
+  const engagementLoadedRef = useRef<Set<string>>(new Set());
   const { user } = useAuth();
   const router = useRouter();
 
@@ -249,8 +252,10 @@ function ShortsPageContent() {
   }, []);
 
   const loadShorts = async (pageNum: number) => {
+    if (loadedPagesRef.current.has(pageNum)) return;
     if (loadingRef.current) return;
     loadingRef.current = true;
+    loadedPagesRef.current.add(pageNum);
     try {
       setLoading(true);
       // Try home feed first (most reliable), then trending as fallback
@@ -281,10 +286,13 @@ function ShortsPageContent() {
         setShorts(prev => [...prev, ...videoContent]);
       }
       setPage(pageNum);
+      pageRef.current = pageNum;
 
       // Load engagement statuses
       if (user?.id && videoContent.length > 0) {
-        const ids = videoContent.map((c: Content) => c.id);
+        const ids = videoContent.map((c: Content) => c.id).filter(id => !engagementLoadedRef.current.has(id));
+        ids.forEach(id => engagementLoadedRef.current.add(id));
+        if (ids.length === 0) { setLoading(false); loadingRef.current = false; return; }
         try {
           const engRes = await ContentAPI.getBulkEngagementStatus(ids, user.id);
           if (isApiSuccess(engRes)) {
@@ -400,10 +408,10 @@ function ShortsPageContent() {
       }
       // Load more when near end (guard prevents duplicate calls)
       if (newIndex >= shorts.length - 2 && !loadingRef.current) {
-        loadShorts(page + 1);
+        loadShorts(pageRef.current + 1);
       }
     }
-  }, [currentVideoIndex, shorts.length, page]);
+  }, [currentVideoIndex, shorts.length]);
 
   if (loading && shorts.length === 0) {
     return (

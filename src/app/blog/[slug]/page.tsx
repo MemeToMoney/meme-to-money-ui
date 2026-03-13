@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Container,
   Box,
@@ -13,6 +13,7 @@ import {
   Snackbar,
   Alert,
   Grid,
+  CircularProgress,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -23,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import { getBlogPostBySlug, getRelatedPosts, BlogPost } from '@/lib/data/blogPosts';
+import { ContentAPI, Content } from '@/lib/api/content';
 
 const categoryColors: Record<string, { bg: string; color: string }> = {
   'Meme Culture': { bg: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B' },
@@ -162,6 +164,25 @@ function RelatedPostCard({ post }: { post: BlogPost }) {
   );
 }
 
+// Convert API content to BlogPost format for display
+function contentToBlogPost(content: Content): BlogPost {
+  const wordCount = (content.description || '').split(/\s+/).length;
+  const readMinutes = Math.max(1, Math.ceil(wordCount / 200));
+  return {
+    slug: `user-post-${content.id}`,
+    title: content.title || 'Untitled',
+    excerpt: (content.description || '').substring(0, 200) + ((content.description || '').length > 200 ? '...' : ''),
+    content: content.description || '',
+    category: (content.category as BlogPost['category']) || 'Meme Culture',
+    author: content.creatorHandle || 'Anonymous',
+    date: content.createdAt || new Date().toISOString(),
+    readTime: `${readMinutes} min read`,
+    coverImage: '',
+    tags: content.tags || [],
+    featured: false,
+  };
+}
+
 export default function BlogDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -169,8 +190,43 @@ export default function BlogDetailPage() {
   const [snackOpen, setSnackOpen] = React.useState(false);
   const [snackMsg, setSnackMsg] = React.useState('');
 
-  const post = useMemo(() => getBlogPostBySlug(slug), [slug]);
-  const relatedPosts = useMemo(() => (slug ? getRelatedPosts(slug, 3) : []), [slug]);
+  // For user-created posts fetched from API
+  const [apiPost, setApiPost] = useState<BlogPost | null>(null);
+  const [apiLoading, setApiLoading] = useState(false);
+
+  const isUserPost = slug?.startsWith('user-post-');
+  const contentId = isUserPost ? slug.replace('user-post-', '') : null;
+
+  // Fetch from API if it's a user-created post
+  useEffect(() => {
+    if (contentId) {
+      setApiLoading(true);
+      ContentAPI.getContent(contentId)
+        .then((response) => {
+          if (response.status === 200 && response.data) {
+            setApiPost(contentToBlogPost(response.data));
+          }
+        })
+        .catch(() => {
+          // Will show "not found"
+        })
+        .finally(() => setApiLoading(false));
+    }
+  }, [contentId]);
+
+  const post = useMemo(() => {
+    if (isUserPost) return apiPost;
+    return getBlogPostBySlug(slug);
+  }, [slug, isUserPost, apiPost]);
+  const relatedPosts = useMemo(() => (slug && !isUserPost ? getRelatedPosts(slug, 3) : []), [slug, isUserPost]);
+
+  if (apiLoading) {
+    return (
+      <Box sx={{ bgcolor: '#f8f9fa', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress sx={{ color: '#6B46C1' }} />
+      </Box>
+    );
+  }
 
   if (!post) {
     return (

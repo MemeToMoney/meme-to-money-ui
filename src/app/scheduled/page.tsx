@@ -50,9 +50,10 @@ function ScheduledPostsContent() {
       const response = await ContentAPI.getUserContent(user.id, 0, 50, user.id);
       if (isApiSuccess(response)) {
         const allContent = response.data.content || [];
-        // Filter for scheduled posts (status PROCESSING or READY that have a future publishedAt)
+        // Filter for scheduled posts
         const scheduled = allContent.filter(
           (c: Content) =>
+            c.status === 'SCHEDULED' ||
             c.status === 'PROCESSING' ||
             (c.status === 'READY' && c.publishedAt && new Date(c.publishedAt) > new Date())
         );
@@ -80,7 +81,9 @@ function ScheduledPostsContent() {
     if (!cancellingPostId || !user?.id) return;
     try {
       setCancelling(true);
-      // Remove the post from the local list optimistically
+      // Call API to cancel the scheduled post
+      await ContentAPI.cancelScheduledContent(cancellingPostId, user.id);
+      // Remove the post from the local list after successful cancellation
       setPosts((prev) => prev.filter((p) => p.id !== cancellingPostId));
       setCancelDialogOpen(false);
       setCancellingPostId(null);
@@ -278,8 +281,8 @@ function ScheduledPostsContent() {
 
             {posts.map((post) => {
               const thumbnail = getContentThumbnail(post);
-              const scheduleInfo = post.publishedAt
-                ? formatScheduledDate(post.publishedAt)
+              const scheduleInfo = (post.scheduledAt || post.publishedAt)
+                ? formatScheduledDate(post.scheduledAt || post.publishedAt!)
                 : null;
 
               return (
