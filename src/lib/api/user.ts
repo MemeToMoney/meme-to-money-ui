@@ -22,6 +22,13 @@ export interface SearchResult {
     hasNext: boolean;
 }
 
+export interface StreakInfo {
+    currentStreak: number;
+    longestStreak: number;
+    streakTitle: string;
+    lastPostDate?: string;
+}
+
 export interface FollowStatus {
     following: boolean;
     followedBy: boolean;
@@ -37,7 +44,26 @@ export interface PaginatedUsers {
     hasNext: boolean;
 }
 
+export interface ReputationInfo {
+    reputationXP: number;
+    rank: string;
+    badges: string[];
+    nextRankXP: number;
+    progressPercent: number;
+}
+
 export class UserAPI {
+    /**
+     * Get user reputation info (XP, rank, badges, progress)
+     * GET /api/users/{userId}/reputation
+     */
+    static async getReputation(userId: string): Promise<ApiResponse<ReputationInfo>> {
+        return handleApiResponse<ReputationInfo>(
+            userServiceClient.get(`/api/users/${userId}/reputation`)
+        );
+    }
+
+
     /**
      * Follow a user
      * POST /api/users/{userId}/follow
@@ -205,6 +231,26 @@ export class UserAPI {
     static async updateHandle(userId: string, handle: string): Promise<ApiResponse<string>> {
         return handleApiResponse<string>(
             userServiceClient.patch(`/api/users/${userId}/handle`, { handle })
+        );
+    }
+
+    /**
+     * Update current user's posting streak
+     * POST /api/users/me/streak
+     */
+    static async updateStreak(): Promise<ApiResponse<StreakInfo>> {
+        return handleApiResponse<StreakInfo>(
+            userServiceClient.post('/api/users/me/streak', {})
+        );
+    }
+
+    /**
+     * Get current user's streak info
+     * GET /api/users/me/streak
+     */
+    static async getStreakInfo(): Promise<ApiResponse<StreakInfo>> {
+        return handleApiResponse<StreakInfo>(
+            userServiceClient.get('/api/users/me/streak')
         );
     }
 }

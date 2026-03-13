@@ -22,7 +22,12 @@ import {
   TextFields as TextIcon,
   Delete as DeleteIcon,
   FormatItalic as ItalicIcon,
+  MusicNote as SoundIcon,
+  PlayArrow as PlayIcon,
+  Check as AttachIcon,
+  VolumeUp as VolumeIcon,
 } from '@mui/icons-material';
+import memeSounds, { soundCategories, MemeSound } from '@/data/meme-sounds';
 
 interface MemeEditorProps {
   imageSrc: string;
@@ -32,6 +37,8 @@ interface MemeEditorProps {
   onTopTextChange: (text: string) => void;
   onBottomTextChange: (text: string) => void;
   stageRef: React.RefObject<Konva.Stage>;
+  onSoundChange?: (soundId: string | null) => void;
+  selectedSoundId?: string | null;
 }
 
 const FONTS = ['Impact', 'Arial Black', 'Comic Sans MS', 'Montserrat', 'Courier New', 'Georgia'];
@@ -147,6 +154,8 @@ export default function MemeEditor({
   onTopTextChange,
   onBottomTextChange,
   stageRef,
+  onSoundChange,
+  selectedSoundId: controlledSoundId,
 }: MemeEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasWidth, setCanvasWidth] = useState(CANVAS_SIZE);
@@ -157,8 +166,30 @@ export default function MemeEditor({
   const [editingField, setEditingField] = useState<'top' | 'bottom'>('top');
   const [fontStyle, setFontStyle] = useState<'normal' | 'italic'>('normal');
 
-  // Tab state: 0=Text, 1=Stickers, 2=Draw
+  // Tab state: 0=Text, 1=Stickers, 2=Draw, 3=Sounds
   const [activeTab, setActiveTab] = useState(0);
+
+  // Sound state
+  const [internalSoundId, setInternalSoundId] = useState<string | null>(null);
+  const [soundCategory, setSoundCategory] = useState<string>('trending');
+  const [previewingSoundId, setPreviewingSoundId] = useState<string | null>(null);
+  const attachedSoundId = controlledSoundId !== undefined ? controlledSoundId : internalSoundId;
+
+  const handleAttachSound = useCallback((soundId: string) => {
+    const newId = attachedSoundId === soundId ? null : soundId;
+    if (onSoundChange) {
+      onSoundChange(newId);
+    } else {
+      setInternalSoundId(newId);
+    }
+  }, [attachedSoundId, onSoundChange]);
+
+  const handlePreviewSound = useCallback((soundId: string) => {
+    // Toggle preview - in future, this will play the actual audio
+    setPreviewingSoundId(prev => prev === soundId ? null : soundId);
+    // Auto-clear preview after a short delay
+    setTimeout(() => setPreviewingSoundId(null), 2000);
+  }, []);
 
   // Drawing state
   const [drawLines, setDrawLines] = useState<DrawLine[]>([]);
@@ -546,16 +577,38 @@ export default function MemeEditor({
               minHeight: 40,
               textTransform: 'none',
               fontWeight: 600,
-              fontSize: '0.8rem',
+              fontSize: '0.72rem',
               color: '#6B7280',
+              px: 1,
+              minWidth: 0,
               '&.Mui-selected': { color: '#6B46C1' },
             },
             '& .MuiTabs-indicator': { bgcolor: '#6B46C1', height: 2 },
           }}
         >
-          <Tab icon={<TextIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Text" />
-          <Tab icon={<StickerIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Stickers" />
-          <Tab icon={<DrawIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Draw" />
+          <Tab icon={<TextIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Text" />
+          <Tab icon={<StickerIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Stickers" />
+          <Tab icon={<DrawIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Draw" />
+          <Tab
+            icon={<SoundIcon sx={{ fontSize: 16 }} />}
+            iconPosition="start"
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                Sounds
+                {attachedSoundId && (
+                  <Box
+                    sx={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      bgcolor: '#10B981',
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+              </Box>
+            }
+          />
         </Tabs>
       </Box>
 
@@ -932,6 +985,203 @@ export default function MemeEditor({
                 {drawBrushSize}
               </Typography>
             </Box>
+          </>
+        )}
+
+        {/* SOUNDS TAB */}
+        {activeTab === 3 && (
+          <>
+            {/* Attached sound indicator */}
+            {attachedSoundId && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  p: 1.5,
+                  mb: 1.5,
+                  borderRadius: 2,
+                  bgcolor: '#FAF5FF',
+                  border: '1px solid #E9D5FF',
+                }}
+              >
+                <VolumeIcon sx={{ fontSize: 18, color: '#6B46C1' }} />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#6B46C1', display: 'block' }}>
+                    Sound attached
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#7C3AED', fontSize: '0.7rem' }} noWrap>
+                    {memeSounds.find(s => s.id === attachedSoundId)?.emoji}{' '}
+                    {memeSounds.find(s => s.id === attachedSoundId)?.name}
+                  </Typography>
+                </Box>
+                <IconButton
+                  size="small"
+                  onClick={() => handleAttachSound(attachedSoundId)}
+                  sx={{ color: '#9CA3AF', '&:hover': { color: '#EF4444' } }}
+                >
+                  <DeleteIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Box>
+            )}
+
+            {/* Sound category tabs */}
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 0.75,
+                mb: 1.5,
+                overflowX: 'auto',
+                '&::-webkit-scrollbar': { display: 'none' },
+              }}
+            >
+              {soundCategories.map((cat) => (
+                <Box
+                  key={cat.key}
+                  onClick={() => setSoundCategory(cat.key)}
+                  sx={{
+                    px: 1.5,
+                    py: 0.5,
+                    borderRadius: 1,
+                    flexShrink: 0,
+                    border: soundCategory === cat.key ? '2px solid #8B5CF6' : '1px solid #E5E7EB',
+                    bgcolor: soundCategory === cat.key ? '#FAF5FF' : 'white',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                  }}
+                >
+                  <Typography component="span" sx={{ fontSize: '0.8rem' }}>
+                    {cat.emoji}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 600,
+                      color: soundCategory === cat.key ? '#6B46C1' : '#6B7280',
+                    }}
+                  >
+                    {cat.label}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+
+            {/* Sound list */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+              {memeSounds
+                .filter((s) => s.category === soundCategory)
+                .map((sound) => {
+                  const isAttached = attachedSoundId === sound.id;
+                  const isPreviewing = previewingSoundId === sound.id;
+                  return (
+                    <Box
+                      key={sound.id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        p: 1,
+                        borderRadius: 1.5,
+                        border: isAttached ? '2px solid #8B5CF6' : '1px solid #E5E7EB',
+                        bgcolor: isAttached ? '#FAF5FF' : 'white',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {/* Emoji icon */}
+                      <Box
+                        sx={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 1,
+                          bgcolor: isAttached ? '#EDE9FE' : '#F3F4F6',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '1.2rem',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {sound.emoji}
+                      </Box>
+
+                      {/* Name + duration */}
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontWeight: 600,
+                            color: '#1a1a1a',
+                            display: 'block',
+                            lineHeight: 1.3,
+                          }}
+                          noWrap
+                        >
+                          {sound.name}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{ color: '#9CA3AF', fontSize: '0.65rem' }}
+                        >
+                          {sound.duration}
+                        </Typography>
+                      </Box>
+
+                      {/* Preview button */}
+                      <Tooltip title="Preview sound" arrow>
+                        <IconButton
+                          size="small"
+                          onClick={() => handlePreviewSound(sound.id)}
+                          sx={{
+                            color: isPreviewing ? '#6B46C1' : '#9CA3AF',
+                            bgcolor: isPreviewing ? '#EDE9FE' : 'transparent',
+                            '&:hover': { bgcolor: '#F3F4F6' },
+                          }}
+                        >
+                          <PlayIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
+                      </Tooltip>
+
+                      {/* Attach button */}
+                      <Tooltip title={isAttached ? 'Remove sound' : 'Attach sound'} arrow>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleAttachSound(sound.id)}
+                          sx={{
+                            color: isAttached ? 'white' : '#6B46C1',
+                            bgcolor: isAttached ? '#6B46C1' : 'transparent',
+                            border: isAttached ? 'none' : '1px solid #E5E7EB',
+                            '&:hover': {
+                              bgcolor: isAttached ? '#553C9A' : '#FAF5FF',
+                            },
+                          }}
+                        >
+                          {isAttached ? (
+                            <AttachIcon sx={{ fontSize: 16 }} />
+                          ) : (
+                            <SoundIcon sx={{ fontSize: 16 }} />
+                          )}
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  );
+                })}
+            </Box>
+
+            {/* Info text */}
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#9CA3AF',
+                display: 'block',
+                mt: 1.5,
+                textAlign: 'center',
+                fontSize: '0.65rem',
+              }}
+            >
+              Sound will play when viewers see your meme. Tap attach to add.
+            </Typography>
           </>
         )}
       </Box>

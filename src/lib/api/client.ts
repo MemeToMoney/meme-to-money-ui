@@ -63,6 +63,9 @@ export interface User {
   onboardingCompleted?: boolean;
   website?: string;
   socialLinks?: { [key: string]: string };
+  currentStreak?: number;
+  longestStreak?: number;
+  streakTitle?: string;
   createdAt?: string;
   updatedAt?: string;
 }

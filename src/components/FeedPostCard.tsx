@@ -19,6 +19,8 @@ import {
     CircularProgress,
     Snackbar,
     Alert,
+    Chip,
+    Tooltip,
 } from '@mui/material';
 import {
     Favorite,
@@ -31,11 +33,58 @@ import {
     Delete as DeleteIcon,
     ContentCopy as CopyIcon,
     Flag as FlagIcon,
+    Loop as RemixIcon,
+    RocketLaunch as BoostIcon,
 } from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
 import { Content, ContentAPI, UserEngagementStatus } from '@/lib/api/content';
 import { isApiSuccess, formatTimeAgo, formatCreatorHandle, getHandleInitial } from '@/lib/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import ShareDialog from './ShareDialog';
+
+/**
+ * Adds a "Created on MemeToMoney" watermark to an image and returns a Blob.
+ */
+async function addWatermark(imageUrl: string, creatorHandle: string): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) { reject(new Error('No canvas context')); return; }
+
+            ctx.drawImage(img, 0, 0);
+
+            // Watermark bar at the bottom
+            const barHeight = Math.max(32, img.height * 0.05);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+            ctx.fillRect(0, img.height - barHeight, img.width, barHeight);
+
+            const fontSize = Math.max(12, barHeight * 0.5);
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const handle = creatorHandle?.startsWith('@') ? creatorHandle : `@${creatorHandle || 'unknown'}`;
+            ctx.fillText(
+                `Created on MemeToMoney \u00B7 ${handle}`,
+                img.width / 2,
+                img.height - barHeight / 2
+            );
+
+            canvas.toBlob((blob) => {
+                if (blob) resolve(blob);
+                else reject(new Error('Canvas toBlob failed'));
+            }, 'image/png');
+        };
+        img.onerror = () => reject(new Error('Failed to load image for watermark'));
+        img.src = imageUrl;
+    });
+}
 
 interface FeedPostCardProps {
     post: Content;
@@ -57,6 +106,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
     onDelete,
 }) => {
     const { user } = useAuth();
+    const router = useRouter();
     const [isLiked, setIsLiked] = useState(initialEngagement?.liked || false);
     const [likeCount, setLikeCount] = useState(post.likeCount);
     const [shareCount, setShareCount] = useState(post.shareCount);
@@ -66,6 +116,11 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '' });
+    const [boostDialogOpen, setBoostDialogOpen] = useState(false);
+    const [selectedBoostCoins, setSelectedBoostCoins] = useState(100);
+    const [boosting, setBoosting] = useState(false);
+    const [isBoosted, setIsBoosted] = useState(post.isBoosted || false);
+    const [coinBalance, setCoinBalance] = useState<number | null>(null);
 
     const isOwnPost = user?.id === post.creatorId;
 
@@ -190,12 +245,35 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
         }
     };
 
-    const handleShareClick = () => {
-        setShareDialogOpen(true);
-        if (!user?.id) return;
+    const handleShareClick = async () => {
+        if (!user?.id) { setShareDialogOpen(true); return; }
         setShareCount(prev => prev + 1);
         if (onShare) onShare(post.id);
         ContentAPI.recordEngagement(post.id, { action: 'SHARE' }, user.id, user.username).catch(() => {});
+
+        // For image memes, try to share a watermarked version via native share
+        const imgUrl = getContentUrl(post);
+        if (post.type === 'MEME' && imgUrl && typeof navigator !== 'undefined' && navigator.share && navigator.canShare) {
+            try {
+                const blob = await addWatermark(imgUrl, post.creatorHandle);
+                const file = new File([blob], 'meme.png', { type: 'image/png' });
+                if (navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: post.title || 'Check out this meme on MemeToMoney!',
+                        files: [file],
+                    });
+                    return;
+                }
+            } catch {
+                // Fall through to dialog
+            }
+        }
+
+        setShareDialogOpen(true);
+    };
+
+    const handleRemixClick = () => {
+        router.push(`/upload?remix=${post.id}`);
     };
 
     const handleSaveClick = async () => {
@@ -213,6 +291,43 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
             setIsSaved(!newSaved);
         }
     };
+
+    const handleBoostClick = () => {
+        handleMenuClose();
+        setBoostDialogOpen(true);
+        // Fetch coin balance
+        if (user?.id) {
+            import('@/lib/api/monetization').then(({ MonetizationAPI }) => {
+                MonetizationAPI.getBalance().then(res => {
+                    if (res.status === 200 && res.data !== null) {
+                        setCoinBalance(res.data);
+                    }
+                }).catch(() => {});
+            });
+        }
+    };
+
+    const handleBoostConfirm = async () => {
+        if (!user?.id) return;
+        setBoosting(true);
+        try {
+            const response = await ContentAPI.boostContent(post.id, selectedBoostCoins, user.id);
+            if (isApiSuccess(response)) {
+                setIsBoosted(true);
+                setBoostDialogOpen(false);
+                setSnackbar({ open: true, message: `Post boosted! Estimated ${(selectedBoostCoins * 200).toLocaleString()} extra impressions.` });
+            } else {
+                setSnackbar({ open: true, message: (response as any).message || 'Failed to boost post' });
+            }
+        } catch (error) {
+            console.error('Boost error:', error);
+            setSnackbar({ open: true, message: 'Failed to boost post. Please try again.' });
+        } finally {
+            setBoosting(false);
+        }
+    };
+
+    const boostOptions = [50, 100, 200, 500];
 
     const contentUrl = getContentUrl(post);
 
@@ -265,6 +380,14 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                         <ListItemText>Copy Link</ListItemText>
                     </MenuItem>
                     {isOwnPost && (
+                        <MenuItem onClick={handleBoostClick} sx={{ color: '#6B46C1' }}>
+                            <ListItemIcon>
+                                <BoostIcon sx={{ color: '#6B46C1', fontSize: 20 }} />
+                            </ListItemIcon>
+                            <ListItemText>Boost</ListItemText>
+                        </MenuItem>
+                    )}
+                    {isOwnPost && (
                         <MenuItem onClick={handleDeleteClick} sx={{ color: '#DC2626' }}>
                             <ListItemIcon>
                                 <DeleteIcon sx={{ color: '#DC2626', fontSize: 20 }} />
@@ -280,6 +403,45 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                     )}
                 </Menu>
             </Box>
+
+            {/* Boosted badge */}
+            {isBoosted && (
+                <Box sx={{ px: 2, pb: 0.5 }}>
+                    <Chip
+                        icon={<BoostIcon sx={{ fontSize: 14 }} />}
+                        label="Boosted"
+                        size="small"
+                        sx={{
+                            bgcolor: '#FEF3C7',
+                            color: '#92400E',
+                            fontWeight: 700,
+                            fontSize: '0.7rem',
+                            '& .MuiChip-icon': { color: '#F59E0B' },
+                        }}
+                    />
+                </Box>
+            )}
+
+            {/* Remix badge */}
+            {post.remixOfId && (
+                <Box sx={{ px: 2, pb: 1 }}>
+                    <Chip
+                        icon={<RemixIcon sx={{ fontSize: 16 }} />}
+                        label="Remix"
+                        size="small"
+                        sx={{ bgcolor: '#F3F4F6', color: '#6B46C1', fontWeight: 600, fontSize: '0.75rem' }}
+                    />
+                </Box>
+            )}
+
+            {/* Remix count */}
+            {(post.remixCount ?? 0) > 0 && (
+                <Box sx={{ px: 2, pb: 0.5 }}>
+                    <Typography variant="caption" sx={{ color: '#6B7280' }}>
+                        {post.remixCount} remix{post.remixCount === 1 ? '' : 'es'}
+                    </Typography>
+                </Box>
+            )}
 
             {/* Post Content */}
             {post.type === 'TEXT_POST' ? (
@@ -358,6 +520,11 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                         <IconButton onClick={handleShareClick} sx={{ p: 0, transition: 'transform 0.2s ease', '&:hover': { transform: 'scale(1.15)' } }}>
                             <Share />
                         </IconButton>
+                        <Tooltip title="Remix">
+                            <IconButton onClick={handleRemixClick} sx={{ p: 0, transition: 'transform 0.2s ease', '&:hover': { transform: 'scale(1.15)' } }}>
+                                <RemixIcon />
+                            </IconButton>
+                        </Tooltip>
                     </Box>
                     <IconButton onClick={handleSaveClick} sx={{ p: 0, transition: 'transform 0.2s ease', '&:hover': { transform: 'scale(1.15)' } }}>
                         {isSaved ? <Bookmark sx={{ color: '#111827' }} /> : <BookmarkBorder />}
@@ -416,6 +583,8 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                 onClose={() => setShareDialogOpen(false)}
                 contentId={post.id}
                 title={post.title || post.description}
+                imageUrl={post.type === 'MEME' ? contentUrl : undefined}
+                creatorHandle={post.creatorHandle}
             />
 
             {/* Delete Confirmation Dialog */}
@@ -456,6 +625,103 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                         }}
                     >
                         {deleting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Delete'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Boost Dialog */}
+            <Dialog
+                open={boostDialogOpen}
+                onClose={() => setBoostDialogOpen(false)}
+                fullWidth
+                maxWidth="xs"
+                PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
+            >
+                <DialogTitle sx={{ fontWeight: 700, color: '#374151', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <BoostIcon sx={{ color: '#6B46C1' }} />
+                    Boost Your Post
+                </DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" sx={{ color: '#6B7280', mb: 2 }}>
+                        Spend coins to get your post seen by more people. Each coin gives ~200 extra impressions for 24 hours.
+                    </Typography>
+
+                    {coinBalance !== null && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, p: 1.5, bgcolor: '#FAF5FF', borderRadius: 2, border: '1px solid #EDE9FE' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#6B46C1' }}>
+                                Your Balance:
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#374151' }}>
+                                {coinBalance.toLocaleString()} coins
+                            </Typography>
+                        </Box>
+                    )}
+
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#374151' }}>
+                        Select coin amount:
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                        {boostOptions.map((amount) => (
+                            <Chip
+                                key={amount}
+                                label={`${amount} coins`}
+                                onClick={() => setSelectedBoostCoins(amount)}
+                                sx={{
+                                    cursor: 'pointer',
+                                    bgcolor: selectedBoostCoins === amount ? '#6B46C1' : '#F3F4F6',
+                                    color: selectedBoostCoins === amount ? 'white' : '#374151',
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    px: 1,
+                                    '&:hover': {
+                                        bgcolor: selectedBoostCoins === amount ? '#553C9A' : '#E5E7EB',
+                                    },
+                                }}
+                            />
+                        ))}
+                    </Box>
+
+                    <Box sx={{ p: 2, bgcolor: '#F9FAFB', borderRadius: 2, border: '1px solid #E5E7EB' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="body2" sx={{ color: '#6B7280' }}>Estimated Reach</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#374151' }}>
+                                +{(selectedBoostCoins * 200).toLocaleString()} impressions
+                            </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2" sx={{ color: '#6B7280' }}>Duration</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#374151' }}>24 hours</Typography>
+                        </Box>
+                    </Box>
+
+                    {coinBalance !== null && coinBalance < selectedBoostCoins && (
+                        <Typography variant="caption" sx={{ color: '#DC2626', mt: 1, display: 'block' }}>
+                            Insufficient coins. You need {selectedBoostCoins - coinBalance} more coins.
+                        </Typography>
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button
+                        onClick={() => setBoostDialogOpen(false)}
+                        disabled={boosting}
+                        sx={{ textTransform: 'none', color: '#6B7280', fontWeight: 600 }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleBoostConfirm}
+                        disabled={boosting || (coinBalance !== null && coinBalance < selectedBoostCoins)}
+                        variant="contained"
+                        startIcon={boosting ? <CircularProgress size={16} sx={{ color: 'white' }} /> : <BoostIcon />}
+                        sx={{
+                            textTransform: 'none',
+                            bgcolor: '#6B46C1',
+                            fontWeight: 700,
+                            borderRadius: 2,
+                            '&:hover': { bgcolor: '#553C9A' },
+                        }}
+                    >
+                        {boosting ? 'Boosting...' : `Boost for ${selectedBoostCoins} coins`}
                     </Button>
                 </DialogActions>
             </Dialog>

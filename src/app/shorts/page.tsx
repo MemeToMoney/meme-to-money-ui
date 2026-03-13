@@ -24,6 +24,7 @@ import {
   Check as CheckIcon,
   Bookmark,
   BookmarkBorder,
+  Loop as RemixIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -51,6 +52,7 @@ interface VideoPlayerProps {
   onSave: () => void;
   onFollow: () => void;
   onProfileClick: () => void;
+  onRemix: () => void;
 }
 
 function VideoPlayer({
@@ -68,6 +70,7 @@ function VideoPlayer({
   onSave,
   onFollow,
   onProfileClick,
+  onRemix,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -201,6 +204,15 @@ function VideoPlayer({
           </IconButton>
           <Typography variant="caption" sx={{ color: 'white', fontSize: '0.75rem', fontWeight: 'bold', mt: 0.5, textShadow: '0 2px 6px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.9)' }}>
             {formatCount(content.shareCount || 0)}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <IconButton onClick={(e: React.MouseEvent) => { e.stopPropagation(); onRemix(); }} sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', width: 48, height: 48, transition: 'all 0.2s ease', '&:hover': { transform: 'scale(1.1)', bgcolor: 'rgba(0,0,0,0.65)' } }}>
+            <RemixIcon sx={{ fontSize: 28 }} />
+          </IconButton>
+          <Typography variant="caption" sx={{ color: 'white', fontSize: '0.7rem', fontWeight: 'bold', mt: 0.5, textShadow: '0 2px 6px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.9)' }}>
+            Remix
           </Typography>
         </Box>
 
@@ -367,7 +379,7 @@ function ShortsPageContent() {
 
     const currentContent = shorts.find(s => s.id === contentId);
     const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/post/${contentId}` : '';
-    const shareText = currentContent?.title || currentContent?.description || 'Check out this meme on MemeToMoney!';
+    const shareText = `${currentContent?.title || currentContent?.description || 'Check out this short'} | Created on MemeToMoney \u00B7 @${formatCreatorHandle(currentContent?.creatorHandle || '')}`;
 
     // Try native share first (works best on mobile)
     if (typeof navigator !== 'undefined' && navigator.share) {
@@ -469,6 +481,7 @@ function ShortsPageContent() {
                 onShare={() => handleShare(content.id)}
                 onSave={() => handleSave(content.id)}
                 onFollow={() => handleFollow(content.creatorId)}
+                onRemix={() => router.push(`/upload?remix=${content.id}`)}
                 onProfileClick={() => {
                   if (content.creatorId) {
                     router.push(`/profile/${content.creatorId}`);
@@ -516,6 +529,7 @@ function ShortsPageContent() {
         onClose={() => setShareDialogOpen(false)}
         contentId={shareContentId}
         title={shorts.find(s => s.id === shareContentId)?.title || shorts.find(s => s.id === shareContentId)?.description || undefined}
+        creatorHandle={shorts.find(s => s.id === shareContentId)?.creatorHandle}
       />
 
       {/* Mobile Bottom Navigation */}

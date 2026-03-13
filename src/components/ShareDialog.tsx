@@ -30,9 +30,54 @@ interface ShareDialogProps {
   onClose: () => void;
   contentId: string;
   title?: string;
+  imageUrl?: string;
+  creatorHandle?: string;
 }
 
-export default function ShareDialog({ open, onClose, contentId, title }: ShareDialogProps) {
+/**
+ * Adds a "Created on MemeToMoney" watermark to an image and returns a Blob.
+ */
+async function addWatermarkForShare(imageUrl: string, creatorHandle: string): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { reject(new Error('No canvas context')); return; }
+
+      ctx.drawImage(img, 0, 0);
+
+      const barHeight = Math.max(32, img.height * 0.05);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      ctx.fillRect(0, img.height - barHeight, img.width, barHeight);
+
+      const fontSize = Math.max(12, barHeight * 0.5);
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      const handle = creatorHandle?.startsWith('@') ? creatorHandle : `@${creatorHandle || 'unknown'}`;
+      ctx.fillText(
+        `Created on MemeToMoney \u00B7 ${handle}`,
+        img.width / 2,
+        img.height - barHeight / 2
+      );
+
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Canvas toBlob failed'));
+      }, 'image/png');
+    };
+    img.onerror = () => reject(new Error('Failed to load image for watermark'));
+    img.src = imageUrl;
+  });
+}
+
+export default function ShareDialog({ open, onClose, contentId, title, imageUrl, creatorHandle }: ShareDialogProps) {
   const [snackbar, setSnackbar] = useState({ open: false, message: '' });
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -54,6 +99,20 @@ export default function ShareDialog({ open, onClose, contentId, title }: ShareDi
   const handleNativeShare = async () => {
     if (navigator.share) {
       try {
+        // Try watermarked image share for memes
+        if (imageUrl && creatorHandle && navigator.canShare) {
+          try {
+            const blob = await addWatermarkForShare(imageUrl, creatorHandle);
+            const file = new File([blob], 'meme.png', { type: 'image/png' });
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({ title: shareText, files: [file] });
+              onClose();
+              return;
+            }
+          } catch {
+            // Fall through to text-only share
+          }
+        }
         await navigator.share({ title: shareText, url: shareUrl });
         onClose();
       } catch {

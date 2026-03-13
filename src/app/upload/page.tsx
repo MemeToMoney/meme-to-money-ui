@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
 import {
   Container,
   Box,
@@ -38,11 +38,14 @@ import {
   Add as AddIcon,
   Tag as TagIcon,
   Schedule as ScheduleIcon,
+  AutoFixHigh as TemplateIcon,
+  Loop as RemixIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { ContentAPI, UploadUrlRequest, ContentCreationRequest } from '@/lib/api/content';
-import { isApiSuccess, TokenManager } from '@/lib/api/client';
+import { ContentAPI, Content, UploadUrlRequest, ContentCreationRequest } from '@/lib/api/content';
+import { UserAPI } from '@/lib/api/user';
+import { isApiSuccess, TokenManager, formatCreatorHandle } from '@/lib/api/client';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 const Transition = React.forwardRef(function Transition(
@@ -84,10 +87,28 @@ function UploadPageContent() {
     { label: 'Upload & Share', completed: false },
   ]);
 
+  // Remix state
+  const [remixOfId, setRemixOfId] = useState<string | null>(null);
+  const [remixOriginal, setRemixOriginal] = useState<Content | null>(null);
+
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Load remix original content if remix param is present
+  useEffect(() => {
+    const remixId = searchParams.get('remix');
+    if (remixId) {
+      setRemixOfId(remixId);
+      ContentAPI.getContent(remixId).then(res => {
+        if (isApiSuccess(res) && res.data) {
+          setRemixOriginal(res.data);
+        }
+      }).catch(() => {});
+    }
+  }, [searchParams]);
 
   const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' = 'info') => {
     setSnackbarMessage(message);
@@ -207,6 +228,7 @@ function UploadPageContent() {
         fileSize: selectedFile.size,
         durationSeconds: contentType === 'SHORT_VIDEO' ? await getVideoDuration(selectedFile) : undefined,
         ...(isScheduled && scheduledAt ? { scheduledAt: new Date(scheduledAt).toISOString() } : {}),
+        ...(remixOfId ? { remixOfId } : {}),
       };
 
       const contentResponse = await ContentAPI.createContent(
@@ -221,6 +243,14 @@ function UploadPageContent() {
       }
 
       setUploadProgress(100);
+
+      // Update posting streak (fire and forget - don't block on failure)
+      if (!isScheduled) {
+        UserAPI.updateStreak().catch((err) => {
+          console.error('Failed to update streak:', err);
+        });
+      }
+
       showSnackbar(isScheduled ? 'Post scheduled successfully!' : 'Content uploaded successfully!', 'success');
 
       // Advance to final step
@@ -334,6 +364,23 @@ function UploadPageContent() {
         </Box>
       </AppBar>
 
+      {/* Remix badge */}
+      {remixOriginal && (
+        <Box sx={{ px: 3, pt: 2 }}>
+          <Chip
+            icon={<RemixIcon sx={{ fontSize: 18 }} />}
+            label={`Remixing ${formatCreatorHandle(remixOriginal.creatorHandle)}'s meme`}
+            sx={{
+              bgcolor: '#F3F4F6',
+              color: '#6B46C1',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              py: 0.5,
+            }}
+          />
+        </Box>
+      )}
+
       {/* Content */}
       <Container maxWidth={false} sx={{ flex: 1, p: 0 }}>
         {/* Step 1: File Selection */}
@@ -391,8 +438,43 @@ function UploadPageContent() {
               </Card>
             </Box>
 
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Maximum file size: 100MB
+            </Typography>
+
+            {/* Divider */}
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, px: 2 }}>
+              <Box sx={{ flex: 1, height: 1, bgcolor: '#E5E7EB' }} />
+              <Typography variant="caption" sx={{ px: 2, color: '#9CA3AF', fontWeight: 600 }}>
+                OR
+              </Typography>
+              <Box sx={{ flex: 1, height: 1, bgcolor: '#E5E7EB' }} />
+            </Box>
+
+            {/* Use Template button */}
+            <Button
+              variant="outlined"
+              startIcon={<TemplateIcon />}
+              onClick={() => router.push('/meme-cam')}
+              sx={{
+                borderColor: '#6B46C1',
+                color: '#6B46C1',
+                textTransform: 'none',
+                borderRadius: 3,
+                py: 1.5,
+                px: 4,
+                fontWeight: 700,
+                fontSize: '1rem',
+                '&:hover': {
+                  borderColor: '#553C9A',
+                  bgcolor: '#FAF5FF',
+                },
+              }}
+            >
+              Use Meme Template
+            </Button>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              Create memes with templates, stickers, sounds & more
             </Typography>
 
             <input
@@ -674,10 +756,18 @@ function UploadPageContent() {
   );
 }
 
-export default function UploadPage() {
+function UploadPageInner() {
   return (
     <ProtectedRoute>
       <UploadPageContent />
     </ProtectedRoute>
+  );
+}
+
+export default function UploadPage() {
+  return (
+    <Suspense>
+      <UploadPageInner />
+    </Suspense>
   );
 }

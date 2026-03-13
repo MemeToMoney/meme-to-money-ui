@@ -222,6 +222,20 @@ const memeTemplates: MemeTemplate[] = [
     ],
   },
 
+  // Indian / Desi
+  {
+    id: 'indian-parents-reaction',
+    name: 'Indian Parents Reaction',
+    category: 'reaction',
+    bgGradient: 'linear-gradient(180deg, #FF9933 0%, #FF9933 50%, #138808 50%, #138808 100%)',
+    bgColor: '#FF9933',
+    textAreas: [
+      { id: 'top', label: 'What you did', defaultText: 'Me: Gets 98%', position: 'top', yPercent: 15 },
+      { id: 'bottom', label: 'Parents reaction', defaultText: 'Parents: Where is the other 2%?', position: 'bottom', yPercent: 65 },
+    ],
+    splitLayout: true,
+  },
+
   // Blank templates
   {
     id: 'blank-dark',

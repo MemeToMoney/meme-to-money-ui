@@ -34,6 +34,7 @@ export interface ContentCreationRequest {
   contentType: string;
   fileSize: number;
   durationSeconds?: number;
+  remixOfId?: string;
 }
 
 export interface TextPostRequest {
@@ -68,6 +69,13 @@ export interface Content {
   scheduledAt?: string;
   moderationStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
   monetizationEnabled: boolean;
+  remixOfId?: string;
+  remixCount?: number;
+  // Boost fields
+  isBoosted?: boolean;
+  boostCoins?: number;
+  boostExpiresAt?: string;
+  boostReach?: number;
 }
 
 export interface MediaFile {
@@ -569,6 +577,22 @@ export class ContentAPI {
   }
 
   /**
+   * Boost content by spending coins
+   * POST /api/content/{contentId}/boost
+   */
+  static async boostContent(
+    contentId: string,
+    coins: number,
+    userId: string
+  ): Promise<ApiResponse<Content>> {
+    return handleApiResponse<Content>(
+      contentServiceClient.post(`/api/content/${contentId}/boost`, { coins }, {
+        headers: { 'X-User-Id': userId }
+      })
+    );
+  }
+
+  /**
    * Delete content by ID
    * DELETE /api/content/{contentId}
    */
@@ -767,6 +791,41 @@ export class ContentAPI {
   }
 
   /**
+   * Get remixes of a content
+   * GET /api/content/{contentId}/remixes
+   */
+  static async getRemixes(
+    contentId: string,
+    page = 0,
+    size = 20
+  ): Promise<ApiResponse<PageResponse<Content>>> {
+    return handleApiResponse<PageResponse<Content>>(
+      contentServiceClient.get(`/api/content/${contentId}/remixes`, {
+        params: { page, size }
+      })
+    );
+  }
+
+  /**
+   * Create a remix of existing content
+   * POST /api/content/{contentId}/remix
+   */
+  static async createRemix(
+    contentId: string,
+    userId: string,
+    userHandle: string
+  ): Promise<ApiResponse<Content>> {
+    return handleApiResponse<Content>(
+      contentServiceClient.post(`/api/content/${contentId}/remix`, {}, {
+        headers: {
+          'X-User-Id': userId,
+          'X-User-Handle': userHandle
+        }
+      })
+    );
+  }
+
+  /**
    * Check if a post is saved
    * GET /api/content/saved/check/{contentId}
    */
@@ -872,3 +931,63 @@ export const cancelScheduledContent = async (contentId: string) => {
   const response = await contentServiceClient.delete(`/api/content/${contentId}/schedule`);
   return response.data;
 };
+
+// --- Community Types ---
+export interface Community {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  iconEmoji: string;
+  category: string;
+  memberCount: number;
+  postCount: number;
+  createdAt: string;
+  tags: string[];
+  isDefault: boolean;
+}
+
+export interface CommunityDetail {
+  community: Community;
+  isMember: boolean;
+}
+
+// --- Community API ---
+export class CommunityAPI {
+
+  static async getAllCommunities(search?: string): Promise<ApiResponse<Community[]>> {
+    const params: any = {};
+    if (search) params.search = search;
+    return handleApiResponse(contentServiceClient.get('/api/communities', { params }));
+  }
+
+  static async getMyCommunities(userId: string): Promise<ApiResponse<Community[]>> {
+    return handleApiResponse(contentServiceClient.get('/api/communities/my', {
+      headers: { 'X-User-Id': userId }
+    }));
+  }
+
+  static async getCommunity(slug: string, userId?: string): Promise<ApiResponse<CommunityDetail>> {
+    const headers: any = {};
+    if (userId) headers['X-User-Id'] = userId;
+    return handleApiResponse(contentServiceClient.get(`/api/communities/${slug}`, { headers }));
+  }
+
+  static async joinCommunity(slug: string, userId: string): Promise<ApiResponse<Community>> {
+    return handleApiResponse(contentServiceClient.post(`/api/communities/${slug}/join`, {}, {
+      headers: { 'X-User-Id': userId }
+    }));
+  }
+
+  static async leaveCommunity(slug: string, userId: string): Promise<ApiResponse<Community>> {
+    return handleApiResponse(contentServiceClient.delete(`/api/communities/${slug}/leave`, {
+      headers: { 'X-User-Id': userId }
+    }));
+  }
+
+  static async getCommunityPosts(slug: string, page = 0, size = 20): Promise<ApiResponse<PageResponse<Content>>> {
+    return handleApiResponse(contentServiceClient.get(`/api/communities/${slug}/posts`, {
+      params: { page, size }
+    }));
+  }
+}

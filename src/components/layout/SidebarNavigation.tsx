@@ -25,6 +25,7 @@ import {
     Search as SearchIcon,
     Schedule as ScheduleIcon,
     Article as ArticleIcon,
+    Groups as GroupsIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -43,6 +44,11 @@ const navigationItems = [
         label: 'Shorts',
         value: '/shorts',
         icon: <ShortsIcon />
+    },
+    {
+        label: 'Communities',
+        value: '/communities',
+        icon: <GroupsIcon />
     },
     {
         label: 'Blog',
@@ -123,7 +129,7 @@ export default function SidebarNavigation() {
             {/* Navigation Items */}
             <List sx={{ flex: 1, px: 0 }}>
                 {navigationItems.map((item) => {
-                    const isActive = pathname === item.value;
+                    const isActive = pathname === item.value || (item.value !== '/' && pathname.startsWith(item.value + '/'));
                     return (
                         <ListItem key={item.value} disablePadding sx={{ mb: 1.5 }}>
                             <ListItemButton

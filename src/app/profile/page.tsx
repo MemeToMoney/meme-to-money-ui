@@ -460,9 +460,28 @@ function ProfilePageContent() {
                 {user.displayName || user.name}
               </Typography>
 
-              <Typography variant="body1" sx={{ color: '#6B46C1', fontWeight: 600, mb: 1.5 }}>
+              <Typography variant="body1" sx={{ color: '#6B46C1', fontWeight: 600, mb: 0.5 }}>
                 @{user.username || 'username'}
               </Typography>
+
+              {(user.currentStreak ?? 0) > 0 && (
+                <Box sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  bgcolor: 'rgba(107, 70, 193, 0.08)',
+                  border: '1px solid rgba(107, 70, 193, 0.2)',
+                  borderRadius: 3,
+                  px: 1.5,
+                  py: 0.5,
+                  mb: 1,
+                }}>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                    {'\uD83D\uDD25'} {user.currentStreak} day streak
+                    {user.streakTitle ? ` \u00B7 ${user.streakTitle}` : ''}
+                  </Typography>
+                </Box>
+              )}
 
               {user.bio && (
                 <Typography variant="body2" sx={{ color: '#4B5563', mb: 1, maxWidth: 400, lineHeight: 1.6 }}>

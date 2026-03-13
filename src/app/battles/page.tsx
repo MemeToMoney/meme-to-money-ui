@@ -30,6 +30,8 @@ import {
   Timer as TimerIcon,
   Whatshot as FireIcon,
   GroupAdd as OpenBattleIcon,
+  Campaign as BrandIcon,
+  Verified as SponsoredIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -69,8 +71,11 @@ function BattlesContent() {
       } else if (activeTab === 1) {
         // Open Battles tab: fetch live battles then filter to WAITING only
         response = await BattleAPI.getLiveBattles(0, 50);
-      } else {
+      } else if (activeTab === 2) {
         response = await BattleAPI.getCompletedBattles(0, 20);
+      } else {
+        // Brand Challenges tab (3) - load live battles with high prize (sponsored)
+        response = await BattleAPI.getLiveBattles(0, 50);
       }
 
       if (isApiSuccess(response)) {
@@ -79,6 +84,11 @@ function BattlesContent() {
         // For Open Battles tab, filter to WAITING status only
         if (activeTab === 1) {
           battleList = battleList.filter((b: Battle) => b.status === 'WAITING');
+        }
+
+        // For Brand Challenges tab, filter to high-prize battles (sponsored = prizeCoins >= 1000)
+        if (activeTab === 3) {
+          battleList = battleList.filter((b: Battle) => b.prizeCoins >= 1000);
         }
 
         setBattles(battleList);
@@ -229,10 +239,11 @@ function BattlesContent() {
         <Tabs
           value={activeTab}
           onChange={(_, v) => setActiveTab(v)}
-          variant="fullWidth"
+          variant="scrollable"
+          scrollButtons={false}
           sx={{
             '& .MuiTab-root': {
-              textTransform: 'none', fontWeight: 700, color: '#6B7280', minWidth: 0, px: 1,
+              textTransform: 'none', fontWeight: 700, color: '#6B7280', minWidth: 0, px: 1.5, flex: 1,
               '&.Mui-selected': { color: '#6B46C1' },
             },
             '& .MuiTabs-indicator': { bgcolor: '#6B46C1' },
@@ -251,6 +262,7 @@ function BattlesContent() {
             iconPosition="start"
           />
           <Tab label="Results" icon={<TrophyIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+          <Tab label="Brand" icon={<BrandIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
         </Tabs>
       </Box>
 
@@ -303,6 +315,40 @@ function BattlesContent() {
         </Box>
       )}
 
+      {/* Brand Challenges CTA */}
+      {activeTab === 3 && (
+        <Box sx={{ p: 2 }}>
+          <Card
+            sx={{
+              background: 'linear-gradient(135deg, #1E40AF 0%, #6B46C1 100%)',
+              color: 'white', p: 2.5, borderRadius: 3,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                  <SponsoredIcon sx={{ fontSize: 20, color: '#60A5FA' }} />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                    Brand Challenges
+                  </Typography>
+                </Box>
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  Sponsored meme contests with bigger prizes! Brands create challenges and the best meme wins big.
+                </Typography>
+              </Box>
+              <Box sx={{ width: 48, height: 48, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <BrandIcon sx={{ fontSize: 28 }} />
+              </Box>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+              <Chip label="Higher Prizes" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600, fontSize: '0.7rem' }} />
+              <Chip label="Brand Sponsored" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600, fontSize: '0.7rem' }} />
+              <Chip label="1000+ Coins" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600, fontSize: '0.7rem' }} />
+            </Box>
+          </Card>
+        </Box>
+      )}
+
       {/* Battle Cards */}
       <Box sx={{ px: 2, pb: 10, maxWidth: 428, mx: 'auto' }}>
         {loading ? (
@@ -312,7 +358,7 @@ function BattlesContent() {
         ) : battles.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 6 }}>
             <Typography variant="body1" color="text.secondary">
-              {activeTab === 0 ? 'No active battles right now. Start one!' : activeTab === 1 ? 'No open battles right now. Create one and wait for a challenger!' : 'No completed battles yet'}
+              {activeTab === 0 ? 'No active battles right now. Start one!' : activeTab === 1 ? 'No open battles right now. Create one and wait for a challenger!' : activeTab === 3 ? 'No brand challenges right now. Check back soon!' : 'No completed battles yet'}
             </Typography>
           </Box>
         ) : (
@@ -333,11 +379,24 @@ function BattlesContent() {
                   router.push(`/battles/${battle.id}`);
                 }}>
                 {/* Battle header */}
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1.5, bgcolor: '#FAF5FF', borderBottom: '1px solid #EDE9FE' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#6B46C1' }}>
-                    {battle.theme}
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1.5, bgcolor: battle.prizeCoins >= 1000 ? '#EFF6FF' : '#FAF5FF', borderBottom: battle.prizeCoins >= 1000 ? '1px solid #BFDBFE' : '1px solid #EDE9FE' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {battle.prizeCoins >= 1000 && (
+                      <SponsoredIcon sx={{ fontSize: 16, color: '#2563EB' }} />
+                    )}
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: battle.prizeCoins >= 1000 ? '#1E40AF' : '#6B46C1' }}>
+                      {battle.theme}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                    {battle.prizeCoins >= 1000 && (
+                      <Chip
+                        icon={<SponsoredIcon sx={{ fontSize: 12, color: '#2563EB !important' }} />}
+                        label="Sponsored"
+                        size="small"
+                        sx={{ bgcolor: '#DBEAFE', color: '#1E40AF', fontWeight: 700, fontSize: '0.6rem', height: 22 }}
+                      />
+                    )}
                     {battle.prizeCoins > 0 && (
                       <Chip label={`${battle.prizeCoins} coins`} size="small"
                         sx={{ bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 600, fontSize: '0.65rem' }}

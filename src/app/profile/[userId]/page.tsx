@@ -26,10 +26,16 @@ import {
   Block as BlockIcon,
   PhotoCamera as PhotoCameraIcon,
   Lock as LockIcon,
+  EmojiEvents as TrophyIcon,
+  Star as StarIcon,
+  MilitaryTech as MedalIcon,
+  Verified as VerifiedIcon,
+  AutoAwesome as SparkleIcon,
 } from '@mui/icons-material';
+import { LinearProgress, Tooltip, Chip } from '@mui/material';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { UserAPI, FollowStatus } from '@/lib/api/user';
+import { UserAPI, FollowStatus, ReputationInfo } from '@/lib/api/user';
 import { ContentAPI, Content } from '@/lib/api/content';
 import { MessagingAPI } from '@/lib/api/messaging';
 import { isApiSuccess } from '@/lib/api/client';
@@ -51,6 +57,7 @@ function UserProfileContent() {
   const [postDialogOpen, setPostDialogOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '' });
   const [messagingLoading, setMessagingLoading] = useState(false);
+  const [reputation, setReputation] = useState<ReputationInfo | null>(null);
 
   // Redirect to own profile if viewing self
   useEffect(() => {
@@ -67,9 +74,10 @@ function UserProfileContent() {
   const loadProfile = async () => {
     try {
       setLoading(true);
-      const [profileRes, statusRes] = await Promise.all([
+      const [profileRes, statusRes, repRes] = await Promise.all([
         UserAPI.getUserProfile(userId),
         UserAPI.getFollowStatus(userId),
+        UserAPI.getReputation(userId),
       ]);
 
       if (isApiSuccess(profileRes)) {
@@ -77,6 +85,9 @@ function UserProfileContent() {
       }
       if (isApiSuccess(statusRes)) {
         setFollowStatus(statusRes.data);
+      }
+      if (isApiSuccess(repRes)) {
+        setReputation(repRes.data);
       }
     } catch (err) {
       console.error('Failed to load profile:', err);
@@ -282,6 +293,108 @@ function UserProfileContent() {
               <Typography variant="body1" sx={{ color: '#6B46C1', fontWeight: 600, mb: 0.5 }}>
                 @{profileUser.username || profileUser.creatorHandle || 'user'}
               </Typography>
+
+              {profileUser.currentStreak > 0 && (
+                <Box sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  bgcolor: 'rgba(107, 70, 193, 0.08)',
+                  border: '1px solid rgba(107, 70, 193, 0.2)',
+                  borderRadius: 3,
+                  px: 1.5,
+                  py: 0.5,
+                  mb: 0.5,
+                }}>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                    {'\uD83D\uDD25'} {profileUser.currentStreak} day streak
+                    {profileUser.streakTitle ? ` \u00B7 ${profileUser.streakTitle}` : ''}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Reputation Badge & XP */}
+              {reputation && (
+                <Box sx={{ mb: 1.5, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                  {/* Rank Badge */}
+                  <Chip
+                    icon={<TrophyIcon sx={{ fontSize: 16 }} />}
+                    label={`${reputation.rank} - ${reputation.reputationXP} XP`}
+                    size="small"
+                    sx={{
+                      bgcolor: reputation.rank === 'Meme God' ? '#7C3AED'
+                        : reputation.rank === 'Meme Lord' ? '#8B5CF6'
+                        : reputation.rank === 'Meme Pro' ? '#A78BFA'
+                        : reputation.rank === 'Meme Creator' ? '#C4B5FD'
+                        : '#E9D5FF',
+                      color: reputation.rank === 'Meme God' || reputation.rank === 'Meme Lord' || reputation.rank === 'Meme Pro'
+                        ? 'white' : '#5B21B6',
+                      fontWeight: 700,
+                      fontSize: '0.75rem',
+                      '& .MuiChip-icon': {
+                        color: 'inherit',
+                      },
+                    }}
+                  />
+
+                  {/* XP Progress Bar to next rank */}
+                  {reputation.nextRankXP !== -1 && (
+                    <Tooltip title={`${reputation.reputationXP} / ${reputation.nextRankXP} XP to next rank`} arrow>
+                      <Box sx={{ width: '100%', maxWidth: 220 }}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={reputation.progressPercent}
+                          sx={{
+                            height: 6,
+                            borderRadius: 3,
+                            bgcolor: '#EDE9FE',
+                            '& .MuiLinearProgress-bar': {
+                              borderRadius: 3,
+                              background: 'linear-gradient(90deg, #A78BFA 0%, #7C3AED 100%)',
+                            },
+                          }}
+                        />
+                        <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.65rem', mt: 0.25, display: 'block', textAlign: 'center' }}>
+                          {reputation.reputationXP} / {reputation.nextRankXP} XP
+                        </Typography>
+                      </Box>
+                    </Tooltip>
+                  )}
+                  {reputation.nextRankXP === -1 && (
+                    <Typography variant="caption" sx={{ color: '#7C3AED', fontWeight: 600, fontSize: '0.65rem' }}>
+                      Max Rank Achieved!
+                    </Typography>
+                  )}
+
+                  {/* Badge Icons Row */}
+                  {reputation.badges && reputation.badges.length > 0 && (
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>
+                      {reputation.badges.map((badge, idx) => (
+                        <Tooltip key={idx} title={badge} arrow>
+                          <Chip
+                            icon={
+                              badge === 'First Meme' ? <StarIcon sx={{ fontSize: 14 }} /> :
+                              badge === 'Battle Victor' ? <MedalIcon sx={{ fontSize: 14 }} /> :
+                              badge === 'Streak Master' ? <SparkleIcon sx={{ fontSize: 14 }} /> :
+                              <VerifiedIcon sx={{ fontSize: 14 }} />
+                            }
+                            label={badge}
+                            size="small"
+                            variant="outlined"
+                            sx={{
+                              height: 24,
+                              fontSize: '0.65rem',
+                              borderColor: '#D8B4FE',
+                              color: '#6B46C1',
+                              '& .MuiChip-icon': { color: '#6B46C1' },
+                            }}
+                          />
+                        </Tooltip>
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              )}
 
               {isFollowedBy && (
                 <Typography variant="caption" sx={{
