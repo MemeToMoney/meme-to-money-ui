@@ -14,6 +14,8 @@ import {
   EmojiEvents as TrophyIcon,
   PersonAdd as PersonAddIcon,
   CurrencyRupee as CoinIcon,
+  Timer as TimerIcon,
+  Whatshot as FireIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +23,7 @@ import { ContentAPI } from '@/lib/api/content';
 import { MonetizationAPI, LeaderboardEntry } from '@/lib/api/monetization';
 import { UserAPI, UserSummary } from '@/lib/api/user';
 import { isApiSuccess, formatCreatorHandle, getHandleInitial } from '@/lib/api/client';
+import { getChallengeOfTheWeek } from '@/data/weekly-challenges';
 
 interface TrendingTag {
   hashtag: string;
@@ -158,6 +161,67 @@ export default function RightPanel() {
         '&::-webkit-scrollbar-thumb': { bgcolor: '#D1D5DB', borderRadius: 2 },
       }}
     >
+      {/* ===== Weekly Challenge ===== */}
+      {(() => {
+        const challenge = getChallengeOfTheWeek();
+        const now = new Date();
+        const diff = challenge.endDate.getTime() - now.getTime();
+        const daysLeft = Math.max(0, Math.floor(diff / 86400000));
+        const hoursLeft = Math.max(0, Math.floor((diff % 86400000) / 3600000));
+        return (
+          <Box sx={{ mb: 3 }}>
+            <Typography sx={sectionHeaderSx}>
+              <FireIcon sx={{ fontSize: 18, color: '#EF4444' }} />
+              Weekly Challenge
+            </Typography>
+            <Box
+              sx={{
+                bgcolor: 'white',
+                borderRadius: 3,
+                border: '1px solid #E5E7EB',
+                overflow: 'hidden',
+                cursor: 'pointer',
+                transition: 'box-shadow 0.2s',
+                '&:hover': { boxShadow: '0 4px 12px rgba(107, 70, 193, 0.15)' },
+              }}
+              onClick={() => router.push('/battles')}
+            >
+              <Box
+                sx={{
+                  background: 'linear-gradient(135deg, #6B46C1 0%, #9333EA 100%)',
+                  color: 'white',
+                  p: 2,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                  <TrophyIcon sx={{ fontSize: 16, color: '#FDE68A' }} />
+                  <Typography variant="caption" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.6rem' }}>
+                    This Week
+                  </Typography>
+                </Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: '0.9rem', mb: 0.5 }}>
+                  {challenge.theme}
+                </Typography>
+                <Typography variant="caption" sx={{ display: 'block', opacity: 0.85, fontSize: '0.65rem', lineHeight: 1.4, mb: 1 }}>
+                  {challenge.description}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#FDE68A', fontSize: '0.65rem' }}>
+                    Win up to ₹{challenge.prizePool}
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <TimerIcon sx={{ fontSize: 12 }} />
+                    <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.6rem' }}>
+                      {diff > 0 ? `${daysLeft}d ${hoursLeft}h` : 'Ended'}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+            </Box>
+          </Box>
+        );
+      })()}
+
       {/* ===== Trending Tags ===== */}
       <Box sx={{ mb: 3 }}>
         <Typography sx={sectionHeaderSx}>

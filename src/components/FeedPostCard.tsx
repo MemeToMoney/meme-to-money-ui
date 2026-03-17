@@ -35,6 +35,7 @@ import {
     Flag as FlagIcon,
     Loop as RemixIcon,
     RocketLaunch as BoostIcon,
+    CallSplit as DuetIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { Content, ContentAPI, UserEngagementStatus } from '@/lib/api/content';
@@ -167,12 +168,14 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
             const response = await ContentAPI.deleteContent(post.id);
             if (isApiSuccess(response)) {
                 setDeleteDialogOpen(false);
+                setSnackbar({ open: true, message: 'Post deleted' });
                 if (onDelete) onDelete(post.id);
             } else {
-                console.error('Failed to delete post:', (response as any).message);
+                setSnackbar({ open: true, message: 'Failed to delete post. Please try again.' });
             }
         } catch (error) {
             console.error('Delete error:', error);
+            setSnackbar({ open: true, message: 'Failed to delete post. Please try again.' });
         } finally {
             setDeleting(false);
         }
@@ -274,6 +277,10 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
 
     const handleRemixClick = () => {
         router.push(`/upload?remix=${post.id}`);
+    };
+
+    const handleDuetClick = () => {
+        router.push(`/upload?duet=${post.id}&duetType=SIDE_BY_SIDE`);
     };
 
     const handleSaveClick = async () => {
@@ -434,6 +441,18 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                 </Box>
             )}
 
+            {/* Duet badge */}
+            {post.duetOfId && (
+                <Box sx={{ px: 2, pb: 1 }}>
+                    <Chip
+                        icon={<DuetIcon sx={{ fontSize: 16 }} />}
+                        label={`Duet${post.duetType === 'REACTION' ? ' (Reaction)' : post.duetType === 'TOP_BOTTOM' ? ' (Top/Bottom)' : ''}`}
+                        size="small"
+                        sx={{ bgcolor: '#F3F4F6', color: '#6B46C1', fontWeight: 600, fontSize: '0.75rem' }}
+                    />
+                </Box>
+            )}
+
             {/* Remix count */}
             {(post.remixCount ?? 0) > 0 && (
                 <Box sx={{ px: 2, pb: 0.5 }}>
@@ -525,6 +544,13 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                                 <RemixIcon />
                             </IconButton>
                         </Tooltip>
+                        {(post.type === 'SHORT_VIDEO' || post.type === 'MEME') && (
+                            <Tooltip title="Duet">
+                                <IconButton onClick={handleDuetClick} sx={{ p: 0, transition: 'transform 0.2s ease', '&:hover': { transform: 'scale(1.15)' } }}>
+                                    <DuetIcon />
+                                </IconButton>
+                            </Tooltip>
+                        )}
                     </Box>
                     <IconButton onClick={handleSaveClick} sx={{ p: 0, transition: 'transform 0.2s ease', '&:hover': { transform: 'scale(1.15)' } }}>
                         {isSaved ? <Bookmark sx={{ color: '#111827' }} /> : <BookmarkBorder />}

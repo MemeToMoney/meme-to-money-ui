@@ -118,8 +118,8 @@ function getActivityDescription(type: string, description?: string): string {
   }
 }
 
-function isEarning(type: string): boolean {
-  return ['TIP_RECEIVED', 'BATTLE_WIN', 'REFERRAL_BONUS', 'DAILY_REWARD', 'CONTENT_BONUS', 'MILESTONE_REWARD', 'COIN_PURCHASE'].includes(type);
+function isEarningByCoins(coins: number): boolean {
+  return coins > 0;
 }
 
 function formatTime(dateValue: any): string {
@@ -305,7 +305,7 @@ function ActivityTab({ userId }: { userId: string }) {
           </Typography>
           <List disablePadding>
             {group.items.map((activity, index) => {
-              const earning = isEarning(activity.type);
+              const earning = isEarningByCoins(activity.coins);
               return (
                 <React.Fragment key={activity.id}>
                   <ListItem disablePadding>

@@ -114,9 +114,25 @@ function UserProfileContent() {
   const handleFollowToggle = async () => {
     if (!followStatus) return;
     setFollowLoading(true);
+
+    // Save previous state for rollback
+    const prevFollowStatus = { ...followStatus };
+    const prevFollowerCount = profileUser?.followerCount || 0;
+
     try {
       const isFollowing = followStatus.following;
       const isPending = followStatus.pending;
+
+      // Optimistic update
+      if (isFollowing || isPending) {
+        setFollowStatus(prev => prev ? { ...prev, following: false, pending: false } : null);
+        if (isFollowing) {
+          setProfileUser((prev: any) => prev ? {
+            ...prev,
+            followerCount: Math.max(0, (prev.followerCount || 0) - 1),
+          } : null);
+        }
+      }
 
       // If already following or pending, unfollow/cancel
       const response = (isFollowing || isPending)
@@ -125,14 +141,7 @@ function UserProfileContent() {
 
       if (isApiSuccess(response)) {
         if (isFollowing || isPending) {
-          // Unfollowed or cancelled request
-          setFollowStatus(prev => prev ? { ...prev, following: false, pending: false } : null);
-          if (isFollowing) {
-            setProfileUser((prev: any) => prev ? {
-              ...prev,
-              followerCount: Math.max(0, (prev.followerCount || 0) - 1),
-            } : null);
-          }
+          // Already updated optimistically above
           setSnackbar({ open: true, message: isPending ? 'Follow request cancelled' : 'Unfollowed' });
         } else {
           // New follow - check if it's pending (private account) or active
@@ -149,9 +158,17 @@ function UserProfileContent() {
             setSnackbar({ open: true, message: 'Following!' });
           }
         }
+      } else {
+        // Revert on API failure
+        setFollowStatus(prevFollowStatus);
+        setProfileUser((prev: any) => prev ? { ...prev, followerCount: prevFollowerCount } : null);
+        setSnackbar({ open: true, message: 'Action failed. Try again.' });
       }
     } catch (err) {
       console.error('Follow action failed:', err);
+      // Revert on error
+      setFollowStatus(prevFollowStatus);
+      setProfileUser((prev: any) => prev ? { ...prev, followerCount: prevFollowerCount } : null);
       setSnackbar({ open: true, message: 'Action failed. Try again.' });
     } finally {
       setFollowLoading(false);

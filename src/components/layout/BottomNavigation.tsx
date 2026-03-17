@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import {
   BottomNavigation,
@@ -8,14 +8,25 @@ import {
   Box,
   Fab,
   Paper,
-  Typography
+  Typography,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import {
   Home as HomeIcon,
   PlayArrow as ShortsIcon,
   CameraAlt as MemeCamIcon,
   Search as SearchIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  MoreHoriz as MoreIcon,
+  Schedule as ScheduleIcon,
+  AccountBalanceWallet as WalletIcon,
+  Notifications as NotificationsIcon,
+  EmojiEvents as BattlesIcon,
+  Settings as SettingsIcon,
+  Leaderboard as LeaderboardIcon,
 } from '@mui/icons-material';
 
 const navigationItems = [
@@ -40,21 +51,51 @@ const navigationItems = [
     icon: <SearchIcon />
   },
   {
-    label: 'Profile',
-    value: '/profile',
-    icon: <PersonIcon />
+    label: 'More',
+    value: '__more__',
+    icon: <MoreIcon />
   }
+];
+
+const moreMenuItems = [
+  { label: 'Profile', value: '/profile', icon: <PersonIcon sx={{ fontSize: 20 }} /> },
+  { label: 'Scheduled', value: '/scheduled', icon: <ScheduleIcon sx={{ fontSize: 20 }} /> },
+  { label: 'Wallet', value: '/wallet', icon: <WalletIcon sx={{ fontSize: 20 }} /> },
+  { label: 'Notifications', value: '/notifications', icon: <NotificationsIcon sx={{ fontSize: 20 }} /> },
+  { label: 'Battles', value: '/battles', icon: <BattlesIcon sx={{ fontSize: 20 }} /> },
+  { label: 'Leaderboard', value: '/leaderboard', icon: <LeaderboardIcon sx={{ fontSize: 20 }} /> },
+  { label: 'Settings', value: '/settings', icon: <SettingsIcon sx={{ fontSize: 20 }} /> },
 ];
 
 export default function MobileBottomNavigation() {
   const router = useRouter();
   const pathname = usePathname();
+  const [moreAnchorEl, setMoreAnchorEl] = useState<null | HTMLElement>(null);
 
   const handleNavigation = (newValue: string) => {
+    if (newValue === '__more__') {
+      return; // handled by click event
+    }
     if (newValue) {
       router.push(newValue);
     }
   };
+
+  const handleMoreClick = (event: React.MouseEvent<HTMLElement>) => {
+    setMoreAnchorEl(event.currentTarget);
+  };
+
+  const handleMoreClose = () => {
+    setMoreAnchorEl(null);
+  };
+
+  const handleMoreItemClick = (path: string) => {
+    handleMoreClose();
+    router.push(path);
+  };
+
+  // Check if current path matches any "more" menu item
+  const isMoreActive = moreMenuItems.some(item => pathname.startsWith(item.value));
 
   const handleCreateClick = () => {
     router.push('/meme-cam');
@@ -180,6 +221,28 @@ export default function MobileBottomNavigation() {
               );
             }
 
+            if (item.value === '__more__') {
+              return (
+                <BottomNavigationAction
+                  key="more"
+                  label={item.label}
+                  value={item.value}
+                  icon={item.icon}
+                  onClick={handleMoreClick}
+                  sx={{
+                    color: isMoreActive ? '#6B46C1' : '#4B5563',
+                    transition: 'all 0.2s ease',
+                    '&.Mui-selected': {
+                      color: '#6B46C1',
+                    },
+                    '&:hover': {
+                      color: '#6B46C1',
+                    },
+                  }}
+                />
+              );
+            }
+
             return (
               <BottomNavigationAction
                 key={item.value}
@@ -201,6 +264,44 @@ export default function MobileBottomNavigation() {
           })}
         </BottomNavigation>
       </Paper>
+
+      {/* More Menu */}
+      <Menu
+        anchorEl={moreAnchorEl}
+        open={Boolean(moreAnchorEl)}
+        onClose={handleMoreClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+            minWidth: 200,
+            mb: 1,
+          }
+        }}
+      >
+        {moreMenuItems.map((menuItem) => (
+          <MenuItem
+            key={menuItem.value}
+            onClick={() => handleMoreItemClick(menuItem.value)}
+            sx={{
+              py: 1.5,
+              px: 2.5,
+              color: pathname.startsWith(menuItem.value) ? '#6B46C1' : '#374151',
+              fontWeight: pathname.startsWith(menuItem.value) ? 700 : 400,
+              '&:hover': { bgcolor: '#F5F3FF' },
+            }}
+          >
+            <ListItemIcon sx={{ color: pathname.startsWith(menuItem.value) ? '#6B46C1' : '#6B7280' }}>
+              {menuItem.icon}
+            </ListItemIcon>
+            <ListItemText primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 'inherit' }}>
+              {menuItem.label}
+            </ListItemText>
+          </MenuItem>
+        ))}
+      </Menu>
     </>
   );
 }

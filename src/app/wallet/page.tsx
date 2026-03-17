@@ -77,11 +77,16 @@ function WalletPageContent() {
         setSnackbar({ open: true, message: `+${res.data.coins} coins! Daily login bonus claimed!`, severity: 'success' });
         loadWalletData();
       } else {
-        setDailyBonusClaimed(true);
+        // Only mark as claimed if the server says it was already claimed (not a real error)
+        const msg = (res as any)?.message || '';
+        if (msg.toLowerCase().includes('already') || msg.toLowerCase().includes('claimed')) {
+          setDailyBonusClaimed(true);
+        }
         setSnackbar({ open: true, message: 'Daily bonus already claimed today', severity: 'info' });
       }
     } catch (err) {
       console.error('Failed to claim daily bonus:', err);
+      setSnackbar({ open: true, message: 'Failed to claim daily bonus. Please try again.', severity: 'info' });
     }
   };
 

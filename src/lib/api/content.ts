@@ -35,6 +35,8 @@ export interface ContentCreationRequest {
   fileSize: number;
   durationSeconds?: number;
   remixOfId?: string;
+  duetOfId?: string;
+  duetType?: string;
 }
 
 export interface TextPostRequest {
@@ -71,11 +73,25 @@ export interface Content {
   monetizationEnabled: boolean;
   remixOfId?: string;
   remixCount?: number;
+  // Duet fields
+  duetOfId?: string;
+  duetType?: 'SIDE_BY_SIDE' | 'TOP_BOTTOM' | 'REACTION';
+  duetCount?: number;
   // Boost fields
   isBoosted?: boolean;
   boostCoins?: number;
   boostExpiresAt?: string;
   boostReach?: number;
+  // Collab fields
+  isCollab?: boolean;
+  collaborators?: CollabContributor[];
+}
+
+export interface CollabContributor {
+  userId: string;
+  handle: string;
+  role: 'CAPTION' | 'REACTION' | 'EDIT' | 'VOICE' | 'TEMPLATE';
+  addedAt: string;
 }
 
 export interface MediaFile {
@@ -791,6 +807,22 @@ export class ContentAPI {
   }
 
   /**
+   * Get duets of a content
+   * GET /api/content/{contentId}/duets
+   */
+  static async getDuets(
+    contentId: string,
+    page = 0,
+    size = 20
+  ): Promise<ApiResponse<PageResponse<Content>>> {
+    return handleApiResponse<PageResponse<Content>>(
+      contentServiceClient.get(`/api/content/${contentId}/duets`, {
+        params: { page, size }
+      })
+    );
+  }
+
+  /**
    * Get remixes of a content
    * GET /api/content/{contentId}/remixes
    */
@@ -832,6 +864,54 @@ export class ContentAPI {
   static async isPostSaved(contentId: string, userId: string): Promise<ApiResponse<boolean>> {
     return handleApiResponse<boolean>(
       contentServiceClient.get(`/api/content/saved/check/${contentId}`, {
+        headers: { 'X-User-Id': userId }
+      })
+    );
+  }
+
+  /**
+   * Invite a collaborator to content
+   * POST /api/content/{contentId}/collab/invite
+   */
+  static async inviteCollaborator(
+    contentId: string,
+    collabUserId: string,
+    collabHandle: string,
+    role: string,
+    userId: string
+  ): Promise<ApiResponse<Content>> {
+    return handleApiResponse<Content>(
+      contentServiceClient.post(`/api/content/${contentId}/collab/invite`, {
+        userId: collabUserId,
+        handle: collabHandle,
+        role
+      }, {
+        headers: { 'X-User-Id': userId }
+      })
+    );
+  }
+
+  /**
+   * Get collab info for content
+   * GET /api/content/{contentId}/collab
+   */
+  static async getCollabInfo(contentId: string): Promise<ApiResponse<Content>> {
+    return handleApiResponse<Content>(
+      contentServiceClient.get(`/api/content/${contentId}/collab`)
+    );
+  }
+
+  /**
+   * Remove a collaborator from content
+   * DELETE /api/content/{contentId}/collab/{collabUserId}
+   */
+  static async removeCollaborator(
+    contentId: string,
+    collabUserId: string,
+    userId: string
+  ): Promise<ApiResponse<Content>> {
+    return handleApiResponse<Content>(
+      contentServiceClient.delete(`/api/content/${contentId}/collab/${collabUserId}`, {
         headers: { 'X-User-Id': userId }
       })
     );

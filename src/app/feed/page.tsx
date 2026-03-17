@@ -57,6 +57,7 @@ import { UserAPI } from '@/lib/api/user';
 import CommentDialog from '@/components/content/CommentDialog';
 import FeedAdCard from '@/components/ads/FeedAdCard';
 import ShareDialog from '@/components/ShareDialog';
+import { FEED_FILTER_CATEGORIES } from '@/data/weekly-challenges';
 
 
 function FeedPageContent() {
@@ -90,6 +91,7 @@ function FeedPageContent() {
   const [sharePostId, setSharePostId] = useState<string>('');
   const [sharePostTitle, setSharePostTitle] = useState<string>('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '' });
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('');
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const composeBodyRef = useRef<HTMLTextAreaElement>(null);
   const composeBoxRef = useRef<HTMLDivElement>(null);
@@ -262,7 +264,11 @@ function FeedPageContent() {
         setEngagements(prev => ({ ...prev, [contentId]: { ...prev[contentId], liked: isCurrentlyLiked } }));
         setFeedData(prev => prev.map(post => post.id === contentId ? { ...post, likeCount: post.likeCount + (isCurrentlyLiked ? 1 : -1) } : post));
       }
-    } catch {}
+    } catch {
+      setEngagements(prev => ({ ...prev, [contentId]: { ...prev[contentId], liked: isCurrentlyLiked } }));
+      setFeedData(prev => prev.map(post => post.id === contentId ? { ...post, likeCount: post.likeCount + (isCurrentlyLiked ? 1 : -1) } : post));
+      setSnackbar({ open: true, message: 'Failed to update like. Please try again.' });
+    }
   };
 
   const handleShare = async (contentId: string) => {
@@ -273,7 +279,9 @@ function FeedPageContent() {
       else { await navigator.clipboard.writeText(shareUrl); alert('Link copied!'); }
       await ContentAPI.recordEngagement(contentId, { action: 'SHARE' }, user.id, user.username);
       setFeedData(prev => prev.map(post => post.id === contentId ? { ...post, shareCount: post.shareCount + 1 } : post));
-    } catch {}
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to share. Please try again.' });
+    }
   };
 
   const handleSave = async (contentId: string) => {
@@ -285,6 +293,7 @@ function FeedPageContent() {
       else await ContentAPI.savePost(contentId, user.id);
     } catch {
       setEngagements(prev => ({ ...prev, [contentId]: { ...prev[contentId], bookmarked: isCurrentlySaved } }));
+      setSnackbar({ open: true, message: 'Failed to save post. Please try again.' });
     }
   };
 
@@ -312,9 +321,13 @@ function FeedPageContent() {
         setFeedData(prev => prev.filter(p => p.id !== deletePostId));
         setDeleteDialogOpen(false);
         setDeletePostId(null);
+        setSnackbar({ open: true, message: 'Post deleted' });
+      } else {
+        setSnackbar({ open: true, message: 'Failed to delete post. Please try again.' });
       }
     } catch (err) {
       console.error('Delete error:', err);
+      setSnackbar({ open: true, message: 'Failed to delete post. Please try again.' });
     } finally {
       setDeleting(false);
     }
@@ -389,6 +402,30 @@ function FeedPageContent() {
             onClick={() => router.push('/leaderboard')}
             sx={{ bgcolor: '#EDE9FE', color: '#6B46C1', fontWeight: 700, '&:hover': { bgcolor: '#DDD6FE' }, '& .MuiChip-icon': { color: '#6B46C1' } }}
           />
+        </Box>
+
+        {/* Category Filter Bar */}
+        <Box sx={{ display: 'flex', gap: 1, px: 2, py: 1, overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' } }}>
+          {FEED_FILTER_CATEGORIES.map((cat) => (
+            <Chip
+              key={cat.label}
+              label={cat.label}
+              onClick={() => setActiveCategoryFilter(cat.hashtag)}
+              size="small"
+              sx={{
+                fontWeight: 700,
+                fontSize: '0.75rem',
+                flexShrink: 0,
+                cursor: 'pointer',
+                bgcolor: activeCategoryFilter === cat.hashtag ? '#6B46C1' : 'white',
+                color: activeCategoryFilter === cat.hashtag ? 'white' : '#374151',
+                border: activeCategoryFilter === cat.hashtag ? '1px solid #6B46C1' : '1px solid #E5E7EB',
+                '&:hover': {
+                  bgcolor: activeCategoryFilter === cat.hashtag ? '#553C9A' : '#F3F4F6',
+                },
+              }}
+            />
+          ))}
         </Box>
 
         {/* Hot Now Carousel */}
@@ -614,7 +651,12 @@ function FeedPageContent() {
 
         {/* Feed Posts */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, px: 1 }}>
-          {feedData.map((post, index) => {
+          {feedData
+          .filter((post) => {
+            if (!activeCategoryFilter) return true;
+            return post.hashtags?.some(tag => tag.toLowerCase() === activeCategoryFilter.toLowerCase());
+          })
+          .map((post, index) => {
             const engagement = engagements[post.id];
             const isLiked = engagement?.liked || false;
             const contentUrl = getContentUrl(post);

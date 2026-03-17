@@ -40,6 +40,7 @@ import {
   Schedule as ScheduleIcon,
   AutoFixHigh as TemplateIcon,
   Loop as RemixIcon,
+  CallSplit as DuetIcon,
 } from '@mui/icons-material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,6 +48,7 @@ import { ContentAPI, Content, UploadUrlRequest, ContentCreationRequest } from '@
 import { UserAPI } from '@/lib/api/user';
 import { isApiSuccess, TokenManager, formatCreatorHandle } from '@/lib/api/client';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { MEME_CATEGORIES } from '@/data/weekly-challenges';
 
 const Transition = React.forwardRef(function Transition(
   props: any,
@@ -74,6 +76,8 @@ function UploadPageContent() {
   const [isScheduled, setIsScheduled] = useState(false);
   const [scheduledAt, setScheduledAt] = useState('');
 
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -91,6 +95,11 @@ function UploadPageContent() {
   const [remixOfId, setRemixOfId] = useState<string | null>(null);
   const [remixOriginal, setRemixOriginal] = useState<Content | null>(null);
 
+  // Duet state
+  const [duetOfId, setDuetOfId] = useState<string | null>(null);
+  const [duetOriginal, setDuetOriginal] = useState<Content | null>(null);
+  const [duetType, setDuetType] = useState<string>('SIDE_BY_SIDE');
+
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -105,6 +114,18 @@ function UploadPageContent() {
       ContentAPI.getContent(remixId).then(res => {
         if (isApiSuccess(res) && res.data) {
           setRemixOriginal(res.data);
+        }
+      }).catch(() => {});
+    }
+
+    const duetId = searchParams.get('duet');
+    const duetTypeParam = searchParams.get('duetType');
+    if (duetId) {
+      setDuetOfId(duetId);
+      if (duetTypeParam) setDuetType(duetTypeParam);
+      ContentAPI.getContent(duetId).then(res => {
+        if (isApiSuccess(res) && res.data) {
+          setDuetOriginal(res.data);
         }
       }).catch(() => {});
     }
@@ -218,9 +239,12 @@ function UploadPageContent() {
         title: formData.title.trim() || `My ${contentType === 'SHORT_VIDEO' ? 'Short' : 'Meme'} ${new Date().toLocaleDateString()}`,
         description: formData.description || undefined,
         type: contentType,
-        hashtags: formData.hashtags
-          ? formData.hashtags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
-          : [],
+        hashtags: [
+          ...(formData.hashtags
+            ? formData.hashtags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+            : []),
+          ...(selectedCategory ? [selectedCategory] : []),
+        ],
         monetizationEnabled: formData.monetizationEnabled,
         s3Key: s3Key,
         originalFileName: selectedFile.name,
@@ -229,6 +253,7 @@ function UploadPageContent() {
         durationSeconds: contentType === 'SHORT_VIDEO' ? await getVideoDuration(selectedFile) : undefined,
         ...(isScheduled && scheduledAt ? { scheduledAt: new Date(scheduledAt).toISOString() } : {}),
         ...(remixOfId ? { remixOfId } : {}),
+        ...(duetOfId ? { duetOfId, duetType } : {}),
       };
 
       const contentResponse = await ContentAPI.createContent(
@@ -300,6 +325,7 @@ function UploadPageContent() {
     setContentType(null);
     setCurrentStep(0);
     setUploadProgress(0);
+    setSelectedCategory(null);
     setIsScheduled(false);
     setScheduledAt('');
     setFormData({
@@ -370,6 +396,23 @@ function UploadPageContent() {
           <Chip
             icon={<RemixIcon sx={{ fontSize: 18 }} />}
             label={`Remixing ${formatCreatorHandle(remixOriginal.creatorHandle)}'s meme`}
+            sx={{
+              bgcolor: '#F3F4F6',
+              color: '#6B46C1',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              py: 0.5,
+            }}
+          />
+        </Box>
+      )}
+
+      {/* Duet badge */}
+      {duetOriginal && (
+        <Box sx={{ px: 3, pt: 2 }}>
+          <Chip
+            icon={<DuetIcon sx={{ fontSize: 18 }} />}
+            label={`Duet with ${formatCreatorHandle(duetOriginal.creatorHandle)}`}
             sx={{
               bgcolor: '#F3F4F6',
               color: '#6B46C1',
@@ -550,6 +593,72 @@ function UploadPageContent() {
                 }}
                 helperText="Example: funny, viral, trending"
               />
+
+              {/* Duet Type Selector (shown when creating a duet) */}
+              {duetOfId && (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1, color: '#374151' }}>
+                    Duet Layout
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                    Choose how your content appears alongside the original
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    {[
+                      { value: 'SIDE_BY_SIDE', label: 'Side by Side' },
+                      { value: 'TOP_BOTTOM', label: 'Top / Bottom' },
+                      { value: 'REACTION', label: 'Reaction' },
+                    ].map((opt) => (
+                      <Chip
+                        key={opt.value}
+                        label={opt.label}
+                        onClick={() => setDuetType(opt.value)}
+                        sx={{
+                          fontWeight: 600,
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          bgcolor: duetType === opt.value ? '#6B46C1' : '#F3F4F6',
+                          color: duetType === opt.value ? 'white' : '#374151',
+                          border: duetType === opt.value ? '2px solid #6B46C1' : '2px solid transparent',
+                          '&:hover': {
+                            bgcolor: duetType === opt.value ? '#553C9A' : '#E5E7EB',
+                          },
+                        }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Category Selector */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1, color: '#374151' }}>
+                  Category
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                  Select a category to help people discover your meme
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {MEME_CATEGORIES.map((cat) => (
+                    <Chip
+                      key={cat.hashtag}
+                      label={cat.label}
+                      onClick={() => setSelectedCategory(selectedCategory === cat.hashtag ? null : cat.hashtag)}
+                      sx={{
+                        fontWeight: 600,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        bgcolor: selectedCategory === cat.hashtag ? '#6B46C1' : '#F3F4F6',
+                        color: selectedCategory === cat.hashtag ? 'white' : '#374151',
+                        border: selectedCategory === cat.hashtag ? '2px solid #6B46C1' : '2px solid transparent',
+                        '&:hover': {
+                          bgcolor: selectedCategory === cat.hashtag ? '#553C9A' : '#E5E7EB',
+                        },
+                      }}
+                    />
+                  ))}
+                </Box>
+              </Box>
 
               {/* Monetization Toggle */}
               <Box sx={{

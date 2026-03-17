@@ -38,6 +38,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { BattleAPI, Battle, ContentAPI } from '@/lib/api/content';
 import { isApiSuccess } from '@/lib/api/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { getChallengeOfTheWeek } from '@/data/weekly-challenges';
 
 const themes = [
   'Monday Mood', 'Exam Season', 'Gym Life', 'Office Drama',
@@ -265,6 +266,83 @@ function BattlesContent() {
           <Tab label="Brand" icon={<BrandIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
         </Tabs>
       </Box>
+
+      {/* Weekly Challenge Banner */}
+      {(() => {
+        const challenge = getChallengeOfTheWeek();
+        const now = new Date();
+        const diff = challenge.endDate.getTime() - now.getTime();
+        const daysLeft = Math.max(0, Math.floor(diff / 86400000));
+        const hoursLeft = Math.max(0, Math.floor((diff % 86400000) / 3600000));
+        return (
+          <Box sx={{ p: 2 }}>
+            <Card
+              sx={{
+                borderRadius: 3,
+                overflow: 'hidden',
+                background: 'linear-gradient(135deg, #6B46C1 0%, #9333EA 50%, #EC4899 100%)',
+                color: 'white',
+                position: 'relative',
+              }}
+            >
+              <Box sx={{ p: 2.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <TrophyIcon sx={{ fontSize: 22, color: '#FDE68A' }} />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                    Weekly Meme Challenge
+                  </Typography>
+                  <Chip
+                    label={`Week ${challenge.weekNumber}`}
+                    size="small"
+                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 700, fontSize: '0.6rem', height: 22 }}
+                  />
+                </Box>
+                <Typography variant="h6" sx={{ fontWeight: 900, mb: 0.5, lineHeight: 1.3 }}>
+                  {challenge.theme}
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.9, mb: 1.5, fontSize: '0.85rem' }}>
+                  {challenge.description}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#FDE68A', fontSize: '0.8rem' }}>
+                      Win up to ₹{challenge.prizePool} + Brand Vouchers
+                    </Typography>
+                  </Box>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                  <Chip
+                    icon={<TimerIcon sx={{ fontSize: 14, color: 'white !important' }} />}
+                    label={diff > 0 ? `${daysLeft}d ${hoursLeft}h left` : 'Ended'}
+                    size="small"
+                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 700, fontSize: '0.7rem' }}
+                  />
+                  <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                    #{challenge.hashTag}
+                  </Typography>
+                </Box>
+                <Button
+                  variant="contained"
+                  onClick={() => router.push(`/upload?hashtag=${challenge.hashTag}`)}
+                  sx={{
+                    bgcolor: 'white',
+                    color: '#6B46C1',
+                    textTransform: 'none',
+                    fontWeight: 800,
+                    borderRadius: 2,
+                    px: 3,
+                    py: 1,
+                    fontSize: '0.9rem',
+                    '&:hover': { bgcolor: '#F3F4F6' },
+                  }}
+                >
+                  Submit Your Meme
+                </Button>
+              </Box>
+            </Card>
+          </Box>
+        );
+      })()}
 
       {/* Open Battles count indicator */}
       {activeTab === 1 && openBattleCount > 0 && (

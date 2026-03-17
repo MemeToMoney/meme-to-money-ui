@@ -25,6 +25,7 @@ import {
   Bookmark,
   BookmarkBorder,
   Loop as RemixIcon,
+  CallSplit as DuetIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,6 +54,7 @@ interface VideoPlayerProps {
   onFollow: () => void;
   onProfileClick: () => void;
   onRemix: () => void;
+  onDuet: () => void;
 }
 
 function VideoPlayer({
@@ -71,6 +73,7 @@ function VideoPlayer({
   onFollow,
   onProfileClick,
   onRemix,
+  onDuet,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -482,6 +485,7 @@ function ShortsPageContent() {
                 onSave={() => handleSave(content.id)}
                 onFollow={() => handleFollow(content.creatorId)}
                 onRemix={() => router.push(`/upload?remix=${content.id}`)}
+                onDuet={() => router.push(`/upload?duet=${content.id}&duetType=SIDE_BY_SIDE`)}
                 onProfileClick={() => {
                   if (content.creatorId) {
                     router.push(`/profile/${content.creatorId}`);
