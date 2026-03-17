@@ -112,7 +112,7 @@ function FeedPageContent() {
   }, [composeBody, composeTitle]);
 
   const handleComposeSubmit = async () => {
-    if (!user?.id || !user?.username || !composeBody.trim()) return;
+    if (!user?.id || !composeBody.trim()) return;
     setComposePosting(true);
     try {
       const data: TextPostRequest = {
@@ -120,7 +120,7 @@ function FeedPageContent() {
         hashtags: composeHashtags.length > 0 ? composeHashtags : undefined,
       };
       if (composeTitle.trim()) data.title = composeTitle.trim();
-      const response = await ContentAPI.createTextPost(data, user.id, user.creatorHandle || user.displayName || user.name || user.username);
+      const response = await ContentAPI.createTextPost(data, user.id, user?.username || user?.displayName || user?.creatorHandle || 'user');
       if (isApiSuccess(response) && response.data) {
         setFeedData(prev => [response.data, ...prev]);
         setComposeBody('');
@@ -259,7 +259,7 @@ function FeedPageContent() {
     setEngagements(prev => ({ ...prev, [contentId]: { ...prev[contentId], liked: !isCurrentlyLiked, contentId, userId: user.id } }));
     setFeedData(prev => prev.map(post => post.id === contentId ? { ...post, likeCount: post.likeCount + (isCurrentlyLiked ? -1 : 1) } : post));
     try {
-      const response = await ContentAPI.recordEngagement(contentId, { action }, user.id, user.username);
+      const response = await ContentAPI.recordEngagement(contentId, { action }, user.id, user?.username || user?.displayName || user?.creatorHandle || 'user');
       if (!isApiSuccess(response)) {
         setEngagements(prev => ({ ...prev, [contentId]: { ...prev[contentId], liked: isCurrentlyLiked } }));
         setFeedData(prev => prev.map(post => post.id === contentId ? { ...post, likeCount: post.likeCount + (isCurrentlyLiked ? 1 : -1) } : post));
@@ -277,7 +277,7 @@ function FeedPageContent() {
     try {
       if (navigator.share) { await navigator.share({ title: 'Check this out on MemeToMoney!', url: shareUrl }); }
       else { await navigator.clipboard.writeText(shareUrl); alert('Link copied!'); }
-      await ContentAPI.recordEngagement(contentId, { action: 'SHARE' }, user.id, user.username);
+      await ContentAPI.recordEngagement(contentId, { action: 'SHARE' }, user.id, user?.username || user?.displayName || user?.creatorHandle || 'user');
       setFeedData(prev => prev.map(post => post.id === contentId ? { ...post, shareCount: post.shareCount + 1 } : post));
     } catch {
       setSnackbar({ open: true, message: 'Failed to share. Please try again.' });
@@ -873,7 +873,7 @@ function FeedPageContent() {
           setShareDialogOpen(false);
           // Record share engagement
           if (sharePostId && user?.id) {
-            ContentAPI.recordEngagement(sharePostId, { action: 'SHARE' }, user.id, user.username).catch(() => {});
+            ContentAPI.recordEngagement(sharePostId, { action: 'SHARE' }, user.id, user?.username || user?.displayName || user?.creatorHandle || 'user').catch(() => {});
             setFeedData(prev => prev.map(p => p.id === sharePostId ? { ...p, shareCount: p.shareCount + 1 } : p));
           }
         }}

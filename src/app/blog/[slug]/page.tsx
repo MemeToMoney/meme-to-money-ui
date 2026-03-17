@@ -25,6 +25,7 @@ import {
 import { useRouter, useParams } from 'next/navigation';
 import { getBlogPostBySlug, getRelatedPosts, BlogPost } from '@/lib/data/blogPosts';
 import { ContentAPI, Content } from '@/lib/api/content';
+import DOMPurify from 'dompurify';
 
 const categoryColors: Record<string, { bg: string; color: string }> = {
   'Meme Culture': { bg: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B' },
@@ -257,7 +258,8 @@ export default function BlogDetailPage() {
   }
 
   const colors = categoryColors[post.category] || { bg: '#E5E7EB', color: '#1a1a1a' };
-  const contentHtml = parseMarkdownToHtml(post.content);
+  const rawHtml = parseMarkdownToHtml(post.content);
+  const contentHtml = typeof window !== 'undefined' ? DOMPurify.sanitize(rawHtml) : rawHtml;
 
   const handleCopyLink = async () => {
     try {

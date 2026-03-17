@@ -263,7 +263,7 @@ function WithdrawContent() {
                           {p.coins.toLocaleString()} coins ({'\u20B9'}{p.amountINR.toFixed(2)})
                         </Typography>
                         <Typography variant="caption" sx={{ color: '#6B7280' }}>
-                          via {p.payoutMethod || 'BANK'} {p.upiId ? `(${p.upiId})` : ''} {p.bankAccountNumber ? `(****${p.bankAccountNumber.slice(-4)})` : ''}
+                          via {p.payoutMethod || 'BANK'} {p.upiId ? `(${p.upiId})` : ''} {p.bankAccountNumber ? `(****${p.bankAccountNumber?.slice(-4) || '****'})` : ''}
                         </Typography>
                       </Box>
                       <Chip

@@ -135,6 +135,10 @@ function createApiClient(baseURL: string, timeout = 30000): AxiosInstance {
     (config) => {
       const authHeaders = TokenManager.getAuthHeaders();
       Object.assign(config.headers, authHeaders);
+      // Remove Content-Type for FormData so axios can set it with the correct boundary
+      if (config.data instanceof FormData) {
+        delete config.headers['Content-Type'];
+      }
       return config;
     },
     (error) => Promise.reject(error)

@@ -257,7 +257,7 @@ export class MonetizationAPI {
 }
 
 export const getCreatorAnalytics = async (creatorId: string, period: string = '30d') => {
-  const response = await monetizationServiceClient.get(`/monetization/analytics/creator`, {
+  const response = await monetizationServiceClient.get(`/api/monetization/analytics/creator`, {
     params: { creatorId, period }
   });
   return response.data;

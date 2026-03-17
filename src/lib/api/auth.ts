@@ -285,11 +285,7 @@ export class AuthAPI {
       const formData = new FormData();
       formData.append('file', file);
 
-      const uploadResponse = await contentServiceClient.post('/api/images/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const uploadResponse = await contentServiceClient.post('/api/images/upload', formData);
 
       if (uploadResponse.status !== 200 || !uploadResponse.data) {
         throw new Error('Failed to upload image to storage');

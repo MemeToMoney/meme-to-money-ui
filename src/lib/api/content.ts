@@ -223,11 +223,7 @@ export class ContentAPI {
     formData.append('file', file);
 
     const response = await handleApiResponse<string>(
-      contentServiceClient.post('/api/images/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
+      contentServiceClient.post('/api/images/upload', formData)
     );
 
     return response;
