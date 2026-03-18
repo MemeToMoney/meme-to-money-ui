@@ -473,11 +473,45 @@ function UploadPageContent() {
               >
                 <VideoIcon sx={{ fontSize: 48, color: '#6B46C1', mb: 1 }} />
                 <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                  Video
+                  Short Video
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   MP4, WebM
                 </Typography>
+              </Card>
+
+              <Card
+                sx={{
+                  p: 4,
+                  minWidth: 120,
+                  borderRadius: 3,
+                  border: '2px dashed #D1D5DB',
+                  bgcolor: '#F9FAFB',
+                  opacity: 0.7,
+                  position: 'relative',
+                }}
+              >
+                <VideoIcon sx={{ fontSize: 48, color: '#9CA3AF', mb: 1 }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#6B7280' }}>
+                  Long Video
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Coming Soon
+                </Typography>
+                <Chip
+                  label="Soon"
+                  size="small"
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    height: 20,
+                    fontSize: '0.65rem',
+                    bgcolor: '#6B46C1',
+                    color: 'white',
+                    fontWeight: 700,
+                  }}
+                />
               </Card>
             </Box>
 

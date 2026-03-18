@@ -111,7 +111,7 @@ export default function MobileBottomNavigation() {
   }
 
   return (
-    <>
+    <Box sx={{ display: { xs: 'block', md: 'none' } }}>
       {/* Center Meme Cam FAB - fixed to viewport */}
       <Fab
         color="primary"
@@ -302,6 +302,6 @@ export default function MobileBottomNavigation() {
           </MenuItem>
         ))}
       </Menu>
-    </>
+    </Box>
   );
 }
