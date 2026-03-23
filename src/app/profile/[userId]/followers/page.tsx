@@ -160,7 +160,7 @@ function FollowersContent() {
                         {u.displayName || u.name}
                       </Typography>
                       <Typography variant="body2" sx={{ color: '#6B46C1', fontWeight: 500 }} noWrap>
-                        @{u.username || 'user'}
+                        @{u.creatorHandle || u.username || 'user'}
                       </Typography>
                     </Box>
                     {!isCurrentUser && (

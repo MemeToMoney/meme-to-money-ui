@@ -60,12 +60,15 @@ function SearchPageContent() {
   const [contentTotalResults, setContentTotalResults] = useState(0);
   const [trendingHashtags, setTrendingHashtags] = useState<string[]>(DEFAULT_TRENDING_HASHTAGS);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const initialLoadRef = useRef(false);
 
   const { user } = useAuth();
   const router = useRouter();
 
   // Load suggestions and trending hashtags on mount
   useEffect(() => {
+    if (initialLoadRef.current) return;
+    initialLoadRef.current = true;
     loadSuggestions();
     loadTrendingHashtags();
   }, []);
@@ -329,7 +332,7 @@ function SearchPageContent() {
             )}
           </Box>
           <Typography variant="body2" sx={{ color: '#6B46C1', fontWeight: 500 }} noWrap>
-            @{u.username || u.creatorHandle || 'user'}
+            @{u.creatorHandle || u.username || 'user'}
           </Typography>
           {!u.isPrivateAccount && u.bio && (
             <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }} noWrap>

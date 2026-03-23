@@ -58,6 +58,20 @@ export default function SettingsPage() {
     const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
     const isGoogleUser = user?.authProvider === 'google';
+    const settingsListSx = {
+        bgcolor: 'white',
+        borderRadius: 2,
+        overflow: 'hidden',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        mb: 2,
+        '& .MuiListItemText-primary': {
+            color: '#111827',
+            fontWeight: 600,
+        },
+        '& .MuiListItemText-secondary': {
+            color: '#6B7280',
+        },
+    };
 
     useEffect(() => {
         if (user?.upiId) setUpiId(user.upiId);
@@ -172,7 +186,7 @@ export default function SettingsPage() {
                 <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, px: 1, mb: 0.5, display: 'block' }}>
                     ACCOUNT & SECURITY
                 </Typography>
-                <List sx={{ bgcolor: 'white', borderRadius: 2, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', mb: 2 }}>
+                <List sx={settingsListSx}>
                     <ListItem disablePadding>
                         <ListItemButton onClick={() => router.push('/profile/edit')}>
                             <ListItemIcon>
@@ -212,7 +226,7 @@ export default function SettingsPage() {
                 <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, px: 1, mb: 0.5, display: 'block' }}>
                     PAYMENTS & WITHDRAWALS
                 </Typography>
-                <List sx={{ bgcolor: 'white', borderRadius: 2, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', mb: 2 }}>
+                <List sx={settingsListSx}>
                     <ListItem>
                         <ListItemIcon>
                             <WalletIcon sx={{ color: '#6B46C1' }} />
@@ -274,7 +288,7 @@ export default function SettingsPage() {
                 <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, px: 1, mb: 0.5, display: 'block' }}>
                     LEGAL & POLICIES
                 </Typography>
-                <List sx={{ bgcolor: 'white', borderRadius: 2, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', mb: 2 }}>
+                <List sx={settingsListSx}>
                     <ListItem disablePadding>
                         <ListItemButton onClick={() => setPrivacyOpen(true)}>
                             <ListItemIcon>
@@ -298,7 +312,7 @@ export default function SettingsPage() {
                 <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, px: 1, mb: 0.5, display: 'block' }}>
                     SUPPORT
                 </Typography>
-                <List sx={{ bgcolor: 'white', borderRadius: 2, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', mb: 2 }}>
+                <List sx={settingsListSx}>
                     <ListItem disablePadding>
                         <ListItemButton onClick={() => window.open('mailto:support@upgradestacks.com')}>
                             <ListItemIcon>
@@ -319,7 +333,7 @@ export default function SettingsPage() {
                 </List>
 
                 <Box sx={{ mt: 1 }}>
-                    <List sx={{ bgcolor: 'white', borderRadius: 2, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                    <List sx={{ ...settingsListSx, mb: 0 }}>
                         <ListItem disablePadding>
                             <ListItemButton onClick={handleLogout}>
                                 <ListItemIcon>

@@ -38,7 +38,13 @@ import {
 import { useRouter } from 'next/navigation';
 import { blogPosts, blogCategories, BlogPost } from '@/lib/data/blogPosts';
 import { useAuth } from '@/contexts/AuthContext';
-import { ContentAPI, Content } from '@/lib/api/content';
+import { BlogAPI, BlogPost as ApiBlogPost } from '@/lib/api/blog';
+
+type DisplayBlogPost = BlogPost & {
+  source: 'system' | 'creator';
+  id?: string;
+  creatorId?: string;
+};
 
 const categoryColors: Record<string, { bg: string; color: string }> = {
   'Meme Culture': { bg: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B' },
@@ -47,26 +53,61 @@ const categoryColors: Record<string, { bg: string; color: string }> = {
   Monetization: { bg: 'rgba(16, 185, 129, 0.15)', color: '#10B981' },
 };
 
-// Convert API content to BlogPost format for display
-function contentToBlogPost(content: Content): BlogPost {
-  const wordCount = (content.description || '').split(/\s+/).length;
+function formatBlogDate(dateValue: unknown, options: Intl.DateTimeFormatOptions): string {
+  if (!dateValue) return 'Recently';
+  if (dateValue instanceof Date && !Number.isNaN(dateValue.getTime())) {
+    return dateValue.toLocaleDateString('en-US', options);
+  }
+
+  const rawValue = typeof dateValue === 'string'
+    ? dateValue
+    : typeof dateValue === 'number'
+      ? String(dateValue)
+      : (dateValue as { toString?: () => string })?.toString?.() || '';
+
+  if (!rawValue || rawValue === '[object Object]') return 'Recently';
+
+  const normalized = rawValue.includes(' ') ? rawValue.replace(' ', 'T') : rawValue;
+  const parsed = new Date(normalized);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toLocaleDateString('en-US', options);
+  }
+
+  const simpleMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (simpleMatch) {
+    const [, year, month, day] = simpleMatch;
+    const fallback = new Date(Number(year), Number(month) - 1, Number(day));
+    if (!Number.isNaN(fallback.getTime())) {
+      return fallback.toLocaleDateString('en-US', options);
+    }
+  }
+
+  return 'Recently';
+}
+
+// Convert API blog post to UI blog post format for display
+function apiBlogToBlogPost(post: ApiBlogPost): DisplayBlogPost {
+  const wordCount = (post.description || '').split(/\s+/).length;
   const readMinutes = Math.max(1, Math.ceil(wordCount / 200));
   return {
-    slug: `user-post-${content.id}`,
-    title: content.title || 'Untitled',
-    excerpt: (content.description || '').substring(0, 200) + ((content.description || '').length > 200 ? '...' : ''),
-    content: content.description || '',
-    category: (content.category as BlogPost['category']) || 'Meme Culture',
-    author: content.creatorHandle || 'Anonymous',
-    date: content.createdAt || new Date().toISOString(),
+    id: post.id,
+    slug: post.slug,
+    title: post.title || 'Untitled',
+    excerpt: post.excerpt || (post.description || '').substring(0, 200) + ((post.description || '').length > 200 ? '...' : ''),
+    content: post.description || '',
+    category: (post.category as BlogPost['category']) || 'Meme Culture',
+    author: post.creatorHandle || 'Anonymous',
+    creatorId: post.creatorId,
+    date: post.publishedAt || post.createdAt || new Date().toISOString(),
     readTime: `${readMinutes} min read`,
-    coverImage: '',
-    tags: content.tags || [],
+    coverImage: post.coverImageUrl || '',
+    tags: post.tags || [],
     featured: false,
+    source: 'creator',
   };
 }
 
-function BlogPostCard({ post, featured = false }: { post: BlogPost; featured?: boolean }) {
+function BlogPostCard({ post, featured = false }: { post: DisplayBlogPost; featured?: boolean }) {
   const router = useRouter();
   const colors = categoryColors[post.category] || { bg: '#E5E7EB', color: '#1a1a1a' };
 
@@ -131,6 +172,16 @@ function BlogPostCard({ post, featured = false }: { post: BlogPost; featured?: b
               size="small"
               sx={{ bgcolor: colors.bg, color: colors.color, fontWeight: 600, fontSize: '0.7rem' }}
             />
+            <Chip
+              label={post.source === 'system' ? 'System' : 'Creator'}
+              size="small"
+              sx={{
+                bgcolor: post.source === 'system' ? '#111827' : '#EDE9FE',
+                color: 'white',
+                fontWeight: 700,
+                fontSize: '0.68rem'
+              }}
+            />
           </Box>
           <Typography
             variant="body1"
@@ -145,7 +196,7 @@ function BlogPostCard({ post, featured = false }: { post: BlogPost; featured?: b
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <CalendarToday sx={{ fontSize: 14 }} />
               <Typography variant="caption">
-                {new Date(post.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                {formatBlogDate(post.date, { month: 'short', day: 'numeric', year: 'numeric' })}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -199,11 +250,24 @@ function BlogPostCard({ post, featured = false }: { post: BlogPost; featured?: b
       </Box>
       <CardContent sx={{ p: 2, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ mb: 1 }}>
-          <Chip
-            label={post.category}
-            size="small"
-            sx={{ bgcolor: colors.bg, color: colors.color, fontWeight: 600, fontSize: '0.65rem', height: 22 }}
-          />
+          <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+            <Chip
+              label={post.category}
+              size="small"
+              sx={{ bgcolor: colors.bg, color: colors.color, fontWeight: 600, fontSize: '0.65rem', height: 22 }}
+            />
+            <Chip
+              label={post.source === 'system' ? 'System' : 'Creator'}
+              size="small"
+              sx={{
+                bgcolor: post.source === 'system' ? '#111827' : '#EDE9FE',
+                color: post.source === 'system' ? 'white' : '#6B46C1',
+                fontWeight: 700,
+                fontSize: '0.62rem',
+                height: 22
+              }}
+            />
+          </Box>
         </Box>
         <Typography
           variant="subtitle2"
@@ -223,7 +287,7 @@ function BlogPostCard({ post, featured = false }: { post: BlogPost; featured?: b
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: '#6B7280' }}>
             <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
-              {new Date(post.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {formatBlogDate(post.date, { month: 'short', day: 'numeric' })}
             </Typography>
             <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
               {post.readTime}
@@ -260,37 +324,22 @@ export default function BlogPage() {
   });
 
   // User-created blog posts from API
-  const [userPosts, setUserPosts] = useState<BlogPost[]>([]);
+  const [userPosts, setUserPosts] = useState<DisplayBlogPost[]>([]);
   const [loadingUserPosts, setLoadingUserPosts] = useState(false);
 
-  const featuredPost = blogPosts.find((p) => p.featured);
+  const systemPosts = useMemo(
+    () => blogPosts.map((post) => ({ ...post, source: 'system' as const })),
+    []
+  );
+  const featuredPost = systemPosts.find((p) => p.featured);
 
-  // Load user-created text posts from the content service
+  // Load user-created blog posts from the content service
   const loadUserPosts = useCallback(async () => {
     setLoadingUserPosts(true);
     try {
-      const response = await ContentAPI.searchContent(
-        undefined,
-        undefined,
-        'TEXT_POST',
-        undefined,
-        0,
-        50,
-        user?.id
-      );
+      const response = await BlogAPI.getPublishedBlogs(0, 50);
       if (response.status === 200 && response.data) {
-        const pageData = response.data;
-        // Handle both Page<Content> and raw array responses
-        const contentItems: Content[] = Array.isArray(pageData)
-          ? pageData
-          : pageData.content
-            ? Array.isArray(pageData.content)
-              ? pageData.content
-              : []
-            : [];
-        const converted = contentItems
-          .filter((c: Content) => c.type === 'TEXT_POST')
-          .map(contentToBlogPost);
+        const converted = (response.data.content || []).map(apiBlogToBlogPost);
         setUserPosts(converted);
       }
     } catch {
@@ -305,13 +354,8 @@ export default function BlogPage() {
   }, [loadUserPosts]);
 
   // Combine hardcoded + user posts
-  const allPosts = useMemo(() => {
-    const hardcoded = blogPosts.filter((p) => !p.featured);
-    return [...hardcoded, ...userPosts];
-  }, [userPosts]);
-
-  const filteredPosts = useMemo(() => {
-    let posts = allPosts;
+  const filteredSystemPosts = useMemo(() => {
+    let posts = systemPosts.filter((p) => !p.featured);
     if (selectedCategory !== 'All') {
       posts = posts.filter((p) => p.category === selectedCategory);
     }
@@ -325,7 +369,24 @@ export default function BlogPage() {
       );
     }
     return posts;
-  }, [allPosts, selectedCategory, searchQuery]);
+  }, [systemPosts, selectedCategory, searchQuery]);
+
+  const filteredUserPosts = useMemo(() => {
+    let posts = userPosts;
+    if (selectedCategory !== 'All') {
+      posts = posts.filter((p) => p.category === selectedCategory);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      posts = posts.filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          p.excerpt.toLowerCase().includes(q) ||
+          p.tags.some((t) => t.toLowerCase().includes(q))
+      );
+    }
+    return posts;
+  }, [userPosts, selectedCategory, searchQuery]);
 
   const handleCreateOpen = () => {
     setCreateTitle('');
@@ -366,12 +427,13 @@ export default function BlogPage() {
         .map((t) => t.trim())
         .filter((t) => t.length > 0);
 
-      const response = await ContentAPI.createTextPost(
+      const response = await BlogAPI.createBlogPost(
         {
           title: createTitle.trim(),
           description: createContent.trim(),
           tags,
           category: createCategory,
+          publish: true,
         },
         user.id,
         user.creatorHandle || user.username || user.name
@@ -508,16 +570,6 @@ export default function BlogPage() {
           <BlogPostCard post={featuredPost} featured />
         )}
 
-        {/* Community Posts Section Header */}
-        {userPosts.length > 0 && selectedCategory === 'All' && !searchQuery && (
-          <Typography
-            variant="subtitle1"
-            sx={{ fontWeight: 700, color: '#1a1a1a', mt: 2, mb: 1.5 }}
-          >
-            All Articles
-          </Typography>
-        )}
-
         {/* Loading indicator for user posts */}
         {loadingUserPosts && (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
@@ -525,16 +577,43 @@ export default function BlogPage() {
           </Box>
         )}
 
-        {/* Post Grid */}
-        {filteredPosts.length > 0 ? (
-          <Grid container spacing={2}>
-            {filteredPosts.map((post) => (
-              <Grid item xs={12} sm={6} md={4} key={post.slug}>
-                <BlogPostCard post={post} />
-              </Grid>
-            ))}
-          </Grid>
-        ) : (
+        {filteredUserPosts.length > 0 && (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, color: '#111827', mb: 0.5 }}>
+              Creator Blogs
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#6B7280', mb: 2 }}>
+              User-written posts from creators on the platform.
+            </Typography>
+            <Grid container spacing={2}>
+              {filteredUserPosts.map((post) => (
+                <Grid item xs={12} sm={6} md={4} key={`creator-${post.slug}`}>
+                  <BlogPostCard post={post} />
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        )}
+
+        {filteredSystemPosts.length > 0 && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, color: '#111827', mb: 0.5 }}>
+              System Blogs
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#6B7280', mb: 2 }}>
+              Editorial and platform posts used for education, product updates, and SEO.
+            </Typography>
+            <Grid container spacing={2}>
+              {filteredSystemPosts.map((post) => (
+                <Grid item xs={12} sm={6} md={4} key={`system-${post.slug}`}>
+                  <BlogPostCard post={post} />
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        )}
+
+        {filteredSystemPosts.length === 0 && filteredUserPosts.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 8 }}>
             <Typography variant="h6" sx={{ color: '#6B7280', mb: 1 }}>
               No articles found
@@ -543,6 +622,8 @@ export default function BlogPage() {
               Try a different search term or category
             </Typography>
           </Box>
+        ) : (
+          <></>
         )}
       </Container>
 

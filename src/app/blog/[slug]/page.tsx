@@ -24,8 +24,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import { getBlogPostBySlug, getRelatedPosts, BlogPost } from '@/lib/data/blogPosts';
-import { ContentAPI, Content } from '@/lib/api/content';
-import DOMPurify from 'dompurify';
+import { BlogAPI, BlogPost as ApiBlogPost } from '@/lib/api/blog';
 
 const categoryColors: Record<string, { bg: string; color: string }> = {
   'Meme Culture': { bg: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B' },
@@ -34,8 +33,57 @@ const categoryColors: Record<string, { bg: string; color: string }> = {
   Monetization: { bg: 'rgba(16, 185, 129, 0.15)', color: '#10B981' },
 };
 
+function formatBlogDate(dateValue: unknown, options: Intl.DateTimeFormatOptions): string {
+  if (!dateValue) return 'Recently';
+  if (dateValue instanceof Date && !Number.isNaN(dateValue.getTime())) {
+    return dateValue.toLocaleDateString('en-US', options);
+  }
+
+  const rawValue = typeof dateValue === 'string'
+    ? dateValue
+    : typeof dateValue === 'number'
+      ? String(dateValue)
+      : (dateValue as { toString?: () => string })?.toString?.() || '';
+
+  if (!rawValue || rawValue === '[object Object]') return 'Recently';
+
+  const normalized = rawValue.includes(' ') ? rawValue.replace(' ', 'T') : rawValue;
+  const parsed = new Date(normalized);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toLocaleDateString('en-US', options);
+  }
+
+  const simpleMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (simpleMatch) {
+    const [, year, month, day] = simpleMatch;
+    const fallback = new Date(Number(year), Number(month) - 1, Number(day));
+    if (!Number.isNaN(fallback.getTime())) {
+      return fallback.toLocaleDateString('en-US', options);
+    }
+  }
+
+  return 'Recently';
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function sanitizeHref(url: string): string {
+  const trimmed = url.trim();
+  if (/^(https?:\/\/|mailto:|\/)/i.test(trimmed)) {
+    return trimmed.replace(/"/g, '&quot;');
+  }
+  return '#';
+}
+
 function parseMarkdownToHtml(markdown: string): string {
-  let html = markdown.trim();
+  let html = escapeHtml(markdown.trim());
 
   // Code blocks (fenced)
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
@@ -78,7 +126,7 @@ function parseMarkdownToHtml(markdown: string): string {
   });
 
   // Links
-  html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" style="color:#6B46C1;text-decoration:underline;">$1</a>');
+  html = html.replace(/\[(.+?)\]\((.+?)\)/g, (_, label, url) => `<a href="${sanitizeHref(url)}" style="color:#6B46C1;text-decoration:underline;">${label}</a>`);
 
   // Horizontal rules
   html = html.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid #E5E7EB;margin:24px 0;" />');
@@ -165,21 +213,21 @@ function RelatedPostCard({ post }: { post: BlogPost }) {
   );
 }
 
-// Convert API content to BlogPost format for display
-function contentToBlogPost(content: Content): BlogPost {
-  const wordCount = (content.description || '').split(/\s+/).length;
+// Convert API blog post to BlogPost format for display
+function apiBlogToBlogPost(post: ApiBlogPost): BlogPost {
+  const wordCount = (post.description || '').split(/\s+/).length;
   const readMinutes = Math.max(1, Math.ceil(wordCount / 200));
   return {
-    slug: `user-post-${content.id}`,
-    title: content.title || 'Untitled',
-    excerpt: (content.description || '').substring(0, 200) + ((content.description || '').length > 200 ? '...' : ''),
-    content: content.description || '',
-    category: (content.category as BlogPost['category']) || 'Meme Culture',
-    author: content.creatorHandle || 'Anonymous',
-    date: content.createdAt || new Date().toISOString(),
+    slug: post.slug,
+    title: post.title || 'Untitled',
+    excerpt: post.excerpt || (post.description || '').substring(0, 200) + ((post.description || '').length > 200 ? '...' : ''),
+    content: post.description || '',
+    category: (post.category as BlogPost['category']) || 'Meme Culture',
+    author: post.creatorHandle || 'Anonymous',
+    date: post.publishedAt || post.createdAt || new Date().toISOString(),
     readTime: `${readMinutes} min read`,
-    coverImage: '',
-    tags: content.tags || [],
+    coverImage: post.coverImageUrl || '',
+    tags: post.tags || [],
     featured: false,
   };
 }
@@ -195,17 +243,14 @@ export default function BlogDetailPage() {
   const [apiPost, setApiPost] = useState<BlogPost | null>(null);
   const [apiLoading, setApiLoading] = useState(false);
 
-  const isUserPost = slug?.startsWith('user-post-');
-  const contentId = isUserPost ? slug.replace('user-post-', '') : null;
-
-  // Fetch from API if it's a user-created post
+  // Fetch from API if it is not a hardcoded system article
   useEffect(() => {
-    if (contentId) {
+    if (slug && !getBlogPostBySlug(slug)) {
       setApiLoading(true);
-      ContentAPI.getContent(contentId)
+      BlogAPI.getBlogBySlug(slug)
         .then((response) => {
           if (response.status === 200 && response.data) {
-            setApiPost(contentToBlogPost(response.data));
+            setApiPost(apiBlogToBlogPost(response.data));
           }
         })
         .catch(() => {
@@ -213,13 +258,12 @@ export default function BlogDetailPage() {
         })
         .finally(() => setApiLoading(false));
     }
-  }, [contentId]);
+  }, [slug]);
 
   const post = useMemo(() => {
-    if (isUserPost) return apiPost;
-    return getBlogPostBySlug(slug);
-  }, [slug, isUserPost, apiPost]);
-  const relatedPosts = useMemo(() => (slug && !isUserPost ? getRelatedPosts(slug, 3) : []), [slug, isUserPost]);
+    return getBlogPostBySlug(slug) || apiPost;
+  }, [slug, apiPost]);
+  const relatedPosts = useMemo(() => (slug && getBlogPostBySlug(slug) ? getRelatedPosts(slug, 3) : []), [slug]);
 
   if (apiLoading) {
     return (
@@ -258,8 +302,7 @@ export default function BlogDetailPage() {
   }
 
   const colors = categoryColors[post.category] || { bg: '#E5E7EB', color: '#1a1a1a' };
-  const rawHtml = parseMarkdownToHtml(post.content);
-  const contentHtml = typeof window !== 'undefined' ? DOMPurify.sanitize(rawHtml) : rawHtml;
+  const contentHtml = parseMarkdownToHtml(post.content);
 
   const handleCopyLink = async () => {
     try {
@@ -376,7 +419,7 @@ export default function BlogDetailPage() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#6B7280' }}>
                 <CalendarToday sx={{ fontSize: 15 }} />
                 <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                  {new Date(post.date).toLocaleDateString('en-US', {
+                  {formatBlogDate(post.date, {
                     month: 'long',
                     day: 'numeric',
                     year: 'numeric',

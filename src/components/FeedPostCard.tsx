@@ -165,8 +165,8 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
         if (!user?.id) return;
         setDeleting(true);
         try {
-            const response = await ContentAPI.deleteContent(post.id);
-            if (isApiSuccess(response)) {
+            const response = await ContentAPI.deleteContent(post.id, user.id);
+            if (response.status >= 200 && response.status < 300) {
                 setDeleteDialogOpen(false);
                 setSnackbar({ open: true, message: 'Post deleted' });
                 if (onDelete) onDelete(post.id);

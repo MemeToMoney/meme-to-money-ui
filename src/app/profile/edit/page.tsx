@@ -587,12 +587,28 @@ function EditProfileContent() {
 
           <TextField
             fullWidth
-            label="Email"
-            value={user?.email || ''}
+            label="Creator Handle"
+            value={user?.creatorHandle || user?.username || ''}
             margin="dense"
             disabled
-            helperText="Email cannot be changed"
-            sx={{ mb: 1, ...inputSx, '& .MuiOutlinedInput-root.Mui-disabled': { bgcolor: '#f0f0f0', color: '#6B7280' } }}
+            helperText="Your public creator label"
+            sx={{
+              mb: 1,
+              ...inputSx,
+              '& .MuiOutlinedInput-root.Mui-disabled': {
+                bgcolor: '#F3F4F6',
+                color: '#374151',
+              },
+              '& .MuiInputLabel-root.Mui-disabled': {
+                color: '#4B5563',
+              },
+              '& .MuiInputBase-input.Mui-disabled': {
+                WebkitTextFillColor: '#374151',
+              },
+              '& .MuiFormHelperText-root': {
+                color: '#6B7280',
+              },
+            }}
           />
 
           <TextField

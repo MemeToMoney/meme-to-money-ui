@@ -18,12 +18,17 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
   TextField,
   CircularProgress,
   Alert,
   Snackbar,
   CardMedia,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -48,14 +53,15 @@ import {
   Payment as PayoutIcon,
   CardGiftcard as GiftIcon,
   ContentCopy as CopyIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthAPI, ReferralInfo } from '@/lib/api/auth';
 import { ContentAPI, Content, PageResponse } from '@/lib/api/content';
+import { BlogAPI, BlogPost } from '@/lib/api/blog';
 import { MonetizationAPI, WalletResponse, EarningsSummary } from '@/lib/api/monetization';
 import { isApiSuccess } from '@/lib/api/client';
-import { FeedPostCard } from '@/components/FeedPostCard';
 import { PostDetailModal } from '@/components/PostDetailModal';
 
 interface TabPanelProps {
@@ -91,6 +97,7 @@ function ProfilePageContent() {
   const [userContent, setUserContent] = useState<Content[]>([]);
   const [likedContent, setLikedContent] = useState<Content[]>([]);
   const [savedContent, setSavedContent] = useState<Content[]>([]);
+  const [userBlogs, setUserBlogs] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(false);
   const [contentLoading, setContentLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +105,11 @@ function ProfilePageContent() {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [selectedPost, setSelectedPost] = useState<Content | null>(null);
   const [postDialogOpen, setPostDialogOpen] = useState(false);
+  const [postMenuAnchorEl, setPostMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [postMenuContentId, setPostMenuContentId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [walletData, setWalletData] = useState<WalletResponse | null>(null);
@@ -126,6 +138,8 @@ function ProfilePageContent() {
         loadLikedContent();
       } else if (tabValue === 2) {
         loadSavedContent();
+      } else if (tabValue === 3) {
+        loadUserBlogs();
       }
     }
   }, [user?.id, tabValue]);
@@ -221,6 +235,24 @@ function ProfilePageContent() {
     } catch (err: any) {
       console.error('Load saved content error:', err);
       setSavedContent([]);
+    } finally {
+      setContentLoading(false);
+    }
+  };
+
+  const loadUserBlogs = async () => {
+    if (!user?.id) return;
+    try {
+      setContentLoading(true);
+      const response = await BlogAPI.getBlogsByCreator(user.id, 0, 20);
+      if (isApiSuccess(response)) {
+        setUserBlogs(response.data.content || []);
+      } else {
+        setUserBlogs([]);
+      }
+    } catch (err: any) {
+      console.error('Load user blogs error:', err);
+      setUserBlogs([]);
     } finally {
       setContentLoading(false);
     }
@@ -330,6 +362,55 @@ function ProfilePageContent() {
   const handlePostClick = (content: Content) => {
     setSelectedPost(content);
     setPostDialogOpen(true);
+  };
+
+  const handlePostMenuOpen = (event: React.MouseEvent<HTMLElement>, contentId: string) => {
+    event.stopPropagation();
+    setPostMenuAnchorEl(event.currentTarget);
+    setPostMenuContentId(contentId);
+  };
+
+  const handlePostMenuClose = () => {
+    setPostMenuAnchorEl(null);
+    setPostMenuContentId(null);
+  };
+
+  const handleDeleteClick = (contentId: string) => {
+    handlePostMenuClose();
+    setDeletingPostId(contentId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setDeletingPostId(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingPostId || !user?.id) return;
+
+    try {
+      setDeleteLoading(true);
+      const response = await ContentAPI.deleteContent(deletingPostId, user.id);
+
+      if (response.status >= 200 && response.status < 300) {
+        setDeleteDialogOpen(false);
+        setDeletingPostId(null);
+        setUserContent((current) => current.filter((content) => content.id !== deletingPostId));
+        if (selectedPost?.id === deletingPostId) {
+          setSelectedPost(null);
+          setPostDialogOpen(false);
+        }
+        showSnackbar('Post deleted successfully');
+      } else {
+        showSnackbar((response as any).message || 'Failed to delete post');
+      }
+    } catch (err) {
+      console.error('Delete post error:', err);
+      showSnackbar('Failed to delete post');
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const showSnackbar = (message: string) => {
@@ -461,7 +542,7 @@ function ProfilePageContent() {
               </Typography>
 
               <Typography variant="body1" sx={{ color: '#6B46C1', fontWeight: 600, mb: 0.5 }}>
-                @{user.username || 'username'}
+                @{user.creatorHandle || user.username || 'username'}
               </Typography>
 
               {(user.currentStreak ?? 0) > 0 && (
@@ -809,6 +890,7 @@ function ProfilePageContent() {
               <Tab label="Posts" />
               <Tab label="Liked" />
               <Tab label="Saved" />
+              <Tab label="Blogs" />
             </Tabs>
           </Box>
 
@@ -841,6 +923,23 @@ function ProfilePageContent() {
                         }}
                           onClick={() => handlePostClick(content)}
                         >
+                          <IconButton
+                            size="small"
+                            onClick={(event) => handlePostMenuOpen(event, content.id)}
+                            sx={{
+                              position: 'absolute',
+                              top: 8,
+                              right: 8,
+                              zIndex: 2,
+                              bgcolor: 'rgba(17, 24, 39, 0.6)',
+                              color: 'white',
+                              '&:hover': {
+                                bgcolor: 'rgba(17, 24, 39, 0.8)',
+                              }
+                            }}
+                          >
+                            <MoreIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
                           {content.type === 'SHORT_VIDEO' ? (
                             <Box sx={{ position: 'relative', height: '100%' }}>
                               <CardMedia
@@ -1067,6 +1166,87 @@ function ProfilePageContent() {
                 </Box>
               )}
             </TabPanel>
+
+            <TabPanel value={tabValue} index={3}>
+              {contentLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+                  <CircularProgress sx={{ color: '#6B46C1' }} />
+                </Box>
+              ) : userBlogs.length > 0 ? (
+                <Grid container spacing={2}>
+                  {userBlogs.map((blog) => (
+                    <Grid item xs={12} sm={6} key={blog.id}>
+                      <Card
+                        sx={{
+                          borderRadius: 3,
+                          border: '1px solid #E5E7EB',
+                          boxShadow: 'none',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease-in-out',
+                          '&:hover': {
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                          }
+                        }}
+                        onClick={() => router.push(`/blog/${blog.slug}`)}
+                      >
+                        <CardContent>
+                          <Chip
+                            label={blog.category || 'Blog'}
+                            size="small"
+                            sx={{ mb: 1.5, bgcolor: '#EDE9FE', color: '#6B46C1', fontWeight: 700 }}
+                          />
+                          <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#111827', mb: 1 }}>
+                            {blog.title}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: '#6B7280', lineHeight: 1.6, mb: 2 }}>
+                            {blog.excerpt || blog.description}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#6B46C1', fontWeight: 700 }}>
+                            @{blog.creatorHandle}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 8 }}>
+                  <Box sx={{
+                    width: 64,
+                    height: 64,
+                    bgcolor: '#F3F4F6',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mx: 'auto',
+                    mb: 2
+                  }}>
+                    <BarChartIcon sx={{ fontSize: 32, color: '#9CA3AF' }} />
+                  </Box>
+                  <Typography variant="h6" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
+                    No blogs yet
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    Publish your first blog post to build your creator profile.
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    onClick={() => router.push('/blog')}
+                    sx={{
+                      bgcolor: '#6B46C1',
+                      textTransform: 'none',
+                      borderRadius: 2,
+                      fontWeight: 600,
+                      '&:hover': { bgcolor: '#553C9A' }
+                    }}
+                  >
+                    Write Blog
+                  </Button>
+                </Box>
+              )}
+            </TabPanel>
           </Box>
         </Container>
 
@@ -1239,6 +1419,64 @@ function ProfilePageContent() {
             // In a real app, we'd update the userContent/likedContent lists here
           }}
         />
+
+        <Menu
+          anchorEl={postMenuAnchorEl}
+          open={Boolean(postMenuAnchorEl)}
+          onClose={handlePostMenuClose}
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              minWidth: 180,
+            }
+          }}
+        >
+          <MenuItem
+            onClick={() => postMenuContentId && handleDeleteClick(postMenuContentId)}
+            sx={{ color: '#DC2626' }}
+          >
+            <ListItemIcon>
+              <DeleteIcon sx={{ color: '#DC2626', fontSize: 20 }} />
+            </ListItemIcon>
+            <ListItemText primary="Delete Post" />
+          </MenuItem>
+        </Menu>
+
+        <Dialog
+          open={deleteDialogOpen}
+          onClose={deleteLoading ? undefined : handleDeleteCancel}
+          fullWidth
+          maxWidth="xs"
+        >
+          <DialogTitle sx={{ fontWeight: 700, color: '#374151' }}>Delete Post</DialogTitle>
+          <DialogContent>
+            <DialogContentText sx={{ color: '#6B7280' }}>
+              Are you sure you want to delete this post? This action cannot be undone.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button
+              onClick={handleDeleteCancel}
+              disabled={deleteLoading}
+              sx={{ textTransform: 'none', color: '#6B7280', fontWeight: 600 }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteConfirm}
+              disabled={deleteLoading}
+              variant="contained"
+              sx={{
+                textTransform: 'none',
+                bgcolor: '#DC2626',
+                fontWeight: 700,
+                '&:hover': { bgcolor: '#B91C1C' }
+              }}
+            >
+              {deleteLoading ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* Snackbar for notifications */}
         <Snackbar

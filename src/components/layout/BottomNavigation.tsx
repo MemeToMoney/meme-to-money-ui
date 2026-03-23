@@ -27,6 +27,7 @@ import {
   EmojiEvents as BattlesIcon,
   Settings as SettingsIcon,
   Leaderboard as LeaderboardIcon,
+  Article as BlogIcon,
 } from '@mui/icons-material';
 
 const navigationItems = [
@@ -63,6 +64,7 @@ const moreMenuItems = [
   { label: 'Wallet', value: '/wallet', icon: <WalletIcon sx={{ fontSize: 20 }} /> },
   { label: 'Notifications', value: '/notifications', icon: <NotificationsIcon sx={{ fontSize: 20 }} /> },
   { label: 'Battles', value: '/battles', icon: <BattlesIcon sx={{ fontSize: 20 }} /> },
+  { label: 'Blogs', value: '/blog', icon: <BlogIcon sx={{ fontSize: 20 }} /> },
   { label: 'Leaderboard', value: '/leaderboard', icon: <LeaderboardIcon sx={{ fontSize: 20 }} /> },
   { label: 'Settings', value: '/settings', icon: <SettingsIcon sx={{ fontSize: 20 }} /> },
 ];

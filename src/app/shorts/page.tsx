@@ -250,12 +250,14 @@ function ShortsPageContent() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareContentId, setShareContentId] = useState('');
   const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
   const initialLoadDone = useRef(false);
   const pageRef = useRef(0);
   const loadedPagesRef = useRef<Set<number>>(new Set());
   const engagementLoadedRef = useRef<Set<string>>(new Set());
+  const viewedContentRef = useRef<Set<string>>(new Set());
   const { user } = useAuth();
   const router = useRouter();
 
@@ -267,6 +269,7 @@ function ShortsPageContent() {
   }, []);
 
   const loadShorts = async (pageNum: number) => {
+    if (!hasMore && pageNum > 0) return;
     if (loadedPagesRef.current.has(pageNum)) return;
     if (loadingRef.current) return;
     loadingRef.current = true;
@@ -275,11 +278,14 @@ function ShortsPageContent() {
       setLoading(true);
       // Try home feed first (most reliable), then trending as fallback
       let videoContent: Content[] = [];
+      let homeItems: Content[] = [];
+      let trendingItems: Content[] = [];
 
       // Try home feed - it contains all content types including SHORT_VIDEO
       const homeResponse = await ContentAPI.getHomeFeed(pageNum, 20, user?.id);
       if (isApiSuccess(homeResponse)) {
-        videoContent = (homeResponse.data.content?.content || []).filter(
+        homeItems = homeResponse.data.content?.content || [];
+        videoContent = homeItems.filter(
           (c: Content) => c.type === 'SHORT_VIDEO' && (c.status === 'PUBLISHED' || c.status === 'READY')
         );
       }
@@ -288,10 +294,15 @@ function ShortsPageContent() {
       if (videoContent.length === 0) {
         const trendingResponse = await ContentAPI.getTrendingFeed(pageNum, 20, 168, user?.id);
         if (isApiSuccess(trendingResponse)) {
-          videoContent = (trendingResponse.data.content?.content || []).filter(
+          trendingItems = trendingResponse.data.content?.content || [];
+          videoContent = trendingItems.filter(
             (c: Content) => c.type === 'SHORT_VIDEO' && (c.status === 'PUBLISHED' || c.status === 'READY')
           );
         }
+      }
+
+      if (pageNum > 0 && homeItems.length === 0 && trendingItems.length === 0) {
+        setHasMore(false);
       }
 
       if (pageNum === 0) {
@@ -407,11 +418,12 @@ function ShortsPageContent() {
     if (shorts[currentVideoIndex]) {
       setPlayingVideo(shorts[currentVideoIndex].id);
       // Record view
-      if (user?.id) {
+      if (user?.id && !viewedContentRef.current.has(shorts[currentVideoIndex].id)) {
+        viewedContentRef.current.add(shorts[currentVideoIndex].id);
         ContentAPI.recordView(shorts[currentVideoIndex].id, user.id).catch(() => {});
       }
     }
-  }, [currentVideoIndex]);
+  }, [currentVideoIndex, shorts, user?.id]);
 
   const handleScroll = useCallback(() => {
     if (scrollContainerRef.current) {
@@ -422,11 +434,11 @@ function ShortsPageContent() {
         setCurrentVideoIndex(newIndex);
       }
       // Load more when near end (guard prevents duplicate calls)
-      if (newIndex >= shorts.length - 2 && !loadingRef.current) {
+      if (hasMore && newIndex >= shorts.length - 2 && !loadingRef.current) {
         loadShorts(pageRef.current + 1);
       }
     }
-  }, [currentVideoIndex, shorts.length]);
+  }, [currentVideoIndex, hasMore, shorts.length]);
 
   if (loading && shorts.length === 0) {
     return (

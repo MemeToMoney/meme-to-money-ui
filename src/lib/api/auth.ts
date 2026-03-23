@@ -207,6 +207,7 @@ export class AuthAPI {
           country: userData.country,
           address: userData.address,
           isGod: userData.isGod,
+          upiId: userData.upiId,
           authProvider: userData.authProvider,
           onboardingCompleted: userData.onboardingCompleted ?? false,
           website: userData.website,

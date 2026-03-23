@@ -162,12 +162,102 @@ function createApiClient(baseURL: string, timeout = 30000): AxiosInstance {
   return client;
 }
 
+/**
+ * Normalize content media URLs so UI always loads via Next.js proxy when needed.
+ * Handles absolute content-service URLs and relative image paths.
+ */
+function normalizeContentMediaUrl(value: string): string {
+  if (!value) return value;
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+
+  // Keep already-safe URLs untouched
+  if (
+    trimmed.startsWith('data:') ||
+    trimmed.startsWith('blob:') ||
+    trimmed.startsWith('file:')
+  ) {
+    return trimmed;
+  }
+
+  // Relative image API paths
+  if (trimmed.startsWith('/api/images/')) return trimmed;
+  if (trimmed.startsWith('api/images/')) return `/${trimmed}`;
+  if (trimmed.startsWith('/images/')) return `/api${trimmed}`;
+
+  // Absolute URL that contains image API path -> route via local proxy
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      const idx = parsed.pathname.indexOf('/api/images/');
+      if (idx >= 0) {
+        const proxiedPath = parsed.pathname.slice(idx);
+        return `${proxiedPath}${parsed.search}${parsed.hash}`;
+      }
+      return trimmed;
+    } catch {
+      return trimmed;
+    }
+  }
+
+  return trimmed;
+}
+
+function normalizeContentMediaDeep<T>(input: T): T {
+  if (Array.isArray(input)) {
+    return input.map((item) => normalizeContentMediaDeep(item)) as T;
+  }
+
+  if (input && typeof input === 'object') {
+    const source = input as Record<string, any>;
+    const out: Record<string, any> = {};
+    for (const [key, value] of Object.entries(source)) {
+      if (typeof value === 'string') {
+        // Only normalize fields that are likely media URLs.
+        if (
+          key.toLowerCase().includes('url') ||
+          key.toLowerCase().includes('thumbnail') ||
+          key.toLowerCase().includes('poster')
+        ) {
+          out[key] = normalizeContentMediaUrl(value);
+        } else {
+          out[key] = value;
+        }
+      } else {
+        out[key] = normalizeContentMediaDeep(value);
+      }
+    }
+
+    // Compatibility mapping: backend may return `url` instead of `cdnUrl` in media objects.
+    if (!out.cdnUrl && typeof out.url === 'string') {
+      out.cdnUrl = normalizeContentMediaUrl(out.url);
+    }
+
+    // Compatibility mapping: backend may return `thumbnail` instead of `thumbnailUrl`.
+    if (!out.thumbnailUrl && typeof out.thumbnail === 'string') {
+      out.thumbnailUrl = normalizeContentMediaUrl(out.thumbnail);
+    }
+
+    return out as T;
+  }
+
+  return input;
+}
+
 // Service clients
 export const userServiceClient = createApiClient(USER_SERVICE_URL);
 export const contentServiceClient = createApiClient(CONTENT_SERVICE_URL, 120000); // 2min timeout for uploads
 export const monetizationServiceClient = createApiClient(MONETIZATION_SERVICE_URL);
 export const messagingServiceClient = createApiClient(MESSAGING_SERVICE_URL);
 export const notificationServiceClient = createApiClient(NOTIFICATION_SERVICE_URL);
+
+// Normalize media URLs from content service so images/videos consistently load.
+contentServiceClient.interceptors.response.use((response) => {
+  if (response?.data) {
+    response.data = normalizeContentMediaDeep(response.data);
+  }
+  return response;
+});
 
 // Export messaging service URL for WebSocket connections
 export const getMessagingWsUrl = () => {

@@ -308,7 +308,7 @@ function UserProfileContent() {
               </Typography>
 
               <Typography variant="body1" sx={{ color: '#6B46C1', fontWeight: 600, mb: 0.5 }}>
-                @{profileUser.username || profileUser.creatorHandle || 'user'}
+                @{profileUser.creatorHandle || profileUser.username || 'user'}
               </Typography>
 
               {profileUser.currentStreak > 0 && (

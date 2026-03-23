@@ -316,8 +316,8 @@ function FeedPageContent() {
     if (!deletePostId || !user?.id) return;
     setDeleting(true);
     try {
-      const response = await ContentAPI.deleteContent(deletePostId);
-      if (isApiSuccess(response)) {
+      const response = await ContentAPI.deleteContent(deletePostId, user.id);
+      if (response.status >= 200 && response.status < 300) {
         setFeedData(prev => prev.filter(p => p.id !== deletePostId));
         setDeleteDialogOpen(false);
         setDeletePostId(null);

@@ -608,9 +608,11 @@ export class ContentAPI {
    * Delete content by ID
    * DELETE /api/content/{contentId}
    */
-  static async deleteContent(contentId: string): Promise<ApiResponse<any>> {
+  static async deleteContent(contentId: string, userId: string): Promise<ApiResponse<any>> {
     const response = await handleApiResponse<any>(
-      contentServiceClient.delete(`/api/content/${contentId}`)
+      contentServiceClient.delete(`/api/content/${contentId}`, {
+        headers: { 'X-User-Id': userId }
+      })
     );
 
     return response;

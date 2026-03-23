@@ -81,6 +81,7 @@ export default function SidebarNavigation() {
     const router = useRouter();
     const pathname = usePathname();
     const { user, logout } = useAuth();
+    const displayHandle = user?.creatorHandle || user?.username || 'user';
 
     const handleNavigation = (path: string) => {
         router.push(path);
@@ -142,15 +143,19 @@ export default function SidebarNavigation() {
                                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                                     position: 'relative',
                                     overflow: 'hidden',
+                                    border: isActive ? '1px solid rgba(107, 70, 193, 0.18)' : '1px solid transparent',
                                     '&.Mui-selected': {
-                                        bgcolor: '#6B46C1',
+                                        background: 'linear-gradient(135deg, #6B46C1 0%, #7C3AED 100%)',
                                         color: 'white',
-                                        boxShadow: '0 8px 20px rgba(107, 70, 193, 0.25)',
+                                        boxShadow: '0 8px 20px rgba(107, 70, 193, 0.28)',
                                         '&:hover': {
-                                            bgcolor: '#553C9A',
+                                            background: 'linear-gradient(135deg, #5B3AB0 0%, #6D28D9 100%)',
                                             boxShadow: '0 10px 25px rgba(107, 70, 193, 0.35)',
                                         },
                                         '& .MuiListItemIcon-root': {
+                                            color: 'white',
+                                        },
+                                        '& .MuiListItemText-primary': {
                                             color: 'white',
                                         }
                                     },
@@ -175,7 +180,8 @@ export default function SidebarNavigation() {
                                     primaryTypographyProps={{
                                         fontWeight: isActive ? 700 : 500,
                                         fontSize: '1rem',
-                                        letterSpacing: '0.01em'
+                                        letterSpacing: '0.01em',
+                                        color: isActive ? 'white' : '#111827'
                                     }}
                                 />
                             </ListItemButton>
@@ -247,7 +253,7 @@ export default function SidebarNavigation() {
                                 {user.displayName || user.name}
                             </Typography>
                             <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
-                                @{user.username || 'user'}
+                                @{displayHandle}
                             </Typography>
                         </Box>
                     </Box>
